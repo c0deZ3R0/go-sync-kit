@@ -2,6 +2,21 @@
 
 A generic, event-driven synchronization library for distributed Go applications. Go Sync Kit enables offline-first architectures with conflict resolution and pluggable storage backends.
 
+## 🤖 Project Origins & Collaboration
+
+**Transparency First**: This project was created with the assistance of Large Language Models (LLMs) as a starting point for a collaborative open-source initiative. 
+
+**Why I'm Sharing This**: I'm passionate about learning Go and improving my programming skills. Rather than keeping this as a solo project, I'm open-sourcing it to:
+
+- **Learn from the community** - Your code reviews, suggestions, and contributions will help me grow as a developer
+- **Collaborate together** - Let's build something useful while learning from each other
+- **Test the concept** - See if there's genuine interest in this approach to synchronization in Go
+- **Practice open-source** - Experience the full cycle of maintaining and growing an open-source project
+
+If you're interested in **mentoring**, **contributing**, or **learning alongside me**, I'd love to hear from you! Whether you're a Go expert or fellow learner, all perspectives are valuable.
+
+> 💡 **Note**: While LLMs helped with the initial implementation, all future development will be driven by real-world needs, community feedback, and collaborative human insight.
+
 ## Features
 
 - **Event-Driven Architecture**: Built around append-only event streams
@@ -402,6 +417,9 @@ go test ./...
 - **Share feedback** on the API design and usability
 - **Contribute code** improvements and new features
 - **Write examples** showing real-world usage
+- **Mentor & teach** - Help me learn Go best practices and patterns
+- **Learn together** - If you're also learning Go, let's collaborate and grow together
+- **Code reviews** - Point out improvements, suggest better approaches, or explain Go idioms
 
 ### Code Contributions:
 1. Fork the repository
