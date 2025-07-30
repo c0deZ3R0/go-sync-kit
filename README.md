@@ -74,8 +74,19 @@ func main() {
 }
 ```
 
-## Architecture
 
+## Release Notes
+
+This is the initial public release (v0.1.0) of **Go Sync Kit**. Here’s what you can expect:
+
+- ✅ **Functional core features** ready for testing
+- ✅ **API design is solidifying** but may evolve
+- ✅ **Seeking feedback** from early adopters
+- ✅ **Not for production-critical applications** yet
+
+Your feedback and contributions are invaluable as we work towards a stable v1.0.0 release. Try it out, report issues, suggest improvements, and help shape the future of Go Sync Kit!
+
+## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
 
 ```
@@ -383,11 +394,26 @@ go test ./...
 
 ## Contributing
 
+**We're actively seeking feedback and contributions!** As an early-stage project (v0.1.0), your input is especially valuable.
+
+### Ways to Contribute:
+- **Try it out** and report your experience
+- **Open issues** for bugs, feature requests, or API suggestions
+- **Share feedback** on the API design and usability
+- **Contribute code** improvements and new features
+- **Write examples** showing real-world usage
+
+### Code Contributions:
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+### Feedback & Discussion:
+- Open an issue to discuss API changes or improvements
+- Share your use case and how Go Sync Kit fits (or doesn't fit)
+- Suggest better naming, patterns, or architectural improvements
 
 ## License
 
