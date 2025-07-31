@@ -1,9 +1,12 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +36,7 @@ func setupTestDB(t *testing.T) (*SQLiteEventStore, func()) {
 	}
 	tempFile.Close()
 
-	store, err := New(tempFile.Name(), nil)
+	store, err := NewWithDataSource(tempFile.Name())
 	if err != nil {
 		os.Remove(tempFile.Name())
 		t.Fatalf("Failed to create store: %v", err)
@@ -307,13 +310,14 @@ func TestSQLiteEventStore_Config(t *testing.T) {
 	defer os.Remove(tempFile.Name())
 
 	config := &Config{
+		DataSourceName:  tempFile.Name(),
 		MaxOpenConns:    10,
 		MaxIdleConns:    2,
 		ConnMaxLifetime: 30 * time.Minute,
 		ConnMaxIdleTime: 2 * time.Minute,
 	}
 
-	store, err := New(tempFile.Name(), config)
+	store, err := New(config)
 	if err != nil {
 		t.Fatalf("Failed to create store with config: %v", err)
 	}
@@ -323,6 +327,43 @@ func TestSQLiteEventStore_Config(t *testing.T) {
 	stats := store.Stats()
 	if stats.MaxOpenConnections != 10 {
 		t.Errorf("Expected MaxOpenConnections to be 10, got %d", stats.MaxOpenConnections)
+	}
+}
+
+func TestSQLiteEventStore_WithLogging(t *testing.T) {
+	tempFile, err := os.CreateTemp("", "test_logging_*.sqlite")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	// Create a buffer to capture log output
+	var logBuffer bytes.Buffer
+	logger := log.New(&logBuffer, "TEST: ", log.LstdFlags)
+
+	config := &Config{
+		DataSourceName: tempFile.Name(),
+		Logger:         logger,
+		TableName:      "custom_events",
+	}
+
+	store, err := New(config)
+	if err != nil {
+		t.Fatalf("Failed to create store with logging: %v", err)
+	}
+	defer store.Close()
+
+	// Check that log messages were written
+	logOutput := logBuffer.String()
+	if !strings.Contains(logOutput, "Opening database") {
+		t.Error("Expected 'Opening database' in log output")
+	}
+	if !strings.Contains(logOutput, "Connection pool configured") {
+		t.Error("Expected 'Connection pool configured' in log output")
+	}
+	if !strings.Contains(logOutput, "Successfully initialized with table: custom_events") {
+		t.Error("Expected 'Successfully initialized' in log output")
 	}
 }
 

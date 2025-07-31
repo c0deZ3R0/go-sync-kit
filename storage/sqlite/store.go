@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"strconv"
 	stdSync "sync"
 	"time"
@@ -87,45 +89,97 @@ func (e *StoredEvent) Metadata() map[string]interface{} {
 	return m
 }
 
-// --- SQLite EventStore Implementation ---
+// --- Configuration ---
 
-// SQLiteEventStore implements the sync.EventStore interface for SQLite.
-type SQLiteEventStore struct {
-	db     *sql.DB
-	mu     stdSync.RWMutex
-	closed bool
-}
-
-// Compile-time check to ensure SQLiteEventStore satisfies the EventStore interface
-var _ sync.EventStore = (*SQLiteEventStore)(nil)
-
-// Config holds configuration options for the SQLite store
+// Config holds configuration options for the SQLiteEventStore.
 type Config struct {
+	// DataSourceName is the connection string for the SQLite database.
+	// Example: "file:events.db?cache=shared&mode=rwc"
+	DataSourceName string
+
+	// Logger is an optional logger for logging internal operations and errors.
+	// If nil, logging is disabled.
+	Logger *log.Logger
+
+	// TableName is the name of the table to store events.
+	// Defaults to "events" if empty.
+	TableName string
+
+	// Connection pool settings
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
 }
 
-// DefaultConfig returns sensible defaults for SQLite
-func DefaultConfig() Config {
-	return Config{
-		MaxOpenConns:    25,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: time.Hour,
-		ConnMaxIdleTime: 5 * time.Minute,
+// setDefaults applies default values to the config
+func (c *Config) setDefaults() {
+	if c.TableName == "" {
+		c.TableName = "events"
+	}
+	if c.Logger == nil {
+		c.Logger = log.New(io.Discard, "", 0) // Disable logging by default
+	}
+	if c.MaxOpenConns == 0 {
+		c.MaxOpenConns = 25
+	}
+	if c.MaxIdleConns == 0 {
+		c.MaxIdleConns = 5
+	}
+	if c.ConnMaxLifetime == 0 {
+		c.ConnMaxLifetime = time.Hour
+	}
+	if c.ConnMaxIdleTime == 0 {
+		c.ConnMaxIdleTime = 5 * time.Minute
 	}
 }
 
-// New creates a new SQLiteEventStore, opens the database at the given
-// file path, and ensures the necessary schema is created.
-func New(dataSourceName string, config *Config) (*SQLiteEventStore, error) {
+// NewWithDataSource is a convenience constructor
+func NewWithDataSource(dataSourceName string) (*SQLiteEventStore, error) {
+	config := DefaultConfig(dataSourceName)
+	return New(config)
+}
+
+// DefaultConfig returns a Config with sensible defaults for SQLite
+func DefaultConfig(dataSourceName string) *Config {
+	config := &Config{
+		DataSourceName: dataSourceName,
+	}
+	config.setDefaults()
+	return config
+}
+
+// --- SQLite EventStore Implementation ---
+
+// SQLiteEventStore implements the sync.EventStore interface for SQLite.
+type SQLiteEventStore struct {
+	db        *sql.DB
+	mu        stdSync.RWMutex
+	closed    bool
+	logger    *log.Logger
+	tableName string
+}
+
+// Compile-time check to ensure SQLiteEventStore satisfies the EventStore interface
+var _ sync.EventStore = (*SQLiteEventStore)(nil)
+
+// New creates a new SQLiteEventStore from a Config.
+// If config is nil, DefaultConfig will be used with an empty DataSourceName.
+func New(config *Config) (*SQLiteEventStore, error) {
 	if config == nil {
-		defaultConfig := DefaultConfig()
-		config = &defaultConfig
+		return nil, fmt.Errorf("config cannot be nil")
 	}
 
-	db, err := sql.Open("sqlite3", dataSourceName)
+	// Apply defaults
+	config.setDefaults()
+
+	if config.DataSourceName == "" {
+		return nil, fmt.Errorf("DataSourceName is required")
+	}
+
+	config.Logger.Printf("[SQLite EventStore] Opening database: %s", config.DataSourceName)
+
+	db, err := sql.Open("sqlite3", config.DataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 	}
@@ -136,20 +190,29 @@ func New(dataSourceName string, config *Config) (*SQLiteEventStore, error) {
 	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
+	config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d", 
+		config.MaxOpenConns, config.MaxIdleConns)
+
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to connect to sqlite database: %w", err)
 	}
 
-	store := &SQLiteEventStore{db: db}
+	store := &SQLiteEventStore{
+		db:        db,
+		logger:    config.Logger,
+		tableName: config.TableName,
+	}
 
 	if err := store.setupSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to setup database schema: %w", err)
 	}
 
+	config.Logger.Printf("[SQLite EventStore] Successfully initialized with table: %s", config.TableName)
 	return store, nil
 }
+
 
 // setupSchema creates the 'events' table if it doesn't exist.
 func (s *SQLiteEventStore) setupSchema() error {

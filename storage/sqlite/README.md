@@ -35,8 +35,8 @@ import (
 )
 
 func main() {
-    // Create a new SQLite store
-    store, err := sqlite.New("events.db", nil)
+    // Create a new SQLite store (simple approach)
+    store, err := sqlite.NewWithDataSource("events.db")
     if err != nil {
         log.Fatal(err)
     }
@@ -66,14 +66,20 @@ func main() {
 ### Advanced Configuration
 
 ```go
+// Full configuration with logging
+logger := log.New(os.Stdout, "[SQLite EventStore] ", log.LstdFlags)
+
 config := &sqlite.Config{
+    DataSourceName:  "events.db",
+    Logger:          logger,            // Optional: for debugging and monitoring
+    TableName:       "my_events",       // Optional: custom table name
     MaxOpenConns:    25,                // Maximum number of open connections
     MaxIdleConns:    5,                 // Maximum number of idle connections
     ConnMaxLifetime: time.Hour,         // Maximum connection lifetime
     ConnMaxIdleTime: 5 * time.Minute,   // Maximum connection idle time
 }
 
-store, err := sqlite.New("events.db", config)
+store, err := sqlite.New(config)
 if err != nil {
     log.Fatal(err)
 }
@@ -227,6 +233,26 @@ The SQLite EventStore is completely thread-safe and can be safely used across mu
 - SQLite limitations apply (single writer, file-based storage)
 - Large datasets may require additional optimization (partitioning, archiving)
 
+## Logging and Observability
+
+The improved SQLite EventStore now supports comprehensive logging:
+
+```go
+// Enable logging to stdout
+logger := log.New(os.Stdout, "[EventStore] ", log.LstdFlags)
+
+config := &sqlite.Config{
+    DataSourceName: "events.db",
+    Logger:         logger,
+}
+
+store, err := sqlite.New(config)
+// Logs will show:
+// [EventStore] Opening database: events.db
+// [EventStore] Connection pool configured: MaxOpen=25, MaxIdle=5
+// [EventStore] Successfully initialized with table: events
+```
+
 ## Migration from Mock Implementation
 
 Replace your mock EventStore with the SQLite implementation:
@@ -235,8 +261,17 @@ Replace your mock EventStore with the SQLite implementation:
 // Before
 store := &MockEventStore{}
 
-// After  
-store, err := sqlite.New("events.db", nil)
+// After (simple)
+store, err := sqlite.NewWithDataSource("events.db")
+if err != nil {
+    log.Fatal(err)
+}
+defer store.Close()
+
+// After (with configuration)
+config := sqlite.DefaultConfig("events.db")
+config.Logger = log.New(os.Stdout, "[DB] ", log.LstdFlags)
+store, err := sqlite.New(config)
 if err != nil {
     log.Fatal(err)
 }
