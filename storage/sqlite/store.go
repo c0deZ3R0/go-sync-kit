@@ -63,6 +63,21 @@ func (v IntegerVersion) IsZero() bool {
 	return v == 0
 }
 
+// ParseVersion parses a version string into an IntegerVersion.
+// This is useful for HTTP transport and other external integrations.
+func ParseVersion(s string) (IntegerVersion, error) {
+	if s == "" || s == "0" {
+		return IntegerVersion(0), nil
+	}
+	
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return IntegerVersion(0), fmt.Errorf("invalid version string '%s': %w", s, err)
+	}
+	
+	return IntegerVersion(val), nil
+}
+
 // --- Concrete Event Implementation for Storage/Retrieval ---
 
 // StoredEvent is a concrete implementation of sync.Event used for retrieving

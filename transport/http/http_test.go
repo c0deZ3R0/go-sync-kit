@@ -1,0 +1,582 @@
+package http
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	sync "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+)
+
+// MockEvent implements the sync.Event interface for testing
+type MockEvent struct {
+	id          string
+	eventType   string
+	aggregateID string
+	data        interface{}
+	metadata    map[string]interface{}
+}
+
+func (m *MockEvent) ID() string                               { return m.id }
+func (m *MockEvent) Type() string                             { return m.eventType }
+func (m *MockEvent) AggregateID() string                      { return m.aggregateID }
+func (m *MockEvent) Data() interface{}                        { return m.data }
+func (m *MockEvent) Metadata() map[string]interface{}         { return m.metadata }
+
+func setupTestStore(t *testing.T) (*sqlite.SQLiteEventStore, func()) {
+	tempFile, err := os.CreateTemp("", "test_http_*.sqlite")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tempFile.Close()
+
+	store, err := sqlite.NewWithDataSource(tempFile.Name())
+	if err != nil {
+		os.Remove(tempFile.Name())
+		t.Fatalf("Failed to create store: %v", err)
+	}
+
+	cleanup := func() {
+		store.Close()
+		os.Remove(tempFile.Name())
+	}
+
+	return store, cleanup
+}
+
+func TestHTTPTransport_NewTransport(t *testing.T) {
+	// Test with default client
+	transport := NewTransport("http://example.com", nil)
+	if transport.client != http.DefaultClient {
+		t.Error("Expected default client when nil is provided")
+	}
+	if transport.baseURL != "http://example.com" {
+		t.Errorf("Expected baseURL 'http://example.com', got '%s'", transport.baseURL)
+	}
+
+	// Test with custom client
+	customClient := &http.Client{Timeout: 5 * time.Second}
+	transport = NewTransport("http://custom.com", customClient)
+	if transport.client != customClient {
+		t.Error("Expected custom client to be used")
+	}
+}
+
+func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
+	transport := NewTransport("http://example.com", nil)
+	
+	ctx := context.Background()
+	err := transport.Push(ctx, []sync.EventWithVersion{})
+	
+	if err != nil {
+		t.Errorf("Expected no error for empty events, got: %v", err)
+	}
+}
+
+func TestHTTPTransport_Push_Success(t *testing.T) {
+	// Create a test server that returns 200 OK
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST method, got %s", r.Method)
+		}
+		if r.URL.Path != "/push" {
+			t.Errorf("Expected /push path, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
+		}
+		
+		// Verify request body
+		var events []JSONEventWithVersion
+		if err := json.NewDecoder(r.Body).Decode(&events); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("Expected 1 event, got %d", len(events))
+		}
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	transport := NewTransport(server.URL, nil)
+	
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "test-1",
+				eventType:   "TestEvent",
+				aggregateID: "agg-1",
+				data:        "test data",
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+
+	ctx := context.Background()
+	err := transport.Push(ctx, events)
+	
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestHTTPTransport_Push_ServerError(t *testing.T) {
+	// Create a test server that returns 500 error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
+	}))
+	defer server.Close()
+
+	transport := NewTransport(server.URL, nil)
+	
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{id: "test-1"},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+
+	ctx := context.Background()
+	err := transport.Push(ctx, events)
+	
+	if err == nil {
+		t.Error("Expected error for server error response")
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("Expected error to contain status code 500, got: %v", err)
+	}
+}
+
+func TestHTTPTransport_Pull_Success(t *testing.T) {
+	expectedEvents := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "test-1",
+				eventType:   "TestEvent",
+				aggregateID: "agg-1",
+				data:        "test data",
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+
+	// Create a test server that returns events
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET method, got %s", r.Method)
+		}
+		if r.URL.Path != "/pull" {
+			t.Errorf("Expected /pull path, got %s", r.URL.Path)
+		}
+		
+		since := r.URL.Query().Get("since")
+		if since != "0" {
+			t.Errorf("Expected since=0, got since=%s", since)
+		}
+		
+		// Convert to JSON format for response
+		jsonEvents := make([]JSONEventWithVersion, len(expectedEvents))
+		for i, ev := range expectedEvents {
+			jsonEvents[i] = JSONEventWithVersion{
+				Event: JSONEvent{
+					ID:          ev.Event.ID(),
+					Type:        ev.Event.Type(),
+					AggregateID: ev.Event.AggregateID(),
+					Data:        ev.Event.Data(),
+					Metadata:    ev.Event.Metadata(),
+				},
+				Version: ev.Version.String(),
+			}
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(jsonEvents)
+	}))
+	defer server.Close()
+
+	transport := NewTransport(server.URL, nil)
+	
+	ctx := context.Background()
+	events, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	
+	if len(events) != 1 {
+		t.Errorf("Expected 1 event, got %d", len(events))
+	}
+}
+
+func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
+	transport := NewTransport("http://example.com", nil)
+	
+	ctx := context.Background()
+	err := transport.Subscribe(ctx, func([]sync.EventWithVersion) error { return nil })
+	
+	if err == nil {
+		t.Error("Expected error for unimplemented Subscribe method")
+	}
+	if !strings.Contains(err.Error(), "not implemented") {
+		t.Errorf("Expected 'not implemented' error, got: %v", err)
+	}
+}
+
+func TestHTTPTransport_Close(t *testing.T) {
+	transport := NewTransport("http://example.com", nil)
+	
+	err := transport.Close()
+	
+	if err != nil {
+		t.Errorf("Expected no error from Close, got: %v", err)
+	}
+}
+
+func TestSyncHandler_NewSyncHandler(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	if handler.store != store {
+		t.Error("Expected store to be set correctly")
+	}
+	if handler.logger != logger {
+		t.Error("Expected logger to be set correctly")
+	}
+}
+
+func TestSyncHandler_HandlePush_Success(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "test-1",
+				eventType:   "TestEvent",
+				aggregateID: "agg-1",
+				data:        "test data",
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+	
+	// Convert to JSON format for the request
+	jsonEvents := make([]JSONEventWithVersion, len(events))
+	for i, ev := range events {
+		jsonEvents[i] = JSONEventWithVersion{
+			Event: JSONEvent{
+				ID:          ev.Event.ID(),
+				Type:        ev.Event.Type(),
+				AggregateID: ev.Event.AggregateID(),
+				Data:        ev.Event.Data(),
+				Metadata:    ev.Event.Metadata(),
+			},
+			Version: ev.Version.String(),
+		}
+	}
+	
+	jsonData, _ := json.Marshal(jsonEvents)
+	req := httptest.NewRequest(http.MethodPost, "/push", bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	
+	handler.handlePush(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Errorf("Failed to decode response: %v", err)
+	}
+	
+	if response["status"] != "ok" {
+		t.Errorf("Expected status 'ok', got '%s'", response["status"])
+	}
+}
+
+func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	req := httptest.NewRequest(http.MethodGet, "/push", nil)
+	w := httptest.NewRecorder()
+	
+	handler.handlePush(w, req)
+	
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid json"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	
+	handler.handlePush(w, req)
+	
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestSyncHandler_HandlePull_Success(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	// First, store some events
+	ctx := context.Background()
+	event := &MockEvent{
+		id:          "test-1",
+		eventType:   "TestEvent",
+		aggregateID: "agg-1",
+		data:        "test data",
+	}
+	store.Store(ctx, event, sqlite.IntegerVersion(0))
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
+	w := httptest.NewRecorder()
+	
+	handler.handlePull(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+	
+	var jsonEvents []JSONEventWithVersion
+	if err := json.NewDecoder(w.Body).Decode(&jsonEvents); err != nil {
+		t.Errorf("Failed to decode response: %v", err)
+	}
+	
+	if len(jsonEvents) != 1 {
+		t.Errorf("Expected 1 event, got %d", len(jsonEvents))
+	}
+}
+
+func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	req := httptest.NewRequest(http.MethodPost, "/pull", nil)
+	w := httptest.NewRecorder()
+	
+	handler.handlePull(w, req)
+	
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
+	w := httptest.NewRecorder()
+	
+	handler.handlePull(w, req)
+	
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	
+	// Test /push route
+	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected /push to be handled, got status %d", w.Code)
+	}
+	
+	// Test /pull route
+	req = httptest.NewRequest(http.MethodGet, "/pull", nil)
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected /pull to be handled, got status %d", w.Code)
+	}
+	
+	// Test unknown route
+	req = httptest.NewRequest(http.MethodGet, "/unknown", nil)
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for unknown route, got status %d", w.Code)
+	}
+}
+
+func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
+	// Set up the server
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[E2E] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	
+	// Set up the client
+	transport := NewTransport(server.URL, nil)
+	
+	// Create test events
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "e2e-test-1",
+				eventType:   "E2EEvent",
+				aggregateID: "e2e-agg-1",
+				data:        map[string]string{"key": "value"},
+				metadata:    map[string]interface{}{"source": "test"},
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+		{
+			Event: &MockEvent{
+				id:          "e2e-test-2",
+				eventType:   "E2EEvent",
+				aggregateID: "e2e-agg-1",
+				data:        map[string]string{"key2": "value2"},
+			},
+			Version: sqlite.IntegerVersion(2),
+		},
+	}
+	
+	ctx := context.Background()
+	
+	// Test Push
+	err := transport.Push(ctx, events)
+	if err != nil {
+		t.Fatalf("Failed to push events: %v", err)
+	}
+	
+	// Test Pull
+	pulledEvents, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	if err != nil {
+		t.Fatalf("Failed to pull events: %v", err)
+	}
+	
+	if len(pulledEvents) != 2 {
+		t.Errorf("Expected 2 events, got %d", len(pulledEvents))
+	}
+	
+	// Verify event data
+	if pulledEvents[0].Event.ID() != "e2e-test-1" {
+		t.Errorf("Expected first event ID 'e2e-test-1', got '%s'", pulledEvents[0].Event.ID())
+	}
+	if pulledEvents[1].Event.ID() != "e2e-test-2" {
+		t.Errorf("Expected second event ID 'e2e-test-2', got '%s'", pulledEvents[1].Event.ID())
+	}
+}
+
+func BenchmarkHTTPTransport_Push(b *testing.B) {
+	// Set up a simple test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	
+	transport := NewTransport(server.URL, nil)
+	
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "bench-test-1",
+				eventType:   "BenchEvent",
+				aggregateID: "bench-agg-1",
+				data:        "benchmark data",
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+	
+	ctx := context.Background()
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		events[0].Event.(*MockEvent).id = fmt.Sprintf("bench-test-%d", i)
+		err := transport.Push(ctx, events)
+		if err != nil {
+			b.Fatalf("Push failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkHTTPTransport_Pull(b *testing.B) {
+	// Set up a test server that returns events
+	events := []sync.EventWithVersion{
+		{
+			Event: &MockEvent{
+				id:          "bench-test-1",
+				eventType:   "BenchEvent",
+				aggregateID: "bench-agg-1",
+				data:        "benchmark data",
+			},
+			Version: sqlite.IntegerVersion(1),
+		},
+	}
+	
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(events)
+	}))
+	defer server.Close()
+	
+	transport := NewTransport(server.URL, nil)
+	ctx := context.Background()
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+		if err != nil {
+			b.Fatalf("Pull failed: %v", err)
+		}
+	}
+}

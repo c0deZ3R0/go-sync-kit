@@ -400,6 +400,53 @@ func TestSQLiteEventStore_IncompatibleVersionProper(t *testing.T) {
 	}
 }
 
+func TestParseVersion(t *testing.T) {
+	// Test valid version strings
+	version, err := ParseVersion("42")
+	if err != nil {
+		t.Errorf("Expected no error for valid version string, got: %v", err)
+	}
+	if version != IntegerVersion(42) {
+		t.Errorf("Expected version 42, got %d", version)
+	}
+
+	// Test zero version
+	version, err = ParseVersion("0")
+	if err != nil {
+		t.Errorf("Expected no error for zero version, got: %v", err)
+	}
+	if version != IntegerVersion(0) {
+		t.Errorf("Expected version 0, got %d", version)
+	}
+
+	// Test empty string
+	version, err = ParseVersion("")
+	if err != nil {
+		t.Errorf("Expected no error for empty string, got: %v", err)
+	}
+	if version != IntegerVersion(0) {
+		t.Errorf("Expected version 0 for empty string, got %d", version)
+	}
+
+	// Test invalid version string
+	_, err = ParseVersion("invalid")
+	if err == nil {
+		t.Error("Expected error for invalid version string")
+	}
+	if !strings.Contains(err.Error(), "invalid version string") {
+		t.Errorf("Expected error message to contain 'invalid version string', got: %v", err)
+	}
+
+	// Test negative version
+	version, err = ParseVersion("-1")
+	if err != nil {
+		t.Errorf("Expected no error for negative version, got: %v", err)
+	}
+	if version != IntegerVersion(-1) {
+		t.Errorf("Expected version -1, got %d", version)
+	}
+}
+
 func TestSQLiteEventStore_WALMode(t *testing.T) {
 	tempFile, err := os.CreateTemp("", "test-events-wal-*.db")
 	if err != nil {
