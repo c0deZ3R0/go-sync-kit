@@ -365,21 +365,128 @@ func (b *BadgerEventStore) Store(ctx context.Context, event Event, version Versi
 
 ## Transport Implementations
 
-### HTTP Transport Example
+### Built-in HTTP Transport
+
+Go Sync Kit includes a production-ready HTTP transport implementation that provides both client and server components.
+
+#### Client Setup
 ```go
-type HTTPTransport struct {
+import "github.com/c0deZ3R0/go-sync-kit/transport/http"
+
+// Create HTTP transport client
+clientTransport := http.NewTransport("http://localhost:8080", nil)
+
+// Use with SyncManager
+syncManager := sync.NewSyncManager(store, clientTransport, options)
+```
+
+#### Server Setup
+```go
+import "github.com/c0deZ3R0/go-sync-kit/transport/http"
+
+// Create HTTP sync handler
+logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
+handler := http.NewSyncHandler(store, logger)
+
+// Start HTTP server
+server := &http.Server{Addr: ":8080", Handler: handler}
+go server.ListenAndServe()
+```
+
+#### API Endpoints
+
+The HTTP transport provides two RESTful endpoints:
+
+- **POST /push** - Accepts events to be stored on the server
+- **GET /pull?since=<version>** - Returns events since the specified version
+
+#### Features
+
+- **JSON serialization** with proper interface handling
+- **Context cancellation** support
+- **Comprehensive error handling** with HTTP status codes
+- **Storage-agnostic** server implementation
+- **Configurable HTTP client** for custom timeouts, TLS, etc.
+- **Batch processing** for efficient sync operations
+
+#### Complete Client/Server Example
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+    "os"
+    "time"
+
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+    sync "github.com/c0deZ3R0/go-sync-kit"
+    transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
+)
+
+func main() {
+    // 1. Create SQLite store
+    store, err := sqlite.NewWithDataSource("file:events.db")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer store.Close()
+
+    // 2. Start HTTP server
+    logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
+    handler := transport.NewSyncHandler(store, logger)
+    server := &http.Server{Addr: ":8080", Handler: handler}
+    
+    go func() {
+        log.Println("Starting sync server on :8080")
+        if err := server.ListenAndServe(); err != nil {
+            log.Printf("Server error: %v", err)
+        }
+    }()
+
+    // Give server time to start
+    time.Sleep(100 * time.Millisecond)
+
+    // 3. Create HTTP client transport
+    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+
+    // 4. Configure sync options
+    syncOptions := &sync.SyncOptions{
+        BatchSize: 10,
+        SyncInterval: 10 * time.Second,
+    }
+
+    // 5. Create sync manager
+    syncManager := sync.NewSyncManager(store, clientTransport, syncOptions)
+
+    // 6. Perform synchronization
+    ctx := context.Background()
+    result, err := syncManager.Sync(ctx)
+    if err != nil {
+        log.Fatalf("Sync failed: %v", err)
+    }
+
+    log.Printf("Sync completed: %d pushed, %d pulled", 
+        result.EventsPushed, result.EventsPulled)
+}
+```
+
+### Custom HTTP Transport Example
+```go
+type CustomHTTPTransport struct {
     client  *http.Client
     baseURL string
 }
 
-func (h *HTTPTransport) Push(ctx context.Context, events []EventWithVersion) error {
+func (h *CustomHTTPTransport) Push(ctx context.Context, events []EventWithVersion) error {
     data, err := json.Marshal(events)
     if err != nil {
         return err
     }
     
     req, err := http.NewRequestWithContext(ctx, "POST", 
-        h.baseURL+"/sync/push", bytes.NewBuffer(data))
+        h.baseURL+"/custom/push", bytes.NewBuffer(data))
     if err != nil {
         return err
     }
