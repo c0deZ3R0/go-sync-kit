@@ -326,6 +326,106 @@ options := &sync.SyncOptions{
 }
 ```
 
+## Versioning Strategies
+
+Go Sync Kit supports multiple versioning strategies suitable for different architectures.
+
+### Vector Clocks (Recommended for Distributed Systems)
+
+For multi-master, peer-to-peer, or offline-first scenarios where writes can happen on multiple nodes concurrently, using a vector clock is the recommended approach. The library provides a `VersionedStore` decorator that manages versioning logic automatically.
+
+**Key Benefits:**
+- **Causal ordering**: Determines if events happened-before, happened-after, or are concurrent
+- **Conflict detection**: Automatically identifies conflicting concurrent writes
+- **Distributed-friendly**: No central coordination required
+- **Offline-first**: Works perfectly for disconnected clients
+
+**Usage:**
+
+```go
+import (
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+    "github.com/c0deZ3R0/go-sync-kit/version"
+    sync "github.com/c0deZ3R0/go-sync-kit"
+)
+
+// 1. Create a base store (e.g., SQLite)
+storeConfig := &sqlite.Config{DataSourceName: "file:events.db", EnableWAL: true}
+baseStore, err := sqlite.New(storeConfig)
+if err != nil {
+    // handle error
+}
+
+// 2. Define a unique ID for the current node
+nodeID := "client-A"
+
+// 3. Create a vector clock version manager
+versionManager := version.NewVectorClockManager()
+
+// 4. Wrap the base store with the VersionedStore decorator
+versionedStore, err := version.NewVersionedStore(baseStore, nodeID, versionManager)
+if err != nil {
+    // handle error
+}
+
+// 5. Use the decorated store. It now handles vector clock versioning automatically.
+syncManager := sync.NewSyncManager(versionedStore, transport, options)
+
+// When you store an event, the version is managed automatically
+err = versionedStore.Store(ctx, myNewEvent, nil) // nil means auto-generate version
+```
+
+**Real-world Example:**
+
+```go
+// Node A creates an event
+nodeAStore.Store(ctx, userCreatedEvent, nil)
+// Result: {"A": 1}
+
+// Node B creates an event independently  
+nodeBStore.Store(ctx, orderPlacedEvent, nil)
+// Result: {"B": 1}
+
+// When nodes sync, vector clocks detect concurrent operations
+// and enable proper conflict resolution
+```
+
+### Simple Versioning (Default)
+
+For single-master or centralized scenarios, you can use simpler versioning strategies like timestamps or sequential IDs. The underlying storage implementations (like SQLite) handle this automatically.
+
+```go
+// SQLite store uses timestamp-based versioning by default
+store, err := sqlite.New(config)
+// No decorator needed - works out of the box
+```
+
+### Custom Versioning Strategies
+
+You can implement your own versioning strategy by implementing the `VersionManager` interface:
+
+```go
+type CustomVersionManager struct {
+    // Your custom state
+}
+
+func (vm *CustomVersionManager) CurrentVersion() sync.Version {
+    // Return current version
+}
+
+func (vm *CustomVersionManager) NextVersion(nodeID string) sync.Version {
+    // Generate next version
+}
+
+func (vm *CustomVersionManager) UpdateFromVersion(version sync.Version) error {
+    // Update internal state from observed version
+}
+
+func (vm *CustomVersionManager) Clone() VersionManager {
+    // Create a copy
+}
+```
+
 ## Storage Implementations
 
 ### SQLite Example
@@ -597,10 +697,10 @@ go test ./...
 ## Roadmap
 
 - [x] **SQLite EventStore** - Production-ready SQLite implementation with WAL support
+- [x] **Vector Clock Versioning** - Complete implementation with VersionedStore decorator
 - [ ] Built-in storage implementations (BadgerDB, PostgreSQL)
 - [x] Built-in transport implementations (HTTP)
 - [ ] Built-in transport implementations (gRPC, WebSocket)
-- [ ] Vector clock versioning implementation
 - [ ] Compression support for large event payloads
 - [ ] Metrics and observability hooks
 - [ ] Schema evolution support
