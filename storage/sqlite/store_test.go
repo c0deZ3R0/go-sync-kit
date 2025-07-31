@@ -400,6 +400,54 @@ func TestSQLiteEventStore_IncompatibleVersionProper(t *testing.T) {
 	}
 }
 
+func TestSQLiteEventStore_WALMode(t *testing.T) {
+	tempFile, err := os.CreateTemp("", "test-events-wal-*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+	tempFile.Close()
+
+	// Test with EnableWAL=true
+	config := &Config{
+		DataSourceName: tempFile.Name(),
+		EnableWAL:      true,
+	}
+
+	store, err := New(config)
+	if err != nil {
+		t.Fatalf("Failed to create store with WAL enabled: %v", err)
+	}
+	defer store.Close()
+
+	// Verify that WAL mode was applied to the connection string
+	if !strings.Contains(config.DataSourceName, "_journal_mode=WAL") {
+		t.Errorf("Expected DataSourceName to contain '_journal_mode=WAL', got: %s", config.DataSourceName)
+	}
+
+	// Test basic functionality with WAL mode
+	ctx := context.Background()
+	event := &MockEvent{
+		id:          "wal-test-1",
+		eventType:   "TestEvent",
+		aggregateID: "aggregate-1",
+		data:        "wal-test-data",
+	}
+
+	if err := store.Store(ctx, event, IntegerVersion(1)); err != nil {
+		t.Fatalf("Failed to store event in WAL mode: %v", err)
+	}
+
+	events, err := store.Load(ctx, IntegerVersion(0))
+	if err != nil {
+		t.Fatalf("Failed to load events in WAL mode: %v", err)
+	}
+
+	if len(events) != 1 {
+		t.Errorf("Expected 1 event, got %d", len(events))
+	}
+}
+
 func BenchmarkSQLiteEventStore_Store(b *testing.B) {
 	store, cleanup := setupTestDB(&testing.T{})
 	defer cleanup()

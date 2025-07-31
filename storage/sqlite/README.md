@@ -73,6 +73,7 @@ config := &sqlite.Config{
     DataSourceName:  "events.db",
     Logger:          logger,            // Optional: for debugging and monitoring
     TableName:       "my_events",       // Optional: custom table name
+    EnableWAL:       true,              // Enable WAL mode for better concurrency
     MaxOpenConns:    25,                // Maximum number of open connections
     MaxIdleConns:    5,                 // Maximum number of idle connections
     ConnMaxLifetime: time.Hour,         // Maximum connection lifetime
@@ -168,6 +169,7 @@ For high-throughput applications, tune the connection pool:
 
 ```go
 config := &sqlite.Config{
+    EnableWAL:       true,              // Essential for concurrent operations
     MaxOpenConns:    50,                // Higher for more concurrent operations
     MaxIdleConns:    10,                // More idle connections for faster reuse
     ConnMaxLifetime: 30 * time.Minute, // Shorter lifetime for busy systems
@@ -190,10 +192,21 @@ for _, event := range events {
 
 ### WAL Mode
 
-For better concurrent performance, consider enabling WAL mode:
+For better concurrent performance, enable WAL mode via configuration:
 
 ```go
-store, err := sqlite.New("events.db?_journal_mode=WAL", config)
+// Recommended: Use the EnableWAL config option
+config := &sqlite.Config{
+    DataSourceName: "events.db",
+    EnableWAL:      true,  // Automatically adds ?_journal_mode=WAL
+}
+store, err := sqlite.New(config)
+
+// Alternative: Manually specify in connection string
+config := &sqlite.Config{
+    DataSourceName: "events.db?_journal_mode=WAL",
+}
+store, err := sqlite.New(config)
 ```
 
 ## Testing

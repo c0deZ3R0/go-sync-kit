@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
 	stdSync "sync"
 	"time"
 
@@ -94,8 +95,13 @@ func (e *StoredEvent) Metadata() map[string]interface{} {
 // Config holds configuration options for the SQLiteEventStore.
 type Config struct {
 	// DataSourceName is the connection string for the SQLite database.
-	// Example: "file:events.db?cache=shared&mode=rwc"
+	// For production use, consider enabling WAL mode for better concurrency.
+	// Example: "file:events.db?_journal_mode=WAL"
 	DataSourceName string
+
+	// EnableWAL enables Write-Ahead Logging mode for better concurrency.
+	// This is recommended for production use.
+	EnableWAL bool
 
 	// Logger is an optional logger for logging internal operations and errors.
 	// If nil, logging is disabled.
@@ -131,6 +137,11 @@ func (c *Config) setDefaults() {
 	}
 	if c.ConnMaxIdleTime == 0 {
 		c.ConnMaxIdleTime = 5 * time.Minute
+	}
+	if c.EnableWAL {
+		if !strings.Contains(c.DataSourceName, "?_journal_mode=") {
+			c.DataSourceName += "?_journal_mode=WAL"
+		}
 	}
 }
 
@@ -234,7 +245,9 @@ func (s *SQLiteEventStore) setupSchema() error {
 	return err
 }
 
-// Store saves an event to the SQLite database using a transaction.
+// Store saves an event to the SQLite database.
+// Note: This implementation ignores the 'version' parameter and relies on
+// SQLite's AUTOINCREMENT to assign a new, sequential version.
 func (s *SQLiteEventStore) Store(ctx context.Context, event sync.Event, version sync.Version) error {
 	s.mu.RLock()
 	if s.closed {
