@@ -108,6 +108,16 @@ func (m *MockEventStore) LatestVersion(ctx context.Context) (Version, error) {
 	return m.latest, nil
 }
 
+func (m *MockEventStore) ParseVersion(ctx context.Context, versionStr string) (Version, error) {
+	// For testing, we parse the string as a time.Time
+	t, err := time.Parse(time.RFC3339, versionStr)
+	if err != nil {
+		// If it fails, use the current time as a fallback
+		t = time.Now()
+	}
+	return &MockVersion{timestamp: t}, nil
+}
+
 func (m *MockEventStore) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

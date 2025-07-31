@@ -376,6 +376,21 @@ func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (sync.Version, err
 	return IntegerVersion(maxVersion.Int64), nil
 }
 
+// ParseVersion converts a string representation into an IntegerVersion.
+// This allows external integrations to handle SQLite's integer versioning gracefully.
+func (s *SQLiteEventStore) ParseVersion(ctx context.Context, versionStr string) (sync.Version, error) {
+	if versionStr == "" || versionStr == "0" {
+		return IntegerVersion(0), nil
+	}
+	
+	val, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid integer version string '%s': %w", versionStr, err)
+	}
+	
+	return IntegerVersion(val), nil
+}
+
 // Close closes the database connection.
 func (s *SQLiteEventStore) Close() error {
 	s.mu.Lock()

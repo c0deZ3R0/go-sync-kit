@@ -55,6 +55,10 @@ type EventStore interface {
 	// LatestVersion returns the latest version in the store
 	LatestVersion(ctx context.Context) (Version, error)
 	
+	// ParseVersion converts a string representation into a Version
+	// This allows different storage implementations to handle their own version formats
+	ParseVersion(ctx context.Context, versionStr string) (Version, error)
+	
 	// Close closes the store and releases resources
 	Close() error
 }

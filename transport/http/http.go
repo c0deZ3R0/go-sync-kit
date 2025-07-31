@@ -11,7 +11,7 @@ import (
 	"net/http"
 
 	sync "github.com/c0deZ3R0/go-sync-kit"
-	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite" // Used for parsing the version string on the server
+	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite" // Used for client-side version parsing
 )
 
 // JSONEvent is a JSON-serializable representation of an Event
@@ -71,8 +71,9 @@ func (e *SimpleEvent) Data() interface{}                        { return e.DataV
 func (e *SimpleEvent) Metadata() map[string]interface{}         { return e.MetadataValue }
 
 // fromJSONEventWithVersion converts JSONEventWithVersion back to sync.EventWithVersion
-func fromJSONEventWithVersion(jev JSONEventWithVersion) (sync.EventWithVersion, error) {
-	version, err := sqlite.ParseVersion(jev.Version)
+// It uses the provided EventStore to parse the version string, making it version-implementation agnostic
+func fromJSONEventWithVersion(ctx context.Context, store sync.EventStore, jev JSONEventWithVersion) (sync.EventWithVersion, error) {
+	version, err := store.ParseVersion(ctx, jev.Version)
 	if err != nil {
 		return sync.EventWithVersion{}, fmt.Errorf("invalid version: %w", err)
 	}
@@ -173,11 +174,25 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 
 	events := make([]sync.EventWithVersion, len(jsonEvents))
 	for i, jev := range jsonEvents {
-		event, err := fromJSONEventWithVersion(jev)
+		// For client-side decoding, we use SQLite's ParseVersion directly
+		// since the HTTP transport client doesn't have access to an EventStore
+		version, err := sqlite.ParseVersion(jev.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert JSONEventWithVersion to EventWithVersion: %w", err)
+			return nil, fmt.Errorf("invalid version in response: %w", err)
 		}
-		events[i] = event
+		
+		event := &SimpleEvent{
+			IDValue:          jev.Event.ID,
+			TypeValue:        jev.Event.Type,
+			AggregateIDValue: jev.Event.AggregateID,
+			DataValue:        jev.Event.Data,
+			MetadataValue:    jev.Event.Metadata,
+		}
+		
+		events[i] = sync.EventWithVersion{
+			Event:   event,
+			Version: version,
+		}
 	}
 
 	return events, nil
@@ -236,7 +251,7 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, jev := range jsonEvents {
-		ev, err := fromJSONEventWithVersion(jev)
+		ev, err := fromJSONEventWithVersion(r.Context(), h.store, jev)
 		if err != nil {
 			h.logger.Printf("Failed to convert JSONEventWithVersion: %v", err)
 			continue
@@ -268,9 +283,9 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 		sinceStr = "0"
 	}
 
-	// This part is coupled to the version implementation.
-	// Here we assume the IntegerVersion from our SQLite store.
-	version, err := sqlite.ParseVersion(sinceStr)
+	// Use the EventStore's ParseVersion method to handle version parsing
+	// This decouples the transport from specific version implementations
+	version, err := h.store.ParseVersion(r.Context(), sinceStr)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return
