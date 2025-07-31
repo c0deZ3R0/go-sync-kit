@@ -43,6 +43,77 @@ package main
 
 import (
     "context"
+    "log"
+    "net/http"
+    "os"
+    "time"
+
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+    sync "github.com/c0deZ3R0/go-sync-kit"
+    transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
+)
+
+type MyEvent struct {
+    id          string
+    eventType   string
+    aggregateID string
+    data        interface{}
+    metadata    map[string]interface{}
+}
+
+func (e *MyEvent) ID() string { return e.id }
+func (e *MyEvent) Type() string { return e.eventType }
+func (e *MyEvent) AggregateID() string { return e.aggregateID }
+func (e *MyEvent) Data() interface{} { return e.data }
+func (e *MyEvent) Metadata() map[string]interface{} { return e.metadata }
+
+func main() {
+    // Create SQLite Event Store
+    storeConfig := &sqlite.Config{DataSourceName: "file:events.db", EnableWAL: true}
+    store, err := sqlite.New(storeConfig)
+    if err != nil {
+        log.Fatalf("Failed to create SQLite store: %v", err)
+    }
+    defer store.Close()
+
+    // Set up HTTP server with SyncHandler
+    logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
+    handler := transport.NewSyncHandler(store, logger)
+    server := &http.Server{Addr: ":8080", Handler: handler}
+	
+    go func() {
+        if err := server.ListenAndServe(); err != nil {
+            log.Fatalf("Failed to start server: %v", err)
+        }
+    }()
+
+    // Set up HTTP Client with HTTPTransport
+    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+
+    // Configure Sync Options
+    syncOptions := &sync.SyncOptions{
+        BatchSize: 10,
+        SyncInterval: 10 * time.Second,
+    }
+
+    // Create and start SyncManager
+    syncManager := sync.NewSyncManager(store, clientTransport, syncOptions)
+    ctx := context.Background()
+
+    // Run synchronization
+    result, err := syncManager.Sync(ctx)
+    if err != nil {
+        log.Fatalf("Sync error: %v", err)
+    }
+    log.Printf("Sync completed: %+v", result)
+}
+```
+
+```go
+package main
+
+import (
+    "context"
     "fmt"
     "log"
     "os"
@@ -420,7 +491,8 @@ go test ./...
 
 - [x] **SQLite EventStore** - Production-ready SQLite implementation with WAL support
 - [ ] Built-in storage implementations (BadgerDB, PostgreSQL)
-- [ ] Built-in transport implementations (HTTP, gRPC, WebSocket)
+- [x] Built-in transport implementations (HTTP)
+- [ ] Built-in transport implementations (gRPC, WebSocket)
 - [ ] Vector clock versioning implementation
 - [ ] Compression support for large event payloads
 - [ ] Metrics and observability hooks
