@@ -43,9 +43,13 @@ package main
 
 import (
     "context"
+    "fmt"
+    "log"
+    "os"
     "time"
-    
+
     "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
 // Implement your event type
@@ -54,36 +58,50 @@ type MyEvent struct {
     eventType   string
     aggregateID string
     data        interface{}
+    metadata    map[string]interface{}
 }
 
 func (e *MyEvent) ID() string { return e.id }
 func (e *MyEvent) Type() string { return e.eventType }
 func (e *MyEvent) AggregateID() string { return e.aggregateID }
 func (e *MyEvent) Data() interface{} { return e.data }
-func (e *MyEvent) Metadata() map[string]interface{} { return nil }
+func (e *MyEvent) Metadata() map[string]interface{} { return e.metadata }
 
 func main() {
-    // Create your storage and transport implementations
-    store := &MyEventStore{} // Your EventStore implementation
+    // Create an SQLite event store
+    logger := log.New(os.Stdout, "[SQLite EventStore] ", log.LstdFlags)
+    config := &sqlite.Config{
+        DataSourceName: "file:events.db",
+        Logger:         logger,
+        EnableWAL:      true,  // Enable WAL for better concurrency
+    }
+
+    store, err := sqlite.New(config)
+    if err != nil {
+        log.Fatalf("Failed to create SQLite store: %v", err)
+    }
+    defer store.Close()
+
+    // Create a transport
     transport := &MyTransport{} // Your Transport implementation
-    
+
     // Configure sync options
     options := &sync.SyncOptions{
-        BatchSize:    100,
-        SyncInterval: 30 * time.Second,
+        BatchSize:        100,
+        SyncInterval:     30 * time.Second,
         ConflictResolver: &LastWriteWinsResolver{},
     }
-    
+
     // Create sync manager
     syncManager := sync.NewSyncManager(store, transport, options)
-    
+
     // Perform sync
     ctx := context.Background()
     result, err := syncManager.Sync(ctx)
     if err != nil {
-        panic(err)
+        log.Fatalf("Sync failed: %v", err)
     }
-    
+
     fmt.Printf("Synced: %d pushed, %d pulled\n", 
         result.EventsPushed, result.EventsPulled)
 }
@@ -400,7 +418,8 @@ go test ./...
 
 ## Roadmap
 
-- [ ] Built-in storage implementations (SQLite, BadgerDB)
+- [x] **SQLite EventStore** - Production-ready SQLite implementation with WAL support
+- [ ] Built-in storage implementations (BadgerDB, PostgreSQL)
 - [ ] Built-in transport implementations (HTTP, gRPC, WebSocket)
 - [ ] Vector clock versioning implementation
 - [ ] Compression support for large event payloads
