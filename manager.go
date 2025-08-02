@@ -215,7 +215,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 
 	// Get final remote version
 	if len(remoteEvents) > 0 {
-		result.RemoteVersion = remoteEvents[len(remoteEvents)-1].Version
+		result.RemoteVersion = findLatestVersion(remoteEvents)
 	}
 
 	return result, nil
@@ -350,4 +350,20 @@ func (sm *syncManager) notifySubscribers(result *SyncResult) {
 			h(result)
 		}(handler)
 	}
+}
+
+// findLatestVersion returns the latest version from a slice of events.
+// If events is empty, returns nil.
+func findLatestVersion(events []EventWithVersion) Version {
+	if len(events) == 0 {
+		return nil
+	}
+
+	latest := events[0].Version
+	for _, ev := range events[1:] {
+		if ev.Version.Compare(latest) > 0 {
+			latest = ev.Version
+		}
+	}
+	return latest
 }
