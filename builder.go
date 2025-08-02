@@ -90,6 +90,21 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 		return nil, fmt.Errorf("cannot set both PushOnly and PullOnly to true")
 	}
 
+// Validate batch size
+	if b.options.BatchSize <= 0 {
+		return nil, fmt.Errorf("BatchSize must be positive, got %d", b.options.BatchSize)
+	}
+
 	// Create a new SyncManager instance
 	return NewSyncManager(b.store, b.transport, b.options), nil
+}
+
+// Reset clears the builder, allowing reuse.
+func (b *SyncManagerBuilder) Reset() *SyncManagerBuilder {
+	b.store = nil
+	b.transport = nil
+	b.options = &SyncOptions{BatchSize: 100}
+	b.pushOnlySet = false
+	b.pullOnlySet = false
+	return b
 }
