@@ -6,7 +6,17 @@ import (
 	"fmt"
 )
 
-// Operation represents a sync operation type
+// ErrorCode represents the type of error that occurred
+type ErrorCode string
+
+const (
+	ErrCodeNetworkFailure   ErrorCode = "NETWORK_FAILURE"
+	ErrCodeStorageFailure   ErrorCode = "STORAGE_FAILURE"
+	ErrCodeConflictFailure  ErrorCode = "CONFLICT_FAILURE"
+	ErrCodeValidationFailure ErrorCode = "VALIDATION_FAILURE"
+)
+
+// Operation represents the type of sync operation
 type Operation string
 
 const (
@@ -33,17 +43,74 @@ type SyncError struct {
 
 	// Whether the operation can be retried
 	Retryable bool
+
+	// Error code for the error type
+	Code ErrorCode
+
+	// Metadata for additional context
+	Metadata map[string]interface{}
 }
 
 func (e *SyncError) Error() string {
+	var msg string
 	if e.Component != "" {
-		return fmt.Sprintf("%s operation failed in %s component: %v", e.Op, e.Component, e.Err)
+		msg = fmt.Sprintf("%s operation failed in %s component", e.Op, e.Component)
+	} else {
+		msg = fmt.Sprintf("%s operation failed", e.Op)
 	}
-	return fmt.Sprintf("%s operation failed: %v", e.Op, e.Err)
+	
+	if e.Code != "" {
+		msg += fmt.Sprintf(" [%s]", e.Code)
+	}
+	
+	return msg + fmt.Sprintf(": %v", e.Err)
 }
 
 func (e *SyncError) Unwrap() error {
 	return e.Err
+}
+
+// NewStorageError creates a new storage-related SyncError
+func NewStorageError(op Operation, cause error) *SyncError {
+	return &SyncError{
+		Code:      ErrCodeStorageFailure,
+		Op:        op,
+		Component: "store",
+		Err:       cause,
+		Retryable: true,
+	}
+}
+
+// NewConflictError creates a new conflict-related SyncError
+func NewConflictError(op Operation, cause error) *SyncError {
+	return &SyncError{
+		Code:      ErrCodeConflictFailure,
+		Op:        op,
+		Component: "sync",
+		Err:       cause,
+		Retryable: false,
+	}
+}
+
+// NewValidationError creates a new validation-related SyncError
+func NewValidationError(op Operation, cause error) *SyncError {
+	return &SyncError{
+		Code:      ErrCodeValidationFailure,
+		Op:        op,
+		Err:       cause,
+		Retryable: false,
+	}
+}
+
+// NewNetworkError creates a new network-related SyncError
+func NewNetworkError(op Operation, cause error) *SyncError {
+	return &SyncError{
+		Code:      ErrCodeNetworkFailure,
+		Op:        op,
+		Component: "transport",
+		Err:       cause,
+		Retryable: true,
+	}
 }
 
 // New creates a new SyncError

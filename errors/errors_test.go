@@ -11,18 +11,34 @@ func TestSyncError_Error(t *testing.T) {
 		name      string
 		op        Operation
 		component string
+		code      ErrorCode
 		err       error
 		want      string
 	}{
 		{
-			name:      "with component",
+			name:      "with component and code",
+			op:        OpSync,
+			component: "store",
+			code:      ErrCodeStorageFailure,
+			err:       fmt.Errorf("failed to connect"),
+			want:      "sync operation failed in store component [STORAGE_FAILURE]: failed to connect",
+		},
+		{
+			name:      "with component no code",
 			op:        OpSync,
 			component: "store",
 			err:       fmt.Errorf("failed to connect"),
 			want:      "sync operation failed in store component: failed to connect",
 		},
 		{
-			name: "without component",
+			name: "without component with code",
+			op:   OpPush,
+			code: ErrCodeNetworkFailure,
+			err:  fmt.Errorf("network error"),
+			want: "push operation failed [NETWORK_FAILURE]: network error",
+		},
+		{
+			name: "without component or code",
 			op:   OpPush,
 			err:  fmt.Errorf("network error"),
 			want: "push operation failed: network error",
@@ -35,12 +51,82 @@ func TestSyncError_Error(t *testing.T) {
 				Op:        tt.op,
 				Component: tt.component,
 				Err:       tt.err,
+				Code:      tt.code,
 			}
 
 			if got := e.Error(); got != tt.want {
 				t.Errorf("SyncError.Error() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewNetworkError(t *testing.T) {
+	cause := fmt.Errorf("network failure")
+	syncErr := NewNetworkError(OpTransport, cause)
+
+	if syncErr.Code != ErrCodeNetworkFailure {
+		t.Errorf("NewNetworkError() Code = %v, want %v", syncErr.Code, ErrCodeNetworkFailure)
+	}
+	if syncErr.Component != "transport" {
+		t.Errorf("NewNetworkError() Component = %v, want %v", syncErr.Component, "transport")
+	}
+	if syncErr.Err != cause {
+		t.Errorf("NewNetworkError() Err = %v, want %v", syncErr.Err, cause)
+	}
+	if !syncErr.Retryable {
+		t.Error("NewNetworkError() created non-retryable error")
+	}
+}
+
+func TestNewStorageError(t *testing.T) {
+	cause := fmt.Errorf("storage failure")
+	syncErr := NewStorageError(OpStore, cause)
+
+	if syncErr.Code != ErrCodeStorageFailure {
+		t.Errorf("NewStorageError() Code = %v, want %v", syncErr.Code, ErrCodeStorageFailure)
+	}
+	if syncErr.Component != "store" {
+		t.Errorf("NewStorageError() Component = %v, want %v", syncErr.Component, "store")
+	}
+	if syncErr.Err != cause {
+		t.Errorf("NewStorageError() Err = %v, want %v", syncErr.Err, cause)
+	}
+	if !syncErr.Retryable {
+		t.Error("NewStorageError() created non-retryable error")
+	}
+}
+
+func TestNewConflictError(t *testing.T) {
+	cause := fmt.Errorf("conflict detected")
+	syncErr := NewConflictError(OpSync, cause)
+
+	if syncErr.Code != ErrCodeConflictFailure {
+		t.Errorf("NewConflictError() Code = %v, want %v", syncErr.Code, ErrCodeConflictFailure)
+	}
+	if syncErr.Component != "sync" {
+		t.Errorf("NewConflictError() Component = %v, want %v", syncErr.Component, "sync")
+	}
+	if syncErr.Err != cause {
+		t.Errorf("NewConflictError() Err = %v, want %v", syncErr.Err, cause)
+	}
+	if syncErr.Retryable {
+		t.Error("NewConflictError() created retryable error when it shouldn't")
+	}
+}
+
+func TestNewValidationError(t *testing.T) {
+	cause := fmt.Errorf("validation failed")
+	syncErr := NewValidationError(OpSync, cause)
+
+	if syncErr.Code != ErrCodeValidationFailure {
+		t.Errorf("NewValidationError() Code = %v, want %v", syncErr.Code, ErrCodeValidationFailure)
+	}
+	if syncErr.Err != cause {
+		t.Errorf("NewValidationError() Err = %v, want %v", syncErr.Err, cause)
+	}
+	if syncErr.Retryable {
+		t.Error("NewValidationError() created retryable error when it shouldn't")
 	}
 }
 
