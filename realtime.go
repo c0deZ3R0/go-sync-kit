@@ -264,6 +264,9 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 			Multiplier:   2.0,
 		}
 	}
+
+	// Add maximum timeout for connection attempts
+	maxTimeout := 5 * time.Minute
 	attempt := 0
 	
 	for {
@@ -330,8 +333,11 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 			
 			// Wait before reconnecting
 			delay := backoff.NextDelay(attempt)
+			if delay > maxTimeout {
+				delay = maxTimeout
+			}
 			attempt++
-			
+
 		// FIXED: Check stop channel under lock to avoid race
 		rsm.realtimeMu.RLock()
 		stopChan := rsm.notificationStop

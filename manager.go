@@ -226,6 +226,13 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
+	// Check context cancellation first
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	if sm.closed {
 		return fmt.Errorf("sync manager is closed")
 	}
