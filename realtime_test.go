@@ -11,7 +11,7 @@ import (
 // MockRealtimeNotifier is an in-memory implementation of RealtimeNotifier
 // used for testing real-time sync functionality
 type MockRealtimeNotifier struct {
-	mu           sync.Mutex
+	mu           sync.RWMutex
 	subscribed   bool
 	handler      NotificationHandler
 	notifications chan Notification
@@ -38,8 +38,15 @@ func (m *MockRealtimeNotifier) Subscribe(ctx context.Context, handler Notificati
 		for {
 			select {
 			case notification := <-m.notifications:
-				if err := m.handler(notification); err != nil {
-					// Log error
+				// Get handler under read lock
+				m.mu.RLock()
+				h := m.handler
+				m.mu.RUnlock()
+				
+				if h != nil {
+					if err := h(notification); err != nil {
+						// Log error
+					}
 				}
 			case <-ctx.Done():
 				return
@@ -55,6 +62,7 @@ func (m *MockRealtimeNotifier) Unsubscribe() error {
 	defer m.mu.Unlock()
 
 	m.subscribed = false
+	m.handler = nil
 	return nil
 }
 
@@ -76,17 +84,19 @@ func (m *MockRealtimeNotifier) Close() error {
 
 	close(m.notifications)
 	m.subscribed = false
+	m.handler = nil
 	return nil
 }
 
 // MockReconnectingNotifier simulates connection failures for testing reconnection logic
 type MockReconnectingNotifier struct {
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	subscribed    bool
 	connected     bool
 	attempts      int
 	maxAttempts   int
 	notifications chan Notification
+	handler       NotificationHandler
 }
 
 func NewMockReconnectingNotifier(maxAttempts int) *MockReconnectingNotifier {
@@ -108,12 +118,22 @@ func (m *MockReconnectingNotifier) Subscribe(ctx context.Context, handler Notifi
 	m.subscribed = true
 	m.connected = true
 
+	// Store handler under lock
+	m.handler = handler
+	
 	go func() {
 		for {
 			select {
 			case notification := <-m.notifications:
-				if err := handler(notification); err != nil {
-					// Log error
+				// Get handler under read lock
+				m.mu.RLock()
+				h := m.handler
+				m.mu.RUnlock()
+				
+				if h != nil {
+					if err := h(notification); err != nil {
+						// Log error
+					}
 				}
 			case <-ctx.Done():
 				return
@@ -130,6 +150,7 @@ func (m *MockReconnectingNotifier) Unsubscribe() error {
 
 	m.subscribed = false
 	m.connected = false
+	m.handler = nil
 	return nil
 }
 
@@ -152,6 +173,7 @@ func (m *MockReconnectingNotifier) Close() error {
 	close(m.notifications)
 	m.subscribed = false
 	m.connected = false
+	m.handler = nil
 	return nil
 }
 

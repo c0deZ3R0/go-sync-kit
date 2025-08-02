@@ -238,8 +238,10 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 		return fmt.Errorf("auto sync is already running")
 	}
 
-	sm.autoSyncStop = make(chan struct{})
-	
+	// FIXED: Create channel while holding lock
+	stopChan := make(chan struct{})
+	sm.autoSyncStop = stopChan
+
 	go func() {
 		ticker := time.NewTicker(sm.options.SyncInterval)
 		defer ticker.Stop()
@@ -248,25 +250,22 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return
-			case <-sm.autoSyncStop:
+			case <-stopChan: // Use local copy to avoid race
 				return
 			case <-ticker.C:
-				// Perform sync in background
-				go func() {
-					syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-					defer cancel()
-					
-					_, err := sm.Sync(syncCtx)
-					if err != nil {
-						// Log error or notify subscribers
-						result := &SyncResult{
-							StartTime: time.Now(),
-							Duration:  0,
-							Errors:    []error{err},
-						}
-						sm.notifySubscribers(result)
+				// Create timeout context for each sync
+				syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				_, err := sm.Sync(syncCtx)
+				cancel() // Always cancel to free resources
+				
+				if err != nil {
+					result := &SyncResult{
+						StartTime: time.Now(),
+						Duration:  0,
+						Errors:    []error{err},
 					}
-				}()
+					sm.notifySubscribers(result)
+				}
 			}
 		}
 	}()
@@ -283,6 +282,7 @@ func (sm *syncManager) StopAutoSync() error {
 		return fmt.Errorf("auto sync is not running")
 	}
 
+	// FIXED: Close channel safely
 	close(sm.autoSyncStop)
 	sm.autoSyncStop = nil
 	return nil

@@ -156,6 +156,32 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 	}
 }
 
+// getStopChannel safely gets the notification stop channel
+func (rsm *realtimeSyncManager) getStopChannel() <-chan struct{} {
+	rsm.realtimeMu.RLock()
+	defer rsm.realtimeMu.RUnlock()
+	return rsm.notificationStop
+}
+
+// Helper methods for thread-safe connectionStatus updates
+func (rsm *realtimeSyncManager) updateConnectionStatus(connected bool, lastConnected time.Time, err error) {
+	rsm.realtimeMu.Lock()
+	defer rsm.realtimeMu.Unlock()
+	
+	rsm.connectionStatus.Connected = connected
+	if !lastConnected.IsZero() {
+		rsm.connectionStatus.LastConnected = lastConnected
+	}
+	rsm.connectionStatus.Error = err
+}
+
+func (rsm *realtimeSyncManager) updateReconnectAttempts(attempts int) {
+	rsm.realtimeMu.Lock()
+	defer rsm.realtimeMu.Unlock()
+	
+	rsm.connectionStatus.ReconnectAttempts = attempts
+}
+
 // realtimeSyncManager implements RealtimeSyncManager
 type realtimeSyncManager struct {
 	syncManager
@@ -241,10 +267,19 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 	attempt := 0
 	
 	for {
+		// FIXED: Check stop channel under lock to avoid race
+		rsm.realtimeMu.RLock()
+		stopChan := rsm.notificationStop
+		rsm.realtimeMu.RUnlock()
+		
+		if stopChan == nil {
+			return // Already stopped
+		}
+		
 		select {
 		case <-ctx.Done():
 			return
-		case <-rsm.notificationStop:
+		case <-stopChan: // Use local copy to avoid race
 			return
 		default:
 		}
@@ -255,11 +290,8 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 			backoff.Reset()
 			attempt = 0
 			
-			rsm.realtimeMu.Lock()
-			rsm.connectionStatus.Connected = true
-			rsm.connectionStatus.LastConnected = time.Now()
-			rsm.connectionStatus.Error = nil
-			rsm.realtimeMu.Unlock()
+			// FIXED: Use thread-safe helper method
+			rsm.updateConnectionStatus(true, time.Now(), nil)
 			
 			// Apply filter if configured
 			if rsm.realtimeOptions.NotificationFilter != nil {
@@ -287,11 +319,9 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 		})
 		
 		if err != nil {
-			rsm.realtimeMu.Lock()
-			rsm.connectionStatus.Connected = false
-			rsm.connectionStatus.ReconnectAttempts = attempt
-			rsm.connectionStatus.Error = err
-			rsm.realtimeMu.Unlock()
+			// FIXED: Use thread-safe helper methods
+			rsm.updateConnectionStatus(false, time.Time{}, err)
+			rsm.updateReconnectAttempts(attempt)
 			
 			// Start fallback polling if not disabled
 			if !rsm.realtimeOptions.DisablePolling && rsm.fallbackTicker == nil {
@@ -302,14 +332,23 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 			delay := backoff.NextDelay(attempt)
 			attempt++
 			
-			select {
-			case <-ctx.Done():
-				return
-			case <-rsm.notificationStop:
-				return
-			case <-time.After(delay):
-				continue
-			}
+		// FIXED: Check stop channel under lock to avoid race
+		rsm.realtimeMu.RLock()
+		stopChan := rsm.notificationStop
+		rsm.realtimeMu.RUnlock()
+		
+		if stopChan == nil {
+			return // Already stopped
+		}
+		
+		select {
+		case <-ctx.Done():
+			return
+		case <-stopChan: // Use local copy to avoid race
+			return
+		case <-time.After(delay):
+			continue
+		}
 		} else {
 			// Connection successful, stop fallback polling
 			rsm.stopFallbackPolling()
@@ -322,58 +361,84 @@ func (rsm *realtimeSyncManager) monitorConnection(ctx context.Context) {
 	defer ticker.Stop()
 	
 	for {
+		// FIXED: Check stop channel under lock to avoid race
+		rsm.realtimeMu.RLock()
+		stopChan := rsm.notificationStop
+		rsm.realtimeMu.RUnlock()
+		
+		if stopChan == nil {
+			return // Already stopped
+		}
+		
 		select {
 		case <-ctx.Done():
 			return
-		case <-rsm.notificationStop:
+		case <-stopChan: // Use local copy to avoid race
 			return
 		case <-ticker.C:
 			if rsm.realtimeOptions.RealtimeNotifier != nil {
 				connected := rsm.realtimeOptions.RealtimeNotifier.IsConnected()
 				
+				// FIXED: Use thread-safe helper method and check status while holding lock
 				rsm.realtimeMu.Lock()
-				if rsm.connectionStatus.Connected != connected {
-					rsm.connectionStatus.Connected = connected
+				prevConnected := rsm.connectionStatus.Connected
+				rsm.realtimeMu.Unlock()
+				
+				if prevConnected != connected {
 					if connected {
-						rsm.connectionStatus.LastConnected = time.Now()
+						rsm.updateConnectionStatus(true, time.Now(), nil)
 						rsm.stopFallbackPolling()
 					} else {
+						rsm.updateConnectionStatus(false, time.Time{}, nil)
 						rsm.startFallbackPolling(ctx)
 					}
 				}
-				rsm.realtimeMu.Unlock()
 			}
 		}
 	}
 }
 
 func (rsm *realtimeSyncManager) startFallbackPolling(ctx context.Context) {
+	rsm.realtimeMu.Lock()
 	if rsm.fallbackTicker != nil || rsm.realtimeOptions.DisablePolling {
+		rsm.realtimeMu.Unlock()
 		return
 	}
 	
 	rsm.fallbackTicker = time.NewTicker(rsm.realtimeOptions.FallbackInterval)
+	ticker := rsm.fallbackTicker // Keep local reference
+	rsm.realtimeMu.Unlock()
 	
 	go func() {
-		defer rsm.fallbackTicker.Stop()
+		defer ticker.Stop()
 		
 		for {
+			// FIXED: Check stop channel under lock to avoid race
+			rsm.realtimeMu.RLock()
+			stopChan := rsm.notificationStop
+			tickChan := rsm.fallbackTicker.C
+			rsm.realtimeMu.RUnlock()
+			
+			if stopChan == nil {
+				return // Already stopped
+			}
+			
 			select {
 			case <-ctx.Done():
 				return
-			case <-rsm.notificationStop:
+			case <-stopChan: // Use local copy to avoid race
 				return
-			case <-rsm.fallbackTicker.C:
+			case <-tickChan:
 				// Only poll if real-time is not connected
 				if !rsm.realtimeOptions.RealtimeNotifier.IsConnected() {
 					go func() {
 						syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 						defer cancel()
 						
-					result, err := rsm.Sync(syncCtx)
-					if err == nil {
-						rsm.notifySubscribers(result)
-					}
+						result, err := rsm.Sync(syncCtx)
+						if err == nil {
+							rsm.notifySubscribers(result)
+						}
 					}()
 				}
 			}
@@ -382,6 +447,9 @@ func (rsm *realtimeSyncManager) startFallbackPolling(ctx context.Context) {
 }
 
 func (rsm *realtimeSyncManager) stopFallbackPolling() {
+	rsm.realtimeMu.Lock()
+	defer rsm.realtimeMu.Unlock()
+	
 	if rsm.fallbackTicker != nil {
 		rsm.fallbackTicker.Stop()
 		rsm.fallbackTicker = nil
