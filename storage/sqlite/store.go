@@ -264,6 +264,13 @@ func (s *SQLiteEventStore) setupSchema() error {
 // Note: This implementation ignores the 'version' parameter and relies on
 // SQLite's AUTOINCREMENT to assign a new, sequential version.
 func (s *SQLiteEventStore) Store(ctx context.Context, event sync.Event, version sync.Version) error {
+	// Check context deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < time.Second {
+			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+		}
+	}
+
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -402,6 +409,76 @@ func (s *SQLiteEventStore) Close() error {
 
 	s.closed = true
 	return s.db.Close()
+}
+
+// StoreBatch stores multiple events in a single transaction for better performance.
+func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []sync.EventWithVersion) error {
+	// Check context deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < time.Second {
+			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+		}
+	}
+
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return ErrStoreClosed
+	}
+	s.mu.RUnlock()
+
+	if len(events) == 0 {
+		return nil // Nothing to store
+	}
+
+	// Begin transaction for atomicity
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin batch transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Prepare statement for batch inserts
+	stmt, err := tx.PrepareContext(ctx, 
+		`INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare batch statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Process each event
+	for _, ev := range events {
+		dataJSON, err := json.Marshal(ev.Event.Data())
+		if err != nil {
+			return fmt.Errorf("failed to marshal event data: %w", err)
+		}
+
+		metadataJSON, err := json.Marshal(ev.Event.Metadata())
+		if err != nil {
+			return fmt.Errorf("failed to marshal event metadata: %w", err)
+		}
+
+		_, err = stmt.ExecContext(ctx, 
+			ev.Event.ID(), 
+			ev.Event.AggregateID(), 
+			ev.Event.Type(), 
+			string(dataJSON), 
+			string(metadataJSON))
+		if err != nil {
+			return fmt.Errorf("failed to insert event: %w", err)
+		}
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit batch transaction: %w", err)
+	}
+
+	return nil
 }
 
 // Stats returns database statistics for monitoring
