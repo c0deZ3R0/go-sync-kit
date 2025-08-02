@@ -154,6 +154,86 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 	return result, nil
 }
 
+type exponentialBackoff struct {
+	initialDelay time.Duration
+	maxDelay    time.Duration
+	multiplier  float64
+}
+
+func (eb *exponentialBackoff) nextDelay(attempt int) time.Duration {
+	if attempt < 0 {
+		attempt = 0
+	}
+	
+	// Calculate exponential delay: initialDelay * multiplier^attempt
+	delay := float64(eb.initialDelay)
+	if attempt > 0 {
+		for i := 0; i < attempt; i++ {
+			delay *= eb.multiplier
+		}
+	}
+	
+	// Convert back to time.Duration and cap at maxDelay
+	result := time.Duration(delay)
+	if result > eb.maxDelay {
+		result = eb.maxDelay
+	}
+	
+	return result
+}
+
+func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error) error {
+	if sm.options.RetryConfig == nil {
+		return operation()
+	}
+
+	config := sm.options.RetryConfig
+	eb := &exponentialBackoff{
+		initialDelay: config.InitialDelay,
+		maxDelay:    config.MaxDelay,
+		multiplier:  config.Multiplier,
+	}
+
+	// Initial attempt, no delay
+	err := operation()
+	if err == nil {
+		return nil
+	}
+
+	if !syncErrors.IsRetryable(err) {
+		return err
+	}
+
+	// Starting from 1 since we already did attempt 0
+	for attempt := 1; attempt < config.MaxAttempts; attempt++ {
+		// Calculate and apply delay before retry
+		delay := eb.nextDelay(attempt - 1) // attempt-1 to start with initial delay
+
+		// Use timer instead of time.After for more precise timing
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+
+		// Try operation again
+		err = operation()
+		if err == nil {
+			return nil
+		}
+
+		// Check if error is retryable
+		if !syncErrors.IsRetryable(err) {
+			return err
+		}
+	}
+
+	// All retries failed
+	return err
+}
+
 func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{
 		StartTime: time.Now(),

@@ -89,15 +89,29 @@ type ExponentialBackoff struct {
 }
 
 func (eb *ExponentialBackoff) NextDelay(attempt int) time.Duration {
-	delay := eb.InitialDelay
-	for i := 0; i < attempt; i++ {
-		delay = time.Duration(float64(delay) * eb.Multiplier)
-		if delay > eb.MaxDelay {
-			delay = eb.MaxDelay
-			break
-		}
+	// Ensure attempt is at least 0
+	if attempt < 0 {
+		attempt = 0
 	}
-	return delay
+
+	// Base delay is always InitialDelay
+	delay := float64(eb.InitialDelay)
+
+	// Calculate exponential multiplier: Multiplier^attempt
+	multiplier := 1.0
+	for i := 0; i < attempt; i++ {
+		multiplier *= eb.Multiplier
+	}
+
+	// Apply multiplier to initial delay
+	result := time.Duration(delay * multiplier)
+
+	// Cap at MaxDelay
+	if result > eb.MaxDelay {
+		result = eb.MaxDelay
+	}
+
+	return result
 }
 
 func (eb *ExponentialBackoff) Reset() {

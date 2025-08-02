@@ -96,6 +96,21 @@ type Transport interface {
 	Close() error
 }
 
+// RetryConfig configures the retry behavior for sync operations
+type RetryConfig struct {
+	// MaxAttempts is the maximum number of retry attempts
+	MaxAttempts int
+
+	// InitialDelay is the initial delay between retries
+	InitialDelay time.Duration
+
+	// MaxDelay is the maximum delay between retries
+	MaxDelay time.Duration
+
+	// Multiplier is the factor by which the delay increases
+	Multiplier float64
+}
+
 // SyncOptions configures the synchronization behavior
 type SyncOptions struct {
 	// PushOnly indicates this client should only push events, not pull
@@ -113,8 +128,11 @@ type SyncOptions struct {
 	// BatchSize limits how many events to sync at once
 	BatchSize int
 	
-// SyncInterval for automatic periodic sync (0 disables)
+	// SyncInterval for automatic periodic sync (0 disables)
 	SyncInterval time.Duration
+
+	// RetryConfig configures retry behavior for sync operations
+	RetryConfig *RetryConfig
 
 	// EnableValidation enables additional validation checks during sync
 	EnableValidation bool
@@ -182,7 +200,13 @@ type SyncResult struct {
 func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions) SyncManager {
 	if opts == nil {
 		opts = &SyncOptions{
-			BatchSize: 100,
+		BatchSize: 100,
+			RetryConfig: &RetryConfig{
+				MaxAttempts:   3,
+				InitialDelay:  100 * time.Millisecond,
+				MaxDelay:      5 * time.Second,
+				Multiplier:    2.0,
+			},
 		}
 	}
 	
