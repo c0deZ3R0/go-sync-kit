@@ -86,6 +86,9 @@ type Transport interface {
 	// Pull retrieves events from the remote endpoint since the given version
 	Pull(ctx context.Context, since Version) ([]EventWithVersion, error)
 	
+	// GetLatestVersion efficiently retrieves the latest version from remote without pulling events
+	GetLatestVersion(ctx context.Context) (Version, error)
+	
 	// Subscribe listens for real-time updates (optional for polling-based transports)
 	Subscribe(ctx context.Context, handler func([]EventWithVersion) error) error
 	

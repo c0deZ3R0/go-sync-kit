@@ -102,21 +102,10 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 		result.Duration = time.Since(result.StartTime)
 	}()
 
-	// Get remote version to know what we need to push
-	remoteEvents, err := sm.transport.Pull(ctx, nil) // Pull with no version to get remote version info
+	// Get remote version efficiently
+	remoteVersion, err := sm.transport.GetLatestVersion(ctx)
 	if err != nil {
 		return result, fmt.Errorf("failed to get remote version: %w", err)
-	}
-
-	var remoteVersion Version
-	if len(remoteEvents) > 0 {
-		// Find the latest remote version
-		remoteVersion = remoteEvents[0].Version
-		for _, ev := range remoteEvents[1:] {
-			if ev.Version.Compare(remoteVersion) > 0 {
-				remoteVersion = ev.Version
-			}
-		}
 	}
 
 	// Load local events since remote version

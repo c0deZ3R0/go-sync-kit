@@ -162,6 +162,69 @@ func (m *MockTransport) Close() error {
 	return nil
 }
 
+func (m *MockTransport) GetLatestVersion(ctx context.Context) (Version, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.events) == 0 {
+		return &MockVersion{timestamp: time.Time{}}, nil
+	}
+
+	// Find the latest version
+	latest := m.events[0].Version
+	for _, ev := range m.events[1:] {
+		if ev.Version.Compare(latest) > 0 {
+			latest = ev.Version
+		}
+	}
+	return latest, nil
+}
+
+func TestSyncManager_Push_GetLatestVersion(t *testing.T) {
+	// Create test dependencies
+	store := &MockEventStore{}
+	transport := &MockTransport{}
+
+	// Create sync manager
+	sm := NewSyncManager(store, transport, &SyncOptions{})
+
+	ctx := context.Background()
+
+	// Add some events to transport with different versions
+	transportEvents := []EventWithVersion{
+		{
+			Event: &MockEvent{id: "1", typeName: "TestEvent"},
+			Version: &MockVersion{timestamp: time.Now().Add(-2 * time.Hour)},
+		},
+		{
+			Event: &MockEvent{id: "2", typeName: "TestEvent"},
+			Version: &MockVersion{timestamp: time.Now().Add(-1 * time.Hour)},
+		},
+	}
+	transport.events = transportEvents
+
+	// Add a local event that's newer than transport events
+	localEvent := &MockEvent{id: "3", typeName: "TestEvent"}
+	localVersion := &MockVersion{timestamp: time.Now()}
+	store.Store(ctx, localEvent, localVersion)
+
+	// Perform push
+	result, err := sm.Push(ctx)
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
+
+	// Verify that the event was pushed
+	if result.EventsPushed != 1 {
+		t.Errorf("Expected 1 event pushed, got %d", result.EventsPushed)
+	}
+
+	// Verify that the new event is in transport
+	if len(transport.events) != 3 { // 2 original + 1 pushed
+		t.Errorf("Expected 3 events in transport, got %d", len(transport.events))
+	}
+}
+
 func TestSyncManager_Sync(t *testing.T) {
 	store := &MockEventStore{}
 	transport := &MockTransport{}
