@@ -29,6 +29,7 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 - **Automatic Sync**: Configurable periodic synchronization
 - **Filtering**: Sync only specific events based on custom filters
 - **Batching**: Efficient batch processing for large event sets
+- **Configurable Options**: New builder methods allow enabling validation, setting sync timeouts, and enabling compression for transport
 
 ## Installation
 
