@@ -113,8 +113,17 @@ type SyncOptions struct {
 	// BatchSize limits how many events to sync at once
 	BatchSize int
 	
-	// SyncInterval for automatic periodic sync (0 disables)
+// SyncInterval for automatic periodic sync (0 disables)
 	SyncInterval time.Duration
+
+	// EnableValidation enables additional validation checks during sync
+	EnableValidation bool
+
+	// Timeout sets the maximum duration for sync operations
+	Timeout time.Duration
+
+	// EnableCompression enables data compression during transport
+	EnableCompression bool
 }
 
 // SyncManager coordinates the synchronization process between local and remote stores.

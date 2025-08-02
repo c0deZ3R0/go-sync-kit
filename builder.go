@@ -17,8 +17,11 @@ type SyncManagerBuilder struct {
 // NewSyncManagerBuilder creates a new builder with default options.
 func NewSyncManagerBuilder() *SyncManagerBuilder {
 	return &SyncManagerBuilder{
-		options: &SyncOptions{
+options: &SyncOptions{
 			BatchSize: 100, // Default batch size
+			EnableValidation: false,
+			Timeout: 0, // No timeout by default
+			EnableCompression: false,
 		},
 	}
 }
@@ -75,6 +78,24 @@ func (b *SyncManagerBuilder) WithSyncInterval(interval time.Duration) *SyncManag
 	return b
 }
 
+// WithValidation enables additional validation checks during sync operations.
+func (b *SyncManagerBuilder) WithValidation() *SyncManagerBuilder {
+	b.options.EnableValidation = true
+	return b
+}
+
+// WithTimeout sets the maximum duration for sync operations.
+func (b *SyncManagerBuilder) WithTimeout(timeout time.Duration) *SyncManagerBuilder {
+	b.options.Timeout = timeout
+	return b
+}
+
+// WithCompression enables data compression during transport.
+func (b *SyncManagerBuilder) WithCompression(enabled bool) *SyncManagerBuilder {
+	b.options.EnableCompression = enabled
+	return b
+}
+
 // Build creates a new SyncManager instance with the configured options.
 func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 	// Validate required components
@@ -103,7 +124,12 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 func (b *SyncManagerBuilder) Reset() *SyncManagerBuilder {
 	b.store = nil
 	b.transport = nil
-	b.options = &SyncOptions{BatchSize: 100}
+b.options = &SyncOptions{
+		BatchSize: 100,
+		EnableValidation: false,
+		Timeout: 0,
+		EnableCompression: false,
+	}
 	b.pushOnlySet = false
 	b.pullOnlySet = false
 	return b
