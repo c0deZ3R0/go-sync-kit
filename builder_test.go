@@ -96,4 +96,83 @@ func TestSyncManagerBuilder(t *testing.T) {
 			t.Error("sync interval not set correctly")
 		}
 	})
+
+	t.Run("fails with negative batch size", func(t *testing.T) {
+		_, err := NewSyncManagerBuilder().
+			WithStore(store).
+			WithTransport(transport).
+			WithBatchSize(-1).
+			Build()
+
+		if err == nil {
+			t.Error("expected error when batch size is negative")
+		}
+	})
+
+t.Run("configures validation and compression options", func(t *testing.T) {
+		timeout := 30 * time.Second
+
+		manager, err := NewSyncManagerBuilder().
+			WithStore(store).
+			WithTransport(transport).
+			WithValidation().
+			WithTimeout(timeout).
+			WithCompression(true).
+			Build()
+
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if manager == nil {
+			t.Error("expected manager to be created")
+		}
+
+		// Type assert to access internal fields
+		sm := manager.(*syncManager)
+		if !sm.options.EnableValidation {
+			t.Error("validation not enabled")
+		}
+		if sm.options.Timeout != timeout {
+			t.Error("timeout not set correctly")
+		}
+		if !sm.options.EnableCompression {
+			t.Error("compression not enabled")
+		}
+	})
+
+	t.Run("resets builder state", func(t *testing.T) {
+		builder := NewSyncManagerBuilder().
+			WithStore(store).
+			WithTransport(transport).
+			WithValidation().
+			WithTimeout(30 * time.Second).
+			WithCompression(true).
+			WithBatchSize(200).
+			WithPushOnly()
+
+		builder.Reset()
+
+		// After reset, building should fail due to missing required components
+		_, err := builder.Build()
+		if err == nil {
+			t.Error("expected error after reset due to missing components")
+		}
+
+		// Verify options are reset to defaults
+		if builder.options.BatchSize != 100 {
+			t.Error("batch size not reset to default")
+		}
+		if builder.options.EnableValidation {
+			t.Error("validation not reset to false")
+		}
+		if builder.options.Timeout != 0 {
+			t.Error("timeout not reset to 0")
+		}
+		if builder.options.EnableCompression {
+			t.Error("compression not reset to false")
+		}
+		if builder.pushOnlySet {
+			t.Error("pushOnlySet not reset to false")
+		}
+	})
 }
