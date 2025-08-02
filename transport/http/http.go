@@ -10,7 +10,8 @@ import (
 	"log"
 	"net/http"
 
-	sync "github.com/c0deZ3R0/go-sync-kit"
+sync "github.com/c0deZ3R0/go-sync-kit"
+syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite" // Used for client-side version parsing
 )
 
@@ -125,24 +126,24 @@ func (t *HTTPTransport) Push(ctx context.Context, events []sync.EventWithVersion
 
 	data, err := json.Marshal(jsonData)
 	if err != nil {
-		return fmt.Errorf("failed to marshal events for push: %w", err)
+	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/push", bytes.NewBuffer(data))
 	if err != nil {
-		return fmt.Errorf("failed to create push request: %w", err)
+	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to execute push request: %w", err)
+	return syncErrors.NewRetryable(syncErrors.OpPush, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("push request failed with status %d: %s", resp.StatusCode, string(body))
+	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
 	return nil
@@ -153,23 +154,23 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 	url := fmt.Sprintf("%s/pull?since=%s", t.baseURL, since.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create pull request: %w", err)
+	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute pull request: %w", err)
+	return nil, syncErrors.NewRetryable(syncErrors.OpPull, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("pull request failed with status %d: %s", resp.StatusCode, string(body))
+	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(resp.Body).Decode(&jsonEvents); err != nil {
-		return nil, fmt.Errorf("failed to decode pull response: %w", err)
+	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
 	}
 
 	events := make([]sync.EventWithVersion, len(jsonEvents))
@@ -178,7 +179,7 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 		// since the HTTP transport client doesn't have access to an EventStore
 		version, err := sqlite.ParseVersion(jev.Version)
 		if err != nil {
-			return nil, fmt.Errorf("invalid version in response: %w", err)
+	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
 		}
 		
 		event := &SimpleEvent{
@@ -201,7 +202,7 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 // Subscribe is not supported by this simple HTTP transport.
 // Real-time subscriptions would require WebSockets or gRPC streams.
 func (t *HTTPTransport) Subscribe(ctx context.Context, handler func([]sync.EventWithVersion) error) error {
-	return fmt.Errorf("subscribe is not implemented for the HTTP transport")
+	return syncErrors.New(syncErrors.OpTransport, fmt.Errorf("subscribe is not implemented for HTTP transport"))
 }
 
 // Close does nothing for this transport, as the underlying http.Client is managed externally.

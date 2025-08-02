@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 )
 
 // syncManager implements the SyncManager interface
@@ -25,7 +27,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	sm.mu.RLock()
 	if sm.closed {
 		sm.mu.RUnlock()
-		return nil, fmt.Errorf("sync manager is closed")
+		return nil, syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync manager is closed"))
 	}
 	sm.mu.RUnlock()
 
@@ -41,7 +43,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	if !sm.options.PushOnly {
 		pullResult, err := sm.pull(ctx)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Errorf("pull failed: %w", err))
+			result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err))
 		} else {
 			result.EventsPulled = pullResult.EventsPulled
 			result.ConflictsResolved = pullResult.ConflictsResolved
@@ -53,7 +55,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	if !sm.options.PullOnly {
 		pushResult, err := sm.push(ctx)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Errorf("push failed: %w", err))
+			result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err))
 		} else {
 			result.EventsPushed = pushResult.EventsPushed
 		}
@@ -62,7 +64,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	// Get final local version
 	localVersion, err := sm.store.LatestVersion(ctx)
 	if err != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("failed to get local version: %w", err))
+		result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err))
 	} else {
 		result.LocalVersion = localVersion
 	}
@@ -75,7 +77,7 @@ func (sm *syncManager) Push(ctx context.Context) (*SyncResult, error) {
 	sm.mu.RLock()
 	if sm.closed {
 		sm.mu.RUnlock()
-		return nil, fmt.Errorf("sync manager is closed")
+		return nil, syncErrors.New(syncErrors.OpPush, fmt.Errorf("sync manager is closed"))
 	}
 	sm.mu.RUnlock()
 
@@ -87,7 +89,7 @@ func (sm *syncManager) Pull(ctx context.Context) (*SyncResult, error) {
 	sm.mu.RLock()
 	if sm.closed {
 		sm.mu.RUnlock()
-		return nil, fmt.Errorf("sync manager is closed")
+		return nil, syncErrors.New(syncErrors.OpPull, fmt.Errorf("sync manager is closed"))
 	}
 	sm.mu.RUnlock()
 
@@ -105,13 +107,13 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 	// Get remote version efficiently
 	remoteVersion, err := sm.transport.GetLatestVersion(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to get remote version: %w", err)
+		return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
 	}
 
 	// Load local events since remote version
 	localEvents, err := sm.store.Load(ctx, remoteVersion)
 	if err != nil {
-		return result, fmt.Errorf("failed to load local events: %w", err)
+		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
 
 	if len(localEvents) == 0 {
@@ -143,7 +145,7 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 
 		batch := localEvents[i:end]
 		if err := sm.transport.Push(ctx, batch); err != nil {
-			return result, fmt.Errorf("failed to push batch: %w", err)
+			return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
 		}
 
 		result.EventsPushed += len(batch)
@@ -163,13 +165,13 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	// Get local version
 	localVersion, err := sm.store.LatestVersion(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to get local version: %w", err)
+		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
 
 	// Pull remote events since our local version
 	remoteEvents, err := sm.transport.Pull(ctx, localVersion)
 	if err != nil {
-		return result, fmt.Errorf("failed to pull remote events: %w", err)
+		return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
 	}
 
 	if len(remoteEvents) == 0 {
@@ -192,13 +194,13 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		// Load local events that might conflict
 		localEvents, err := sm.store.Load(ctx, localVersion)
 		if err != nil {
-			return result, fmt.Errorf("failed to load local events for conflict resolution: %w", err)
+			return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 		}
 
 		if len(localEvents) > 0 {
 			resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
 			if err != nil {
-				return result, fmt.Errorf("conflict resolution failed: %w", err)
+				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
 			}
 			remoteEvents = resolvedEvents
 			result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
@@ -208,7 +210,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	// Store remote events locally
 	for _, ev := range remoteEvents {
 		if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
-			return result, fmt.Errorf("failed to store remote event: %w", err)
+			return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
 		}
 		result.EventsPulled++
 	}
@@ -234,15 +236,15 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 	}
 
 	if sm.closed {
-		return fmt.Errorf("sync manager is closed")
+		return syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync manager is closed"))
 	}
 
 	if sm.options.SyncInterval <= 0 {
-		return fmt.Errorf("sync interval must be positive")
+		return syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync interval must be positive"))
 	}
 
 	if sm.autoSyncStop != nil {
-		return fmt.Errorf("auto sync is already running")
+		return syncErrors.New(syncErrors.OpSync, fmt.Errorf("auto sync is already running"))
 	}
 
 	// FIXED: Create channel while holding lock
@@ -286,7 +288,7 @@ func (sm *syncManager) StopAutoSync() error {
 	defer sm.mu.Unlock()
 
 	if sm.autoSyncStop == nil {
-		return fmt.Errorf("auto sync is not running")
+		return syncErrors.New(syncErrors.OpSync, fmt.Errorf("auto sync is not running"))
 	}
 
 	// FIXED: Close channel safely
@@ -301,7 +303,7 @@ func (sm *syncManager) Subscribe(handler func(*SyncResult)) error {
 	defer sm.mu.Unlock()
 
 	if sm.closed {
-		return fmt.Errorf("sync manager is closed")
+		return syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync manager is closed"))
 	}
 
 	sm.subscribers = append(sm.subscribers, handler)
@@ -328,14 +330,14 @@ func (sm *syncManager) Close() error {
 	// Close transport and store
 	var errs []error
 	if err := sm.transport.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("failed to close transport: %w", err))
+		errs = append(errs, syncErrors.NewWithComponent(syncErrors.OpClose, "transport", err))
 	}
 	if err := sm.store.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("failed to close store: %w", err))
+		errs = append(errs, syncErrors.NewWithComponent(syncErrors.OpClose, "store", err))
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("close errors: %v", errs)
+		return syncErrors.New(syncErrors.OpClose, fmt.Errorf("multiple close errors: %v", errs))
 	}
 
 	return nil
