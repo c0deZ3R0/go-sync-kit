@@ -147,7 +147,19 @@ func (m *MockTransport) Pull(ctx context.Context, since Version) ([]EventWithVer
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.events, nil
+	// Return all events if since is nil or zero
+	if since == nil || since.IsZero() {
+		return m.events, nil
+	}
+
+	// Filter events that are newer than the since version
+	var result []EventWithVersion
+	for _, ev := range m.events {
+		if ev.Version.Compare(since) > 0 {
+			result = append(result, ev)
+		}
+	}
+	return result, nil
 }
 
 func (m *MockTransport) Subscribe(ctx context.Context, handler func([]EventWithVersion) error) error {
@@ -273,3 +285,75 @@ func (m *MockConflictResolver) Resolve(ctx context.Context, local, remote []Even
 	return remote, nil // Use remote for simplicity
 }
 
+func TestMockTransport_Pull_SinceParameter(t *testing.T) {
+	// Create a new mock transport
+	transport := &MockTransport{}
+	ctx := context.Background()
+
+	// Create events with different timestamps
+	time1 := time.Now().Add(-2 * time.Hour)
+	time2 := time.Now().Add(-1 * time.Hour)
+	time3 := time.Now()
+
+	// Add events to transport
+	transport.events = []EventWithVersion{
+		{
+			Event:   &MockEvent{id: "1", typeName: "TestEvent"},
+			Version: &MockVersion{timestamp: time1},
+		},
+		{
+			Event:   &MockEvent{id: "2", typeName: "TestEvent"},
+			Version: &MockVersion{timestamp: time2},
+		},
+		{
+			Event:   &MockEvent{id: "3", typeName: "TestEvent"},
+			Version: &MockVersion{timestamp: time3},
+		},
+	}
+
+	// Test cases
+	tests := []struct {
+		name          string
+		since         Version
+		expectedCount int
+	}{
+		{
+			name:          "nil version returns all events",
+			since:         nil,
+			expectedCount: 3,
+		},
+		{
+			name:          "zero version returns all events",
+			since:         &MockVersion{timestamp: time.Time{}},
+			expectedCount: 3,
+		},
+		{
+			name:          "since first event returns two events",
+			since:         &MockVersion{timestamp: time1},
+			expectedCount: 2,
+		},
+		{
+			name:          "since second event returns one event",
+			since:         &MockVersion{timestamp: time2},
+			expectedCount: 1,
+		},
+		{
+			name:          "since last event returns no events",
+			since:         &MockVersion{timestamp: time3},
+			expectedCount: 0,
+		},
+	}
+
+	// Run test cases
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			events, err := transport.Pull(ctx, tc.since)
+			if err != nil {
+				t.Fatalf("Pull failed: %v", err)
+			}
+			if len(events) != tc.expectedCount {
+				t.Errorf("Expected %d events, got %d", tc.expectedCount, len(events))
+			}
+		})
+	}
+}
