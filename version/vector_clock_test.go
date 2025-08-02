@@ -130,19 +130,28 @@ func TestVectorClock_Increment(t *testing.T) {
 	vc := NewVectorClock()
 	
 	// Test incrementing a new node
-	vc.Increment("node-1")
+	err := vc.Increment("node-1")
+	if err != nil {
+		t.Errorf("Unexpected error on increment: %v", err)
+	}
 	if vc.GetClock("node-1") != 1 {
 		t.Errorf("Expected node-1 clock to be 1, got %d", vc.GetClock("node-1"))
 	}
 	
 	// Test incrementing an existing node
-	vc.Increment("node-1")
+	err = vc.Increment("node-1")
+	if err != nil {
+		t.Errorf("Unexpected error on increment: %v", err)
+	}
 	if vc.GetClock("node-1") != 2 {
 		t.Errorf("Expected node-1 clock to be 2, got %d", vc.GetClock("node-1"))
 	}
 	
 	// Test incrementing a different node
-	vc.Increment("node-2")
+	err = vc.Increment("node-2")
+	if err != nil {
+		t.Errorf("Unexpected error on increment: %v", err)
+	}
 	if vc.GetClock("node-2") != 1 {
 		t.Errorf("Expected node-2 clock to be 1, got %d", vc.GetClock("node-2"))
 	}
@@ -153,7 +162,10 @@ func TestVectorClock_Increment(t *testing.T) {
 	}
 	
 	// Test incrementing empty node ID (should be ignored)
-	vc.Increment("")
+	err = vc.Increment("")
+	if err == nil {
+		t.Errorf("Expected error on empty node ID, got none")
+	}
 	if vc.Size() != 2 {
 		t.Errorf("Empty node ID increment should be ignored, size should be 2, got %d", vc.Size())
 	}
@@ -203,7 +215,10 @@ func TestVectorClock_Merge(t *testing.T) {
 			vc1 := NewVectorClockFromMap(tt.clock1)
 			vc2 := NewVectorClockFromMap(tt.clock2)
 			
-			vc1.Merge(vc2)
+	err := vc1.Merge(vc2)
+			if err != nil {
+				t.Errorf("Unexpected error on merge: %v", err)
+			}
 			
 			for nodeID, expectedValue := range tt.expected {
 				if actualValue := vc1.GetClock(nodeID); actualValue != expectedValue {
@@ -455,7 +470,10 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		}
 		
 		// Node B creates event independently
-		vcB.Increment(nodeB)
+	err := vcB.Increment(nodeB)
+		if err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		
 		// A and B should be concurrent
 		if !vcA.IsConcurrentWith(vcB) {
@@ -463,8 +481,14 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		}
 		
 		// Node B receives A's event and merges
-		vcB.Merge(vcA)
-		vcB.Increment(nodeB) // B creates another event
+	err = vcB.Merge(vcA)
+		if err != nil {
+			t.Errorf("Unexpected error on merge: %v", err)
+		}
+		err = vcB.Increment(nodeB) // B creates another event
+		if err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		
 		// Now B should have happened after A's original state
 		if !vcB.HappenedAfter(vcA) {
@@ -472,7 +496,10 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		}
 		
 		// Node C joins and creates an event
-		vcC.Increment(nodeC)
+	err = vcC.Increment(nodeC)
+		if err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		
 		// C should be concurrent with both A and B
 		if !vcC.IsConcurrentWith(vcA) || !vcC.IsConcurrentWith(vcB) {
@@ -480,9 +507,18 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		}
 		
 		// Simulate a sync: C receives updates from A and B
-		vcC.Merge(vcA)
-		vcC.Merge(vcB)
-		vcC.Increment(nodeC) // C creates another event after sync
+	err = vcC.Merge(vcA)
+		if err != nil {
+			t.Errorf("Unexpected error on merge: %v", err)
+		}
+		err = vcC.Merge(vcB)
+		if err != nil {
+			t.Errorf("Unexpected error on merge: %v", err)
+		}
+		err = vcC.Increment(nodeC) // C creates another event after sync
+		if err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		
 		// Now C should have the most recent state
 		if !vcC.HappenedAfter(vcA) || !vcC.HappenedAfter(vcB) {

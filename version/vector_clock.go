@@ -10,6 +10,25 @@ import (
 	sync "github.com/c0deZ3R0/go-sync-kit"
 )
 
+// VectorClockError represents errors that can occur during vector clock operations
+type VectorClockError struct {
+	Msg string
+}
+
+func (e *VectorClockError) Error() string {
+	return e.Msg
+}
+
+// Vector clock constraints
+const (
+	// MaxNodeIDLength is the maximum allowed length for a node ID
+	MaxNodeIDLength = 255
+
+	// MaxNodes is the maximum number of nodes that can be tracked
+	// This prevents memory issues from unbounded growth
+	MaxNodes = 1000
+)
+
 // VectorClock implements the Version interface using a map of node IDs to logical clocks.
 // It is used to determine the partial ordering of events in a distributed system.
 // A vector clock can determine if one version happened-before, happened-after, or is
@@ -86,11 +105,27 @@ func NewVectorClockFromMap(clocks map[string]uint64) *VectorClock {
 //   clock := NewVectorClock()
 //   clock.Increment("node-1") // {"node-1": 1}
 //   clock.Increment("node-1") // {"node-1": 2}
-func (vc *VectorClock) Increment(nodeID string) {
+//
+// Returns an error if:
+// - The node ID is empty
+// - The node ID exceeds MaxNodeIDLength
+// - Adding this node would exceed MaxNodes
+func (vc *VectorClock) Increment(nodeID string) error {
 	if nodeID == "" {
-		return // Ignore empty node IDs
+		return &VectorClockError{Msg: "node ID cannot be empty"}
 	}
+
+	if len(nodeID) > MaxNodeIDLength {
+		return &VectorClockError{Msg: fmt.Sprintf("node ID length exceeds maximum of %d characters", MaxNodeIDLength)}
+	}
+
+	// Check if adding this node would exceed the maximum
+	if _, exists := vc.clocks[nodeID]; !exists && len(vc.clocks) >= MaxNodes {
+		return &VectorClockError{Msg: fmt.Sprintf("cannot track more than %d nodes", MaxNodes)}
+	}
+
 	vc.clocks[nodeID]++
+	return nil
 }
 
 // Merge combines this vector clock with another, taking the maximum clock value
@@ -104,16 +139,39 @@ func (vc *VectorClock) Increment(nodeID string) {
 //   clock1 := {"node-1": 2, "node-2": 1}
 //   clock2 := {"node-1": 1, "node-3": 2}
 //   clock1.Merge(clock2) results in {"node-1": 2, "node-2": 1, "node-3": 2}
-func (vc *VectorClock) Merge(other *VectorClock) {
+//
+// Returns an error if:
+// - The resulting merged clock would exceed MaxNodes
+// - Any node ID in the other clock exceeds MaxNodeIDLength
+func (vc *VectorClock) Merge(other *VectorClock) error {
 	if other == nil {
-		return
+		return nil
 	}
 
+	// Count how many new nodes would be added
+	newNodeCount := 0
+	for nodeID := range other.clocks {
+		if len(nodeID) > MaxNodeIDLength {
+			return &VectorClockError{Msg: fmt.Sprintf("other clock contains node ID exceeding maximum length of %d", MaxNodeIDLength)}
+		}
+		if _, exists := vc.clocks[nodeID]; !exists {
+			newNodeCount++
+		}
+	}
+
+	// Check if merging would exceed the maximum node limit
+	if len(vc.clocks)+newNodeCount > MaxNodes {
+		return &VectorClockError{Msg: fmt.Sprintf("merging would exceed maximum of %d nodes", MaxNodes)}
+	}
+
+	// Perform the merge
 	for nodeID, otherClock := range other.clocks {
 		if currentClock, exists := vc.clocks[nodeID]; !exists || otherClock > currentClock {
 			vc.clocks[nodeID] = otherClock
 		}
 	}
+
+	return nil
 }
 
 // Compare determines the causal relationship between two VectorClocks.
