@@ -67,7 +67,10 @@ func (vm *VectorClockManager) NextVersion(nodeID string) sync.Version {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	
-	vm.clock.Increment(nodeID)
+	err := vm.clock.Increment(nodeID)
+	if err != nil {
+		return nil
+	}
 	return vm.clock.Clone()
 }
 
@@ -84,8 +87,7 @@ func (vm *VectorClockManager) UpdateFromVersion(version sync.Version) error {
 	
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
-	vm.clock.Merge(vc)
-	return nil
+	return vm.clock.Merge(vc)
 }
 
 // Clone creates a copy of the version manager.
