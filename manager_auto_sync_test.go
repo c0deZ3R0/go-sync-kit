@@ -2,9 +2,135 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
+
+// contextAwareEventStore wraps mockEventStore to make it context-aware
+type contextAwareEventStore struct {
+	*mockEventStore
+	events []EventWithVersion
+}
+
+func (s *contextAwareEventStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return s.events, nil
+}
+
+// contextAwareTransport wraps mockTransport to make it context-aware
+type contextAwareTransport struct {
+	*mockTransport
+}
+
+func (t *contextAwareTransport) Push(ctx context.Context, events []EventWithVersion) error {
+	time.Sleep(5 * time.Millisecond) // Simulate work
+	return ctx.Err() // Return context error if cancelled
+}
+
+// mockEvent implements Event interface for testing
+type mockEvent struct {
+	id          string
+	eventType   string
+	aggregateID string
+	data        interface{}
+	metadata    map[string]interface{}
+}
+
+func (m *mockEvent) ID() string                       { return m.id }
+func (m *mockEvent) Type() string                     { return m.eventType }
+func (m *mockEvent) AggregateID() string             { return m.aggregateID }
+func (m *mockEvent) Data() interface{}                { return m.data }
+func (m *mockEvent) Metadata() map[string]interface{} { return m.metadata }
+
+// mockIntegerVersion implements Version interface for testing
+type mockIntegerVersion int64
+
+func (v mockIntegerVersion) Compare(other Version) int {
+    ov, ok := other.(mockIntegerVersion)
+    if !ok {
+        return -1
+    }
+    if v < ov {
+        return -1
+    }
+    if v > ov {
+        return 1
+    }
+    return 0
+}
+
+func (v mockIntegerVersion) String() string { return fmt.Sprintf("%d", v) }
+func (v mockIntegerVersion) IsZero() bool  { return v == 0 }
+
+func TestBatchProcessContextCancellation(t *testing.T) {
+    // Create many events to process
+    localEvents := make([]EventWithVersion, 1000)
+    for i := range localEvents {
+        localEvents[i] = EventWithVersion{
+            Event: &mockEvent{id: fmt.Sprintf("event-%d", i)},
+            Version: mockIntegerVersion(i),
+        }
+    }
+
+store := &contextAwareEventStore{
+        mockEventStore: &mockEventStore{},
+        events: localEvents,
+    }
+
+transport := &contextAwareTransport{
+        mockTransport: &mockTransport{},
+    }
+
+    sm := &syncManager{
+        store:     store,
+        transport: transport,
+        options: SyncOptions{
+            BatchSize: 1, // Small batch size to trigger multiple iterations
+        },
+    }
+
+    // Create a context that will be cancelled
+    ctx, cancel := context.WithCancel(context.Background())
+    go func() {
+        time.Sleep(10 * time.Millisecond)
+        cancel()
+    }()
+
+    // Try to push events
+    _, err := sm.push(ctx)
+    if err == nil {
+        t.Fatal("expected error on cancelled context")
+    }
+    // We expect the context.Canceled error to be wrapped in our error type
+    expected := "push operation failed in transport component: context canceled"
+    if err == nil || err.Error() != expected {
+        t.Errorf("expected error '%s', got: %v", expected, err)
+    }
+}
+
+func TestStartAutoSyncContextCancellation(t *testing.T) {
+    sm := &syncManager{
+        store:     &mockEventStore{},
+        transport: &mockTransport{},
+        options: SyncOptions{
+            SyncInterval: 50 * time.Millisecond,
+        },
+    }
+
+    ctx, cancel := context.WithCancel(context.Background())
+    cancel() // Immediately cancel the context
+
+    err := sm.StartAutoSync(ctx)
+    if err == nil {
+        t.Fatal("expected error on cancelled context")
+    }
+    if err != context.Canceled {
+        t.Errorf("expected context.Canceled error, got: %v", err)
+    }
+}
 
 func TestAutoSyncRaceCondition(t *testing.T) {
 	// Create a sync manager with a short sync interval

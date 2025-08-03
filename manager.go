@@ -157,18 +157,25 @@ return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
 		batchSize = 100
 	}
 
-	for i := 0; i < len(localEvents); i += batchSize {
-		end := i + batchSize
-		if end > len(localEvents) {
-			end = len(localEvents)
-		}
+    for i := 0; i < len(localEvents); i += batchSize {
+        // Check for context cancellation
+        select {
+        case <-ctx.Done():
+            return result, ctx.Err()
+        default:
+        }
 
-		batch := localEvents[i:end]
-		if err := sm.transport.Push(ctx, batch); err != nil {
-			return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
-		}
+        end := i + batchSize
+        if end > len(localEvents) {
+            end = len(localEvents)
+        }
 
-		result.EventsPushed += len(batch)
+        batch := localEvents[i:end]
+        if err := sm.transport.Push(ctx, batch); err != nil {
+            return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
+        }
+
+        result.EventsPushed += len(batch)
 	}
 
 	return result, nil
@@ -318,12 +325,19 @@ return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
 		}
 	}
 
-	// Store remote events locally
-	for _, ev := range remoteEvents {
-		if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
-			return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
-		}
-		result.EventsPulled++
+    // Store remote events locally
+    for _, ev := range remoteEvents {
+        // Check for context cancellation
+        select {
+        case <-ctx.Done():
+            return result, ctx.Err()
+        default:
+        }
+
+        if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
+            return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
+        }
+        result.EventsPulled++
 	}
 
 	// Get final remote version
@@ -373,10 +387,10 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 			case <-stopChan: // Use local copy to avoid race
 				return
 			case <-ticker.C:
-				// Create timeout context for each sync
-				syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				_, err := sm.Sync(syncCtx)
-				cancel() // Always cancel to free resources
+                // Create timeout context derived from parent context
+                syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+                _, err := sm.Sync(syncCtx)
+                cancel() // Always cancel to free resources
 				
 				if err != nil {
 					result := &SyncResult{
