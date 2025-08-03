@@ -178,8 +178,8 @@ func (m *MockReconnectingNotifier) Close() error {
 }
 
 func TestRealtimeSyncManager_Basic(t *testing.T) {
-	store := &MockEventStore{}
-	transport := &MockTransport{}
+store := &TestEventStore{}
+	transport := &TestTransport{}
 	notifier := NewMockRealtimeNotifier()
 	resolver := &MockConflictResolver{}
 
@@ -216,15 +216,9 @@ func TestRealtimeSyncManager_Basic(t *testing.T) {
 	}
 
 	// Create mock event
-	event1 := &MockEvent{
-		id:          "1",
-		typeName:    "TestEvent",
-		aggregateID: "agg1",
-		data:       "event data",
-		metadata:   map[string]interface{}{},
-	}
+event1 := &TestEvent{}
 
-	version1 := &MockVersion{timestamp: time.Now()}
+	version1 := &TestVersion{}
 	store.Store(ctx, event1, version1)
 
 	// Send notification
@@ -262,8 +256,8 @@ func TestRealtimeSyncManager_Basic(t *testing.T) {
 }
 
 func TestRealtimeSyncManager_NotificationFilter(t *testing.T) {
-	store := &MockEventStore{}
-	transport := &MockTransport{}
+store := &TestEventStore{}
+	transport := &TestTransport{}
 	notifier := NewMockRealtimeNotifier()
 	resolver := &MockConflictResolver{}
 
@@ -325,8 +319,8 @@ func TestRealtimeSyncManager_NotificationFilter(t *testing.T) {
 }
 
 func TestRealtimeSyncManager_Reconnection(t *testing.T) {
-	store := &MockEventStore{}
-	transport := &MockTransport{}
+store := &TestEventStore{}
+	transport := &TestTransport{}
 	notifier := NewMockReconnectingNotifier(2) // Fail first 2 attempts
 	resolver := &MockConflictResolver{}
 

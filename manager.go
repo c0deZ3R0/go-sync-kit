@@ -24,6 +24,7 @@ type syncManager struct {
 
 // Sync performs a bidirectional sync operation
 func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
+	start := time.Now()
 	sm.mu.RLock()
 	if sm.closed {
 		sm.mu.RUnlock()
@@ -37,6 +38,17 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
 		sm.notifySubscribers(result)
+		
+		// Record metrics
+		sm.options.MetricsCollector.RecordSyncDuration("full_sync", time.Since(start))
+		if len(result.Errors) == 0 {
+			sm.options.MetricsCollector.RecordSyncEvents(result.EventsPushed, result.EventsPulled)
+			if result.ConflictsResolved > 0 {
+				sm.options.MetricsCollector.RecordConflicts(result.ConflictsResolved)
+			}
+		} else {
+			sm.options.MetricsCollector.RecordSyncErrors("full_sync", "sync_failure")
+		}
 	}()
 
 	// Pull first to get latest remote changes
@@ -97,17 +109,25 @@ func (sm *syncManager) Pull(ctx context.Context) (*SyncResult, error) {
 }
 
 func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
+	start := time.Now()
 	result := &SyncResult{
 		StartTime: time.Now(),
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
+		
+		// Record push metrics
+		sm.options.MetricsCollector.RecordSyncDuration("push", time.Since(start))
+		if result.EventsPushed > 0 {
+			sm.options.MetricsCollector.RecordSyncEvents(result.EventsPushed, 0)
+		}
 	}()
 
 	// Get remote version efficiently
 	remoteVersion, err := sm.transport.GetLatestVersion(ctx)
 	if err != nil {
-		return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
+sm.options.MetricsCollector.RecordSyncErrors("push", "push_failure")
+return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
 	}
 
 	// Load local events since remote version
@@ -235,11 +255,21 @@ func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error
 }
 
 func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
+	start := time.Now()
 	result := &SyncResult{
 		StartTime: time.Now(),
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
+		
+		// Record pull metrics
+		sm.options.MetricsCollector.RecordSyncDuration("pull", time.Since(start))
+		if result.EventsPulled > 0 {
+			sm.options.MetricsCollector.RecordSyncEvents(0, result.EventsPulled)
+		}
+		if result.ConflictsResolved > 0 {
+			sm.options.MetricsCollector.RecordConflicts(result.ConflictsResolved)
+		}
 	}()
 
 	// Get local version
@@ -251,7 +281,8 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	// Pull remote events since our local version
 	remoteEvents, err := sm.transport.Pull(ctx, localVersion)
 	if err != nil {
-		return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
+sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
+return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
 	}
 
 	if len(remoteEvents) == 0 {

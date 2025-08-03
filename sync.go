@@ -142,6 +142,9 @@ type SyncOptions struct {
 
 	// EnableCompression enables data compression during transport
 	EnableCompression bool
+
+	// MetricsCollector for observability hooks (optional)
+	MetricsCollector MetricsCollector
 }
 
 // SyncManager coordinates the synchronization process between local and remote stores.
@@ -200,14 +203,20 @@ type SyncResult struct {
 func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions) SyncManager {
 	if opts == nil {
 		opts = &SyncOptions{
-		BatchSize: 100,
+			BatchSize: 100,
 			RetryConfig: &RetryConfig{
 				MaxAttempts:   3,
 				InitialDelay:  100 * time.Millisecond,
 				MaxDelay:      5 * time.Second,
 				Multiplier:    2.0,
 			},
+			MetricsCollector: &NoOpMetricsCollector{}, // Default no-op collector
 		}
+	}
+	
+	// Set default metrics collector if none provided
+	if opts.MetricsCollector == nil {
+		opts.MetricsCollector = &NoOpMetricsCollector{}
 	}
 	
 	return &syncManager{

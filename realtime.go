@@ -149,6 +149,7 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 		options = &RealtimeSyncOptions{
 			SyncOptions: SyncOptions{
 				BatchSize: 100,
+				MetricsCollector: &NoOpMetricsCollector{},
 			},
 			FallbackInterval: 30 * time.Second,
 			ReconnectBackoff: &ExponentialBackoff{
@@ -157,6 +158,11 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 				Multiplier:   2.0,
 			},
 		}
+	}
+	
+	// Ensure metrics collector is initialized
+	if options.SyncOptions.MetricsCollector == nil {
+		options.SyncOptions.MetricsCollector = &NoOpMetricsCollector{}
 	}
 	
 	return &realtimeSyncManager{
