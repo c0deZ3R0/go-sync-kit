@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -107,9 +108,9 @@ func TestSyncWithRetry_ContextCancelled(t *testing.T) {
 	}
 
 	err := sm.syncWithRetry(ctx, operation)
-	if err != context.Canceled {
-		t.Fatalf("expected context.Canceled, got %v", err)
-	}
+    if !errors.Is(err, context.Canceled) {
+        t.Fatalf("expected context.Canceled, got %v", err)
+    }
 }
 
 func TestSyncWithRetry_MaxRetriesExceeded(t *testing.T) {

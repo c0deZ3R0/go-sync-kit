@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -29,6 +30,14 @@ func (t *contextAwareTransport) Push(ctx context.Context, events []EventWithVers
 	time.Sleep(5 * time.Millisecond) // Simulate work
 	return ctx.Err() // Return context error if cancelled
 }
+
+// mockMetricsCollector implements MetricsCollector interface for testing
+type mockMetricsCollector struct{}
+
+func (m *mockMetricsCollector) RecordSyncDuration(operation string, duration time.Duration) {}
+func (m *mockMetricsCollector) RecordSyncEvents(pushed, pulled int) {}
+func (m *mockMetricsCollector) RecordConflicts(resolved int) {}
+func (m *mockMetricsCollector) RecordSyncErrors(operation, reason string) {}
 
 // mockEvent implements Event interface for testing
 type mockEvent struct {
@@ -89,6 +98,7 @@ transport := &contextAwareTransport{
         transport: transport,
         options: SyncOptions{
             BatchSize: 1, // Small batch size to trigger multiple iterations
+            MetricsCollector: &mockMetricsCollector{},
         },
     }
 
@@ -104,10 +114,9 @@ transport := &contextAwareTransport{
     if err == nil {
         t.Fatal("expected error on cancelled context")
     }
-    // We expect the context.Canceled error to be wrapped in our error type
-    expected := "push operation failed in transport component: context canceled"
-    if err == nil || err.Error() != expected {
-        t.Errorf("expected error '%s', got: %v", expected, err)
+    // Use errors.Is to check wrapped error
+    if !errors.Is(err, context.Canceled) {
+        t.Errorf("expected wrapped context.Canceled error, got: %v", err)
     }
 }
 
@@ -117,6 +126,7 @@ func TestStartAutoSyncContextCancellation(t *testing.T) {
         transport: &mockTransport{},
         options: SyncOptions{
             SyncInterval: 50 * time.Millisecond,
+            MetricsCollector: &mockMetricsCollector{},
         },
     }
 
@@ -127,7 +137,7 @@ func TestStartAutoSyncContextCancellation(t *testing.T) {
     if err == nil {
         t.Fatal("expected error on cancelled context")
     }
-    if err != context.Canceled {
+    if !errors.Is(err, context.Canceled) {
         t.Errorf("expected context.Canceled error, got: %v", err)
     }
 }
@@ -137,9 +147,10 @@ func TestAutoSyncRaceCondition(t *testing.T) {
 	sm := &syncManager{
 		store:     &mockEventStore{},
 		transport: &mockTransport{},
-		options: SyncOptions{
-			SyncInterval: 50 * time.Millisecond,
-		},
+        options: SyncOptions{
+            SyncInterval: 50 * time.Millisecond,
+            MetricsCollector: &mockMetricsCollector{},
+        },
 	}
 
 	// Test starting auto-sync multiple times (should fail after first)
