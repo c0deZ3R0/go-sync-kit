@@ -182,7 +182,9 @@ func main() {
 
 ## Release Notes
 
-This is the initial public release (v0.1.0) of **Go Sync Kit**. Here’s what you can expect:
+For more detailed release information, see the [CHANGELOG.v0.5.0.md](CHANGELOG.v0.5.0.md) file.
+
+This is the mature release (v0.5.0) of **Go Sync Kit**. Here’s what you can expect:
 
 - ✅ **Functional core features** ready for testing
 - ✅ **API design is solidifying** but may evolve
@@ -703,12 +705,12 @@ go test ./...
 - [x] Built-in transport implementations (HTTP)
 - [ ] Built-in transport implementations (gRPC, WebSocket)
 - [ ] Compression support for large event payloads
-- [ ] Metrics and observability hooks
+- [x] Metrics and observability hooks
 - [ ] Schema evolution support
 
 ## Contributing
 
-**We're actively seeking feedback and contributions!** As an early-stage project (v0.1.0), your input is especially valuable.
+**We're actively seeking feedback and contributions!** As a rapidly evolving project (v0.5.0), your input is especially valuable.
 
 ### Ways to Contribute:
 - **Try it out** and report your experience
