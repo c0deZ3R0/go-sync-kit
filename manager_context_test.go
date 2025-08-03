@@ -8,96 +8,53 @@ import (
 	"time"
 )
 
-// mockEventStore is a mock implementation of EventStore
-type mockEventStore struct {
-	events []EventWithVersion
-}
-
-func (s *mockEventStore) Store(ctx context.Context, event Event, version Version) error {
-	return nil
-}
-
-func (s *mockEventStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
-	return s.events, nil
-}
-
-func (s *mockEventStore) LatestVersion(ctx context.Context) (Version, error) {
-	if len(s.events) == 0 {
-		return mockIntegerVersion(0), nil
-	}
-	return s.events[len(s.events)-1].Version, nil
-}
-
-func (s *mockEventStore) Close() error {
-	return nil
-}
-
-// mockSlowStore simulates a slow database store
-type mockSlowStore struct {
+// slowOperationStore extends mockEventStore with delayed operations
+type slowOperationStore struct {
 	*mockEventStore
 	delay time.Duration
 }
 
-func (s *mockSlowStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
+func (s *slowOperationStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
 	select {
 	case <-time.After(s.delay):
-		return []EventWithVersion{}, nil
+		events := []EventWithVersion{
+			{Event: &mockEvent{id: "local-1"}, Version: mockIntegerVersion(1)},
+		}
+		return events, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-// mockTransport is a mock implementation of Transport
-type mockTransport struct {
-	events []EventWithVersion
-}
-
-func (t *mockTransport) Push(ctx context.Context, events []EventWithVersion) error {
-	return nil
-}
-
-func (t *mockTransport) Pull(ctx context.Context, version Version) ([]EventWithVersion, error) {
-	return t.events, nil
-}
-
-func (t *mockTransport) GetLatestVersion(ctx context.Context) (Version, error) {
-	if len(t.events) == 0 {
-		return mockIntegerVersion(0), nil
-	}
-	return t.events[len(t.events)-1].Version, nil
-}
-
-func (t *mockTransport) Close() error {
-	return nil
-}
-
-// mockSlowTransport simulates a slow transport
-type mockSlowTransport struct {
+// slowOperationTransport extends mockTransport with delayed operations
+type slowOperationTransport struct {
 	*mockTransport
 	delay time.Duration
 }
 
-func (t *mockSlowTransport) Pull(ctx context.Context, version Version) ([]EventWithVersion, error) {
+func (t *slowOperationTransport) Pull(ctx context.Context, version Version) ([]EventWithVersion, error) {
 	select {
 	case <-time.After(t.delay):
-		return []EventWithVersion{}, nil
+		events := []EventWithVersion{
+			{Event: &mockEvent{id: "remote-1"}, Version: mockIntegerVersion(2)},
+		}
+		return events, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-// mockMetricsRecorder captures metrics for testing
-type mockMetricsRecorder struct {
+type metricsRecorder struct {
 	contextCanceledCount atomic.Int64
 	timeoutCount        atomic.Int64
 	lastOperation       string
 	lastReason         string
 }
 
-func (m *mockMetricsRecorder) RecordSyncDuration(operation string, duration time.Duration) {}
-func (m *mockMetricsRecorder) RecordSyncEvents(pushed, pulled int) {}
-func (m *mockMetricsRecorder) RecordConflicts(resolved int) {}
-func (m *mockMetricsRecorder) RecordSyncErrors(operation, reason string) {
+func (m *metricsRecorder) RecordSyncDuration(operation string, duration time.Duration) {}
+func (m *metricsRecorder) RecordSyncEvents(pushed, pulled int) {}
+func (m *metricsRecorder) RecordConflicts(resolved int) {}
+func (m *metricsRecorder) RecordSyncErrors(operation, reason string) {
 	m.lastOperation = operation
 	m.lastReason = reason
 	if reason == "context_canceled" {
@@ -109,16 +66,15 @@ func (m *mockMetricsRecorder) RecordSyncErrors(operation, reason string) {
 }
 
 func TestPullContextTimeout(t *testing.T) {
-	// Create mock store and transport that are slow
-	store := &mockSlowStore{
+	store := &slowOperationStore{
 		mockEventStore: &mockEventStore{},
 		delay:         2 * time.Second,
 	}
-	transport := &mockSlowTransport{
+	transport := &slowOperationTransport{
 		mockTransport: &mockTransport{},
 		delay:         2 * time.Second,
 	}
-	metrics := &mockMetricsRecorder{}
+	metrics := &metricsRecorder{}
 
 	sm := &syncManager{
 		store:     store,
@@ -128,11 +84,9 @@ func TestPullContextTimeout(t *testing.T) {
 		},
 	}
 
-	// Use a context with a short timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	// Attempt to pull - should timeout
 	_, err := sm.Pull(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("expected DeadlineExceeded error, got: %v", err)
@@ -150,16 +104,15 @@ func TestPullContextTimeout(t *testing.T) {
 }
 
 func TestPullContextCancellation(t *testing.T) {
-	// Create mock store and transport
-	store := &mockSlowStore{
+	store := &slowOperationStore{
 		mockEventStore: &mockEventStore{},
 		delay:         2 * time.Second,
 	}
-	transport := &mockSlowTransport{
+	transport := &slowOperationTransport{
 		mockTransport: &mockTransport{},
 		delay:         2 * time.Second,
 	}
-	metrics := &mockMetricsRecorder{}
+	metrics := &metricsRecorder{}
 
 	sm := &syncManager{
 		store:     store,
@@ -169,14 +122,12 @@ func TestPullContextCancellation(t *testing.T) {
 		},
 	}
 
-	// Create a context and cancel it shortly after starting
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		cancel()
 	}()
 
-	// Attempt to pull - should be cancelled
 	_, err := sm.Pull(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected Canceled error, got: %v", err)
@@ -193,12 +144,11 @@ func TestPullContextCancellation(t *testing.T) {
 	}
 }
 
-// mockSlowConflictResolver simulates a slow conflict resolution process
-type mockSlowConflictResolver struct {
+type delayedResolver struct {
 	delay time.Duration
 }
 
-func (r *mockSlowConflictResolver) Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error) {
+func (r *delayedResolver) Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error) {
 	select {
 	case <-time.After(r.delay):
 		return remote, nil
@@ -208,21 +158,18 @@ func (r *mockSlowConflictResolver) Resolve(ctx context.Context, local, remote []
 }
 
 func TestConflictResolutionContextCancellation(t *testing.T) {
-	// Create mock components
-	store := &mockEventStore{
-		events: []EventWithVersion{
-			{Event: &mockEvent{id: "1"}, Version: mockIntegerVersion(1)},
-		},
+	store := &slowOperationStore{
+		mockEventStore: &mockEventStore{},
+		delay:         50 * time.Millisecond,
 	}
-	transport := &mockTransport{
-		events: []EventWithVersion{
-			{Event: &mockEvent{id: "2"}, Version: mockIntegerVersion(2)},
-		},
+	transport := &slowOperationTransport{
+		mockTransport: &mockTransport{},
+		delay:         50 * time.Millisecond,
 	}
-	resolver := &mockSlowConflictResolver{
+	resolver := &delayedResolver{
 		delay: 2 * time.Second,
 	}
-	metrics := &mockMetricsRecorder{}
+	metrics := &metricsRecorder{}
 
 	sm := &syncManager{
 		store:     store,
@@ -233,20 +180,17 @@ func TestConflictResolutionContextCancellation(t *testing.T) {
 		},
 	}
 
-	// Create a context and cancel it shortly after starting
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond) // Wait for pull and store to complete
 		cancel()
 	}()
 
-	// Attempt to pull - should be cancelled during conflict resolution
 	_, err := sm.Pull(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected Canceled error, got: %v", err)
 	}
 
-	// Verify metrics for conflict resolution cancellation
 	if metrics.contextCanceledCount.Load() == 0 {
 		t.Error("expected context cancelled metric to be recorded")
 	}
