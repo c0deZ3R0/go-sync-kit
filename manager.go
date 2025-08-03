@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
+	"errors"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 )
 
@@ -123,15 +123,25 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 		}
 	}()
 
-	// Get remote version efficiently
-	remoteVersion, err := sm.transport.GetLatestVersion(ctx)
-	if err != nil {
-sm.options.MetricsCollector.RecordSyncErrors("push", "push_failure")
-return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
-	}
+    // Create a timeout context for database and transport operations
+    opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+    defer cancel()
 
-	// Load local events since remote version
-	localEvents, err := sm.store.Load(ctx, remoteVersion)
+    // Get remote version efficiently
+    remoteVersion, err := sm.transport.GetLatestVersion(opCtx)
+    if err != nil {
+        if errors.Is(err, context.Canceled) {
+            sm.options.MetricsCollector.RecordSyncErrors("push", "context_canceled")
+        } else if errors.Is(err, context.DeadlineExceeded) {
+            sm.options.MetricsCollector.RecordSyncErrors("push", "timeout")
+        } else {
+            sm.options.MetricsCollector.RecordSyncErrors("push", "push_failure")
+        }
+        return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
+    }
+
+    // Load local events since remote version
+    localEvents, err := sm.store.Load(opCtx, remoteVersion)
 	if err != nil {
 		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
@@ -285,12 +295,22 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
 
-	// Pull remote events since our local version
-	remoteEvents, err := sm.transport.Pull(ctx, localVersion)
-	if err != nil {
-sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
-return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
-	}
+    // Create a timeout context for transport operations
+    opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+    defer cancel()
+
+    // Pull remote events since our local version
+    remoteEvents, err := sm.transport.Pull(opCtx, localVersion)
+    if err != nil {
+        if errors.Is(err, context.Canceled) {
+            sm.options.MetricsCollector.RecordSyncErrors("pull", "context_canceled")
+        } else if errors.Is(err, context.DeadlineExceeded) {
+            sm.options.MetricsCollector.RecordSyncErrors("pull", "timeout")
+        } else {
+            sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
+        }
+        return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
+    }
 
 	if len(remoteEvents) == 0 {
 		return result, nil // Nothing to pull
@@ -307,23 +327,41 @@ return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
 		remoteEvents = filtered
 	}
 
-	// Check for conflicts if we have a conflict resolver
-	if sm.options.ConflictResolver != nil {
-		// Load local events that might conflict
-		localEvents, err := sm.store.Load(ctx, localVersion)
-		if err != nil {
-			return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
-		}
+    // Check for conflicts if we have a conflict resolver
+    if sm.options.ConflictResolver != nil {
+        // Create a timeout context for database operations
+        dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+        defer cancel()
 
-		if len(localEvents) > 0 {
-			resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
-			if err != nil {
-				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
-			}
-			remoteEvents = resolvedEvents
-			result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
-		}
-	}
+        // Load local events that might conflict
+        localEvents, err := sm.store.Load(dbCtx, localVersion)
+        if err != nil {
+            if errors.Is(err, context.DeadlineExceeded) {
+                sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "db_timeout")
+            }
+            return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
+        }
+
+        if len(localEvents) > 0 {
+            // Check context before starting conflict resolution
+            select {
+            case <-ctx.Done():
+                sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
+                return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
+            default:
+            }
+
+            resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
+            if err != nil {
+                if errors.Is(err, context.Canceled) {
+                    sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
+                }
+                return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
+            }
+            remoteEvents = resolvedEvents
+            result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
+        }
+    }
 
     // Store remote events locally
     for _, ev := range remoteEvents {
