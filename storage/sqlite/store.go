@@ -265,12 +265,19 @@ func (s *SQLiteEventStore) setupSchema() error {
 // Note: This implementation ignores the 'version' parameter and relies on
 // SQLite's AUTOINCREMENT to assign a new, sequential version.
 func (s *SQLiteEventStore) Store(ctx context.Context, event sync.Event, version sync.Version) error {
-	// Check context deadline
-	if deadline, ok := ctx.Deadline(); ok {
-		if time.Until(deadline) < time.Second {
-			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
-		}
-	}
+    // Check for context cancellation at start
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    default:
+    }
+    
+    // Check context deadline
+    if deadline, ok := ctx.Deadline(); ok {
+        if time.Until(deadline) < time.Second {
+            return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+        }
+    }
 
 	s.mu.RLock()
 	if s.closed {

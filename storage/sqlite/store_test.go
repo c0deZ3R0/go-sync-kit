@@ -13,6 +13,29 @@ import (
 	sync "github.com/c0deZ3R0/go-sync-kit"
 )
 
+func TestStoreContextCancellation(t *testing.T) {
+    store, _ := NewWithDataSource(":memory:")
+    defer store.Close()
+
+    event := &MockEvent{
+        id:          "test-1",
+        eventType:   "TestEvent",
+        aggregateID: "agg-1",
+        data:        map[string]string{"key": "value"},
+    }
+
+    ctx, cancel := context.WithCancel(context.Background())
+    cancel() // Immediately cancel the context
+
+    err := store.Store(ctx, event, IntegerVersion(1))
+    if err == nil {
+        t.Fatal("expected error on cancelled context")
+    }
+    if err != context.Canceled {
+        t.Errorf("expected context.Canceled error, got: %v", err)
+    }
+}
+
 // MockEvent implements the sync.Event interface for testing
 type MockEvent struct {
 	id          string
