@@ -199,6 +199,38 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 	return events, nil
 }
 
+// GetLatestVersion fetches the latest version from the remote server.
+func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (sync.Version, error) {
+    url := fmt.Sprintf("%s/latest-version", t.baseURL)
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create request for latest version: %w", err))
+    }
+
+    resp, err := t.client.Do(req)
+    if err != nil {
+        return nil, syncErrors.NewRetryable(syncErrors.OpTransport, fmt.Errorf("network error while getting latest version: %w", err))
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        body, _ := io.ReadAll(resp.Body)
+        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
+    }
+
+    var versionStr string
+    if err := json.NewDecoder(resp.Body).Decode(&versionStr); err != nil {
+        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
+    }
+
+    version, err := sqlite.ParseVersion(versionStr)
+    if err != nil {
+        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
+    }
+
+    return version, nil
+}
+
 // Subscribe is not supported by this simple HTTP transport.
 // Real-time subscriptions would require WebSockets or gRPC streams.
 func (t *HTTPTransport) Subscribe(ctx context.Context, handler func([]sync.EventWithVersion) error) error {
@@ -234,6 +266,8 @@ func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handlePush(w, r)
 	case "/pull":
 		h.handlePull(w, r)
+	case "/latest-version":
+		h.handleLatestVersion(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -271,6 +305,22 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
 	respondWithJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+        return
+    }
+
+    version, err := h.store.LatestVersion(r.Context())
+    if err != nil {
+        h.logger.Printf("Error getting latest version: %v", err)
+        respondWithError(w, http.StatusInternalServerError, "could not get latest version")
+        return
+    }
+
+    respondWithJSON(w, http.StatusOK, version.String())
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {

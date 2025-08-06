@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "log"
+    "math/rand"
     "time"
 
     "github.com/c0deZ3R0/go-sync-kit"
@@ -100,8 +101,50 @@ func main() {
         log.Printf("Failed to store update event: %v", err)
     }
 
+    // Generate events every 10 seconds while disconnected
+    go generateClientEvents(store)
+
     // Keep client running
     select {}
+}
+
+// generateClientEvents creates new events every few seconds while server is unavailable
+func generateClientEvents(store *sqlite.SQLiteEventStore) {
+    ctx := context.Background()
+    ticker := time.NewTicker(10 * time.Second)
+    defer ticker.Stop()
+
+    contents := []string{
+        "Local note created during outage",
+        "Offline event added",
+        "Draft note created",
+        "Note updated offline",
+        "Temporary offline note",
+    }
+
+    eventCount := 1
+    for range ticker.C {
+        event := &NoteEvent{
+            eventID:       fmt.Sprintf("local_evt_%d_%d", time.Now().UnixNano(), eventCount),
+            eventType:     "offline_note",
+            noteID:        fmt.Sprintf("local_note_%d", eventCount),
+            content:       contents[rand.Intn(len(contents))],
+            timestamp:     time.Now(),
+            eventMetadata: map[string]interface{}{
+                "author": "client",
+                "status": "offline",
+            },
+        }
+
+        // Store the event
+        if err := store.Store(ctx, event, nil); err != nil {
+            log.Printf("Failed to store local event: %v", err)
+            continue
+        }
+
+        log.Printf("Local event created: %s (Note ID: %s)", event.content, event.noteID)
+        eventCount++
+    }
 }
 
 // LastWriteWinsResolver implements a simple conflict resolution strategy

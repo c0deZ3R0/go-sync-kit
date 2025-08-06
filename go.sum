@@ -1,2 +1,4 @@
+fyne.io/fyne/v2 v2.6.2 h1:RPgwmXWn+EuP/TKwO7w5p73ILVC26qHD9j3CZUZNwgM=
+fyne.io/fyne/v2 v2.6.2/go.mod h1:9IJ8uWgzfcMossFoUkLiOrUIEtaDvF4nML114WiCtXU=
 github.com/mattn/go-sqlite3 v1.14.30 h1:bVreufq3EAIG1Quvws73du3/QgdeZ3myglJlrzSYYCY=
 github.com/mattn/go-sqlite3 v1.14.30/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
