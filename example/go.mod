@@ -1,4 +1,4 @@
-module example
+module github.com/c0deZ3R0/go-sync-kit/example
 
 go 1.24.4
 

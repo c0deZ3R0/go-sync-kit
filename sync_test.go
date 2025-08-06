@@ -11,15 +11,15 @@ type mockEventWithDetails struct {
 	id          string
 	typeName    string
 	aggregateID string
-	data       interface{}
-	metadata   map[string]interface{}
+	data        interface{}
+	metadata    map[string]interface{}
 }
 
-func (m *mockEventWithDetails) ID() string                               { return m.id }
-func (m *mockEventWithDetails) Type() string                             { return m.typeName }
-func (m *mockEventWithDetails) AggregateID() string                      { return m.aggregateID }
-func (m *mockEventWithDetails) Data() interface{}                        { return m.data }
-func (m *mockEventWithDetails) Metadata() map[string]interface{}         { return m.metadata }
+func (m *mockEventWithDetails) ID() string                       { return m.id }
+func (m *mockEventWithDetails) Type() string                     { return m.typeName }
+func (m *mockEventWithDetails) AggregateID() string              { return m.aggregateID }
+func (m *mockEventWithDetails) Data() interface{}                { return m.data }
+func (m *mockEventWithDetails) Metadata() map[string]interface{} { return m.metadata }
 
 type mockVersionWithTimestamp struct {
 	TestVersion
@@ -58,11 +58,11 @@ func TestSyncManager_Push_GetLatestVersion(t *testing.T) {
 	// Add some events to transport with different versions
 	transportEvents := []EventWithVersion{
 		{
-			Event: &mockEventWithDetails{id: "1", typeName: "TestEvent"},
+			Event:   &mockEventWithDetails{id: "1", typeName: "TestEvent"},
 			Version: &mockVersionWithTimestamp{timestamp: time.Now().Add(-2 * time.Hour)},
 		},
 		{
-			Event: &mockEventWithDetails{id: "2", typeName: "TestEvent"},
+			Event:   &mockEventWithDetails{id: "2", typeName: "TestEvent"},
 			Version: &mockVersionWithTimestamp{timestamp: time.Now().Add(-1 * time.Hour)},
 		},
 	}
@@ -106,8 +106,8 @@ func TestSyncManager_Sync(t *testing.T) {
 		id:          "1",
 		typeName:    "TestEvent",
 		aggregateID: "agg1",
-		data:       "event data",
-		metadata:   map[string]interface{}{},
+		data:        "event data",
+		metadata:    map[string]interface{}{},
 	}
 
 	version1 := &mockVersionWithTimestamp{timestamp: time.Now()}

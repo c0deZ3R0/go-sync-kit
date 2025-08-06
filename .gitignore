@@ -43,3 +43,4 @@ __debug_bin
 # Test coverage
 coverage.txt
 coverage.html
+*.db*

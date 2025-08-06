@@ -2,10 +2,11 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-	"errors"
+
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 )
 
@@ -14,7 +15,7 @@ type syncManager struct {
 	store     EventStore
 	transport Transport
 	options   SyncOptions
-	
+
 	// Internal state
 	mu           sync.RWMutex
 	autoSyncStop chan struct{}
@@ -38,7 +39,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
 		sm.notifySubscribers(result)
-		
+
 		// Record metrics
 		sm.options.MetricsCollector.RecordSyncDuration("full_sync", time.Since(start))
 		if len(result.Errors) == 0 {
@@ -115,7 +116,7 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
-		
+
 		// Record push metrics
 		sm.options.MetricsCollector.RecordSyncDuration("push", time.Since(start))
 		if result.EventsPushed > 0 {
@@ -123,25 +124,25 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 		}
 	}()
 
-    // Create a timeout context for database and transport operations
-    opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-    defer cancel()
+	// Create a timeout context for database and transport operations
+	opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
-    // Get remote version efficiently
-    remoteVersion, err := sm.transport.GetLatestVersion(opCtx)
-    if err != nil {
-        if errors.Is(err, context.Canceled) {
-            sm.options.MetricsCollector.RecordSyncErrors("push", "context_canceled")
-        } else if errors.Is(err, context.DeadlineExceeded) {
-            sm.options.MetricsCollector.RecordSyncErrors("push", "timeout")
-        } else {
-            sm.options.MetricsCollector.RecordSyncErrors("push", "push_failure")
-        }
-        return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
-    }
+	// Get remote version efficiently
+	remoteVersion, err := sm.transport.GetLatestVersion(opCtx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			sm.options.MetricsCollector.RecordSyncErrors("push", "context_canceled")
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			sm.options.MetricsCollector.RecordSyncErrors("push", "timeout")
+		} else {
+			sm.options.MetricsCollector.RecordSyncErrors("push", "push_failure")
+		}
+		return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
+	}
 
-    // Load local events since remote version
-    localEvents, err := sm.store.Load(opCtx, remoteVersion)
+	// Load local events since remote version
+	localEvents, err := sm.store.Load(opCtx, remoteVersion)
 	if err != nil {
 		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
@@ -167,25 +168,25 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 		batchSize = 100
 	}
 
-    for i := 0; i < len(localEvents); i += batchSize {
-        // Check for context cancellation
-        select {
-        case <-ctx.Done():
-            return result, ctx.Err()
-        default:
-        }
+	for i := 0; i < len(localEvents); i += batchSize {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		default:
+		}
 
-        end := i + batchSize
-        if end > len(localEvents) {
-            end = len(localEvents)
-        }
+		end := i + batchSize
+		if end > len(localEvents) {
+			end = len(localEvents)
+		}
 
-        batch := localEvents[i:end]
-        if err := sm.transport.Push(ctx, batch); err != nil {
-            return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
-        }
+		batch := localEvents[i:end]
+		if err := sm.transport.Push(ctx, batch); err != nil {
+			return result, syncErrors.NewWithComponent(syncErrors.OpPush, "transport", err)
+		}
 
-        result.EventsPushed += len(batch)
+		result.EventsPushed += len(batch)
 	}
 
 	return result, nil
@@ -193,15 +194,15 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 
 type exponentialBackoff struct {
 	initialDelay time.Duration
-	maxDelay    time.Duration
-	multiplier  float64
+	maxDelay     time.Duration
+	multiplier   float64
 }
 
 func (eb *exponentialBackoff) nextDelay(attempt int) time.Duration {
 	if attempt < 0 {
 		attempt = 0
 	}
-	
+
 	// Calculate exponential delay: initialDelay * multiplier^attempt
 	delay := float64(eb.initialDelay)
 	if attempt > 0 {
@@ -209,13 +210,13 @@ func (eb *exponentialBackoff) nextDelay(attempt int) time.Duration {
 			delay *= eb.multiplier
 		}
 	}
-	
+
 	// Convert back to time.Duration and cap at maxDelay
 	result := time.Duration(delay)
 	if result > eb.maxDelay {
 		result = eb.maxDelay
 	}
-	
+
 	return result
 }
 
@@ -227,8 +228,8 @@ func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error
 	config := sm.options.RetryConfig
 	eb := &exponentialBackoff{
 		initialDelay: config.InitialDelay,
-		maxDelay:    config.MaxDelay,
-		multiplier:  config.Multiplier,
+		maxDelay:     config.MaxDelay,
+		multiplier:   config.Multiplier,
 	}
 
 	// Initial attempt, no delay
@@ -278,7 +279,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
-		
+
 		// Record pull metrics
 		sm.options.MetricsCollector.RecordSyncDuration("pull", time.Since(start))
 		if result.EventsPulled > 0 {
@@ -295,22 +296,22 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
 
-    // Create a timeout context for transport operations
-    opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-    defer cancel()
+	// Create a timeout context for transport operations
+	opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
-    // Pull remote events since our local version
-    remoteEvents, err := sm.transport.Pull(opCtx, localVersion)
-    if err != nil {
-        if errors.Is(err, context.Canceled) {
-            sm.options.MetricsCollector.RecordSyncErrors("pull", "context_canceled")
-        } else if errors.Is(err, context.DeadlineExceeded) {
-            sm.options.MetricsCollector.RecordSyncErrors("pull", "timeout")
-        } else {
-            sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
-        }
-        return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
-    }
+	// Pull remote events since our local version
+	remoteEvents, err := sm.transport.Pull(opCtx, localVersion)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			sm.options.MetricsCollector.RecordSyncErrors("pull", "context_canceled")
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			sm.options.MetricsCollector.RecordSyncErrors("pull", "timeout")
+		} else {
+			sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
+		}
+		return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
+	}
 
 	if len(remoteEvents) == 0 {
 		return result, nil // Nothing to pull
@@ -327,55 +328,55 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		remoteEvents = filtered
 	}
 
-    // Check for conflicts if we have a conflict resolver
-    if sm.options.ConflictResolver != nil {
-        // Create a timeout context for database operations
-        dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-        defer cancel()
+	// Check for conflicts if we have a conflict resolver
+	if sm.options.ConflictResolver != nil {
+		// Create a timeout context for database operations
+		dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
 
-        // Load local events that might conflict
-        localEvents, err := sm.store.Load(dbCtx, localVersion)
-        if err != nil {
-            if errors.Is(err, context.DeadlineExceeded) {
-                sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "db_timeout")
-            }
-            return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
-        }
+		// Load local events that might conflict
+		localEvents, err := sm.store.Load(dbCtx, localVersion)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "db_timeout")
+			}
+			return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
+		}
 
-        if len(localEvents) > 0 {
-            // Check context before starting conflict resolution
-            select {
-            case <-ctx.Done():
-                sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
-                return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
-            default:
-            }
+		if len(localEvents) > 0 {
+			// Check context before starting conflict resolution
+			select {
+			case <-ctx.Done():
+				sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
+				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
+			default:
+			}
 
-            resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
-            if err != nil {
-                if errors.Is(err, context.Canceled) {
-                    sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
-                }
-                return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
-            }
-            remoteEvents = resolvedEvents
-            result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
-        }
-    }
+			resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
+				}
+				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
+			}
+			remoteEvents = resolvedEvents
+			result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
+		}
+	}
 
-    // Store remote events locally
-    for _, ev := range remoteEvents {
-        // Check for context cancellation
-        select {
-        case <-ctx.Done():
-            return result, ctx.Err()
-        default:
-        }
+	// Store remote events locally
+	for _, ev := range remoteEvents {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		default:
+		}
 
-        if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
-            return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
-        }
-        result.EventsPulled++
+		if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
+			return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
+		}
+		result.EventsPulled++
 	}
 
 	// Get final remote version
@@ -425,11 +426,11 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 			case <-stopChan: // Use local copy to avoid race
 				return
 			case <-ticker.C:
-                // Create timeout context derived from parent context
-                syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-                _, err := sm.Sync(syncCtx)
-                cancel() // Always cancel to free resources
-				
+				// Create timeout context derived from parent context
+				syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				_, err := sm.Sync(syncCtx)
+				cancel() // Always cancel to free resources
+
 				if err != nil {
 					result := &SyncResult{
 						StartTime: time.Now(),
@@ -516,7 +517,7 @@ func (sm *syncManager) notifySubscribers(result *SyncResult) {
 		go func(h func(*SyncResult)) {
 			defer func() {
 				if r := recover(); r != nil {
-					// Log panic from subscriber, but don't crash
+					//TODO: Log panic from subscriber, but don't crash
 				}
 			}()
 			h(result)

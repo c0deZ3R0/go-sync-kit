@@ -51,8 +51,12 @@ func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
 
 // fromJSONEvent converts JSONEvent to a concrete Event implementation
 func fromJSONEvent(je JSONEvent) sync.Event {
-	return &sqlite.StoredEvent{
-		// We need to access the private fields, so let's create a simple event struct instead
+	return &SimpleEvent{
+		IDValue:          je.ID,
+		TypeValue:        je.Type,
+		AggregateIDValue: je.AggregateID,
+		DataValue:        je.Data,
+		MetadataValue:    je.Metadata,
 	}
 }
 
@@ -261,7 +265,13 @@ func NewSyncHandler(store sync.EventStore, logger *log.Logger) *SyncHandler {
 
 // ServeHTTP routes requests to the appropriate handler (/push or /pull).
 func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
+	// Strip the /sync prefix if present
+	path := r.URL.Path
+	if p := "/sync"; len(path) >= len(p) && path[:len(p)] == p {
+		path = path[len(p):]
+	}
+
+	switch path {
 	case "/push":
 		h.handlePush(w, r)
 	case "/pull":

@@ -11,8 +11,8 @@ import (
 // TestEvent implements Event interface for testing
 type TestEvent struct{}
 
-func (m *TestEvent) ID() string                        { return "test-id" }
-func (m *TestEvent) Type() string                      { return "test-type" }
+func (m *TestEvent) ID() string                       { return "test-id" }
+func (m *TestEvent) Type() string                     { return "test-type" }
 func (m *TestEvent) AggregateID() string              { return "test-aggregate" }
 func (m *TestEvent) Data() interface{}                { return nil }
 func (m *TestEvent) Metadata() map[string]interface{} { return nil }
@@ -22,7 +22,7 @@ type TestVersion struct{}
 
 func (m *TestVersion) Compare(_ Version) int { return 0 }
 func (m *TestVersion) String() string        { return "test" }
-func (m *TestVersion) IsZero() bool         { return false }
+func (m *TestVersion) IsZero() bool          { return false }
 
 // TestEventStore implements a simple in-memory event store for testing
 type TestEventStore struct {
@@ -57,8 +57,8 @@ func (m *TestEventStore) Close() error {
 // TestTransport implements a simple transport for testing
 type TestTransport struct {
 	shouldError bool
-	events []EventWithVersion
-	mu     sync.Mutex
+	events      []EventWithVersion
+	mu          sync.Mutex
 }
 
 func (m *TestTransport) Push(ctx context.Context, events []EventWithVersion) error {
@@ -75,15 +75,15 @@ func (m *TestTransport) Pull(ctx context.Context, since Version) ([]EventWithVer
 	if m.shouldError {
 		return nil, syncErrors.New(syncErrors.OpPull, nil)
 	}
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Return all events if since is nil or zero
 	if since == nil || since.IsZero() {
 		return m.events, nil
 	}
-	
+
 	// Filter events that are newer than the since version
 	var result []EventWithVersion
 	for _, ev := range m.events {
@@ -97,11 +97,11 @@ func (m *TestTransport) Pull(ctx context.Context, since Version) ([]EventWithVer
 func (m *TestTransport) GetLatestVersion(ctx context.Context) (Version, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if len(m.events) == 0 {
 		return &TestVersion{}, nil
 	}
-	
+
 	// Find the latest version
 	latest := m.events[0].Version
 	for _, ev := range m.events[1:] {

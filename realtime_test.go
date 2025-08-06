@@ -11,9 +11,9 @@ import (
 // MockRealtimeNotifier is an in-memory implementation of RealtimeNotifier
 // used for testing real-time sync functionality
 type MockRealtimeNotifier struct {
-	mu           sync.RWMutex
-	subscribed   bool
-	handler      NotificationHandler
+	mu            sync.RWMutex
+	subscribed    bool
+	handler       NotificationHandler
 	notifications chan Notification
 }
 
@@ -42,7 +42,7 @@ func (m *MockRealtimeNotifier) Subscribe(ctx context.Context, handler Notificati
 				m.mu.RLock()
 				h := m.handler
 				m.mu.RUnlock()
-				
+
 				if h != nil {
 					if err := h(notification); err != nil {
 						// Log error
@@ -120,7 +120,7 @@ func (m *MockReconnectingNotifier) Subscribe(ctx context.Context, handler Notifi
 
 	// Store handler under lock
 	m.handler = handler
-	
+
 	go func() {
 		for {
 			select {
@@ -129,7 +129,7 @@ func (m *MockReconnectingNotifier) Subscribe(ctx context.Context, handler Notifi
 				m.mu.RLock()
 				h := m.handler
 				m.mu.RUnlock()
-				
+
 				if h != nil {
 					if err := h(notification); err != nil {
 						// Log error
@@ -178,22 +178,22 @@ func (m *MockReconnectingNotifier) Close() error {
 }
 
 func TestRealtimeSyncManager_Basic(t *testing.T) {
-store := &TestEventStore{}
+	store := &TestEventStore{}
 	transport := &TestTransport{}
 	notifier := NewMockRealtimeNotifier()
 	resolver := &MockConflictResolver{}
 
 	options := &RealtimeSyncOptions{
 		SyncOptions: SyncOptions{
-			BatchSize: 10,
+			BatchSize:        10,
 			ConflictResolver: resolver,
 		},
 		RealtimeNotifier: notifier,
 		FallbackInterval: 100 * time.Millisecond,
 		ReconnectBackoff: &ExponentialBackoff{
 			InitialDelay: 10 * time.Millisecond,
-			MaxDelay: 100 * time.Millisecond,
-			Multiplier: 2.0,
+			MaxDelay:     100 * time.Millisecond,
+			Multiplier:   2.0,
 		},
 	}
 
@@ -216,7 +216,7 @@ store := &TestEventStore{}
 	}
 
 	// Create mock event
-event1 := &TestEvent{}
+	event1 := &TestEvent{}
 
 	version1 := &TestVersion{}
 	store.Store(ctx, event1, version1)
@@ -256,7 +256,7 @@ event1 := &TestEvent{}
 }
 
 func TestRealtimeSyncManager_NotificationFilter(t *testing.T) {
-store := &TestEventStore{}
+	store := &TestEventStore{}
 	transport := &TestTransport{}
 	notifier := NewMockRealtimeNotifier()
 	resolver := &MockConflictResolver{}
@@ -268,7 +268,7 @@ store := &TestEventStore{}
 
 	options := &RealtimeSyncOptions{
 		SyncOptions: SyncOptions{
-			BatchSize: 10,
+			BatchSize:        10,
 			ConflictResolver: resolver,
 		},
 		RealtimeNotifier:   notifier,
@@ -319,14 +319,14 @@ store := &TestEventStore{}
 }
 
 func TestRealtimeSyncManager_Reconnection(t *testing.T) {
-store := &TestEventStore{}
+	store := &TestEventStore{}
 	transport := &TestTransport{}
 	notifier := NewMockReconnectingNotifier(2) // Fail first 2 attempts
 	resolver := &MockConflictResolver{}
 
 	options := &RealtimeSyncOptions{
 		SyncOptions: SyncOptions{
-			BatchSize: 10,
+			BatchSize:        10,
 			ConflictResolver: resolver,
 		},
 		RealtimeNotifier: notifier,
