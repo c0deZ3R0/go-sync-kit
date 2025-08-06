@@ -51,6 +51,36 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 go get github.com/c0deZ3R0/go-sync-kit
 ```
 
+## Basic Example
+
+Go Sync Kit includes a complete basic example that demonstrates core functionality with a real-time web dashboard. This example serves as a foundation for more complex implementations.
+
+![Example Dashboard](example/dashboard.png)
+
+### Running the Example
+
+```bash
+# Clone the repository
+git clone https://github.com/c0deZ3R0/go-sync-kit
+cd go-sync-kit
+
+# Run the example
+cd example
+go run .
+
+# Open the dashboard
+open http://localhost:8080
+```
+
+The example includes:
+- Real-time event synchronization
+- Live monitoring dashboard
+- Event terminal with metadata
+- Metrics collection and display
+- Basic conflict resolution
+
+See the [example README](example/README.md) for more details about the implementation and how to extend it.
+
 ## Quick Start
 
 ```go
