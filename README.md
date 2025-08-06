@@ -224,63 +224,11 @@ func main() {
 ```
 
 
-## Release Notes
+## Release Information
 
-### v0.6.0 (Latest)
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-This release introduces a comprehensive example that demonstrates the core features of Go Sync Kit through a real-time web dashboard. The example serves as a reference implementation and foundation for building more complex event synchronization systems.
-
-**Key Components:**
-- ✨ **Reference Implementation**: Complete example with real-time dashboard
-- 🎯 **Event Terminal**: Demonstrates versioning and metadata handling
-- 📊 **Metrics Display**: Shows sync performance and statistics
-- 🌐 **HTTP Transport**: Full client-server implementation
-- 💾 **SQLite Storage**: WAL mode for better concurrency
-- 🔄 **Auto-sync**: Configurable intervals and batching
-- 📝 **Event Tracking**: Version and metadata handling
-
-**Core Features Demonstrated:**
-- Event-driven architecture patterns
-- Real-time synchronization
-- Vector clock versioning
-- Conflict resolution strategies
-- Metrics collection and monitoring
-- Error handling and recovery
-- Production-ready practices
-
-### v0.5.0
-
-**Major Enhancements:**
-- ✅ **Enhanced Context Support**: Comprehensive context handling with timeouts and cancellation
-- ✅ **Improved Error System**: New error handling with codes and metadata
-- ✅ **Advanced Vector Clocks**: Enhanced implementation with validation and safety limits
-- ✅ **Builder Pattern**: New builder methods for configuration and validation
-- ✅ **Metrics System**: Built-in metrics collection for sync operations
-
-**Reliability & Safety:**
-- 🔒 **Context Awareness**: All operations now properly respect context cancellation
-- 🔒 **Race Condition Fixes**: Multiple fixes for concurrent operation safety
-- 🔒 **Safety Limits**: New configurable limits to prevent resource exhaustion
-- 📊 **Metrics Collection**: Performance and operation tracking built-in
-- 🧪 **Comprehensive Tests**: Over 90% test coverage with context and concurrency testing
-
-**Bug Fixes:**
-- Fixed race conditions in real-time sync implementation
-- Improved error handling with better error codes
-- Fixed exponential backoff delay calculation
-- Ensured metrics collector initialization
-- Fixed mock transport since parameter handling
-
-### Previous Releases
-
-#### v0.4.0
-- Complete vector clock implementation for distributed systems
-- VersionedStore decorator with pluggable versioning strategies
-- VectorClockManager with automatic causal ordering
-- Thread-safe operations with proper synchronization
-- Comprehensive test suite with 92.3% coverage
-
-Your feedback and contributions are invaluable as we work towards a stable v1.0.0 release. Try it out, report issues, suggest improvements, and help shape the future of Go Sync Kit!
+Latest version: **v0.6.0** - Introduces a comprehensive example with real-time dashboard demonstrating Go Sync Kit's core features.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
