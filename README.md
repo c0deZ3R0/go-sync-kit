@@ -800,7 +800,7 @@ go test ./...
 
 ## Contributing
 
-**We're actively seeking feedback and contributions!** As a project in active development (v0.5.0), your input is especially valuable.
+**We're actively seeking feedback and contributions!** As a project in active development (v0.6.0), your input is especially valuable.
 
 ### Ways to Contribute:
 - **Try it out** and report your experience

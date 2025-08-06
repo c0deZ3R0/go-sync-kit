@@ -2,7 +2,7 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
-## [v0.5.0] - 2025-08-06
+## [v0.6.0] - 2025-08-06
 
 ### Added
 - ✨ **Real-time Event Terminal**: Live event monitoring with metadata display
