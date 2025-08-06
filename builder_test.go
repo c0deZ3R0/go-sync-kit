@@ -109,7 +109,7 @@ func TestSyncManagerBuilder(t *testing.T) {
 		}
 	})
 
-t.Run("configures validation and compression options", func(t *testing.T) {
+	t.Run("configures validation and compression options", func(t *testing.T) {
 		timeout := 30 * time.Second
 
 		manager, err := NewSyncManagerBuilder().

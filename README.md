@@ -19,23 +19,67 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 
 ## Features
 
+### Core Features
 - **Event-Driven Architecture**: Built around append-only event streams
 - **Offline-First**: Full support for offline operation with automatic sync when reconnected
 - **Pluggable Components**: Interfaces for storage, transport, versioning, and conflict resolution
 - **Conflict Resolution**: Multiple strategies including last-write-wins, merge, and custom resolvers
 - **Concurrent Safe**: Thread-safe operations with proper synchronization
+
+### Transport & Storage
 - **Transport Agnostic**: Works with HTTP, gRPC, WebSockets, NATS, or any custom transport
 - **Storage Agnostic**: Compatible with SQLite, BadgerDB, PostgreSQL, or any storage backend
-- **Automatic Sync**: Configurable periodic synchronization
+- **Advanced Vector Clocks**: Enhanced vector clock implementation with validation and safety limits
+- **Context Aware**: Full context support with timeouts and cancellation for all operations
+
+### Performance & Reliability
+- **Improved Error Handling**: Enhanced error system with error codes and metadata
+- **Metrics Collection**: Built-in metrics tracking for sync operations and performance monitoring
+- **Automatic Sync**: Configurable periodic synchronization with exponential backoff
+- **Efficient Batching**: Optimized batch processing for large event sets
+- **Comprehensive Testing**: Over 90% test coverage with context and race condition testing
+
+### Configuration & Safety
+- **Builder Pattern**: Enhanced builder with validation, timeouts, and compression options
 - **Filtering**: Sync only specific events based on custom filters
-- **Batching**: Efficient batch processing for large event sets
-- **Configurable Options**: New builder methods allow enabling validation, setting sync timeouts, and enabling compression for transport
+- **Safety Limits**: Configurable limits to prevent resource exhaustion
+- **Validation Options**: Built-in validation for sync parameters and configurations
 
 ## Installation
 
 ```bash
 go get github.com/c0deZ3R0/go-sync-kit
 ```
+
+## Basic Example
+
+Go Sync Kit includes a complete basic example that demonstrates core functionality with a real-time web dashboard. This example serves as a foundation for more complex implementations.
+
+![Example Dashboard](example/dashboard.png)
+
+### Running the Example
+
+```bash
+# Clone the repository
+git clone https://github.com/c0deZ3R0/go-sync-kit
+cd go-sync-kit
+
+# Run the example
+cd example
+go run .
+
+# Open the dashboard
+open http://localhost:8080
+```
+
+The example includes:
+- Real-time event synchronization
+- Live monitoring dashboard
+- Event terminal with metadata
+- Metrics collection and display
+- Basic conflict resolution
+
+See the [example README](example/README.md) for more details about the implementation and how to extend it.
 
 ## Quick Start
 
@@ -182,14 +226,38 @@ func main() {
 
 ## Release Notes
 
-For more detailed release information, see the [CHANGELOG.v0.5.0.md](CHANGELOG.v0.5.0.md) file.
+### v0.5.0 (Latest)
+>>>>>>> feature/realtime-sync-example
 
-This is the mature release (v0.5.0) of **Go Sync Kit**. Here’s what you can expect:
+**Major Enhancements:**
+- ✅ **Enhanced Context Support**: Comprehensive context handling with timeouts and cancellation
+- ✅ **Improved Error System**: New error handling with codes and metadata
+- ✅ **Advanced Vector Clocks**: Enhanced implementation with validation and safety limits
+- ✅ **Builder Pattern**: New builder methods for configuration and validation
+- ✅ **Metrics System**: Built-in metrics collection for sync operations
 
-- ✅ **Functional core features** ready for testing
-- ✅ **API design is solidifying** but may evolve
-- ✅ **Seeking feedback** from early adopters
-- ✅ **Not for production-critical applications** yet
+**Reliability & Safety:**
+- 🔒 **Context Awareness**: All operations now properly respect context cancellation
+- 🔒 **Race Condition Fixes**: Multiple fixes for concurrent operation safety
+- 🔒 **Safety Limits**: New configurable limits to prevent resource exhaustion
+- 📊 **Metrics Collection**: Performance and operation tracking built-in
+- 🧪 **Comprehensive Tests**: Over 90% test coverage with context and concurrency testing
+
+**Bug Fixes:**
+- Fixed race conditions in real-time sync implementation
+- Improved error handling with better error codes
+- Fixed exponential backoff delay calculation
+- Ensured metrics collector initialization
+- Fixed mock transport since parameter handling
+
+### Previous Releases
+
+#### v0.4.0
+- Complete vector clock implementation for distributed systems
+- VersionedStore decorator with pluggable versioning strategies
+- VectorClockManager with automatic causal ordering
+- Thread-safe operations with proper synchronization
+- Comprehensive test suite with 92.3% coverage
 
 Your feedback and contributions are invaluable as we work towards a stable v1.0.0 release. Try it out, report issues, suggest improvements, and help shape the future of Go Sync Kit!
 
@@ -699,18 +767,40 @@ go test ./...
 
 ## Roadmap
 
+### Completed ✅
+- [x] **Enhanced Context Support** - Comprehensive context handling with timeouts and cancellation
+- [x] **Advanced Vector Clocks** - Complete implementation with validation and safety limits
 - [x] **SQLite EventStore** - Production-ready SQLite implementation with WAL support
 - [x] **Vector Clock Versioning** - Complete implementation with VersionedStore decorator
-- [ ] Built-in storage implementations (BadgerDB, PostgreSQL)
-- [x] Built-in transport implementations (HTTP)
-- [ ] Built-in transport implementations (gRPC, WebSocket)
-- [ ] Compression support for large event payloads
-- [x] Metrics and observability hooks
-- [ ] Schema evolution support
+- [x] **HTTP Transport** - Production-ready HTTP transport with context support
+- [x] **Metrics Collection** - Built-in metrics tracking for sync operations
+- [x] **Error System** - Enhanced error handling with codes and metadata
+- [x] **Builder Pattern** - Improved configuration with validation
+
+### Next Up 🚀
+- [ ] **Storage Implementations**
+  - [ ] BadgerDB store with atomic operations
+  - [ ] PostgreSQL store with LISTEN/NOTIFY
+  - [ ] Redis store with pub/sub support
+- [ ] **Transport Layer**
+  - [ ] gRPC transport with streaming
+  - [ ] WebSocket transport for real-time sync
+  - [ ] NATS transport for event streaming
+- [ ] **Performance**
+  - [ ] Compression support for large payloads
+  - [ ] Connection pooling for databases
+  - [ ] Batch operation optimizations
+
+### Future Plans 🔮
+- [ ] **Schema Evolution** - Support for data model changes
+- [ ] **GraphQL Transport** - Support for GraphQL subscriptions
+- [ ] **Observability** - OpenTelemetry integration
+- [ ] **Security** - Built-in encryption and access control
+- [ ] **Clustering** - Support for node discovery and gossip protocols
 
 ## Contributing
 
-**We're actively seeking feedback and contributions!** As a rapidly evolving project (v0.5.0), your input is especially valuable.
+**We're actively seeking feedback and contributions!** As a project in active development (v0.5.0), your input is especially valuable.
 
 ### Ways to Contribute:
 - **Try it out** and report your experience

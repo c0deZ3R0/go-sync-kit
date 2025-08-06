@@ -13,16 +13,16 @@ import (
 type Event interface {
 	// ID returns a unique identifier for this event
 	ID() string
-	
+
 	// Type returns the event type (e.g., "UserCreated", "OrderUpdated")
 	Type() string
-	
+
 	// AggregateID returns the ID of the aggregate this event belongs to
 	AggregateID() string
-	
+
 	// Data returns the event payload
 	Data() interface{}
-	
+
 	// Metadata returns additional event metadata
 	Metadata() map[string]interface{}
 }
@@ -32,10 +32,10 @@ type Event interface {
 type Version interface {
 	// Compare returns -1 if this version is before other, 0 if equal, 1 if after
 	Compare(other Version) int
-	
+
 	// String returns a string representation of the version
 	String() string
-	
+
 	// IsZero returns true if this is the zero/initial version
 	IsZero() bool
 }
@@ -45,20 +45,20 @@ type Version interface {
 type EventStore interface {
 	// Store persists an event to the store
 	Store(ctx context.Context, event Event, version Version) error
-	
+
 	// Load retrieves all events since the given version
 	Load(ctx context.Context, since Version) ([]EventWithVersion, error)
-	
+
 	// LoadByAggregate retrieves events for a specific aggregate since the given version
 	LoadByAggregate(ctx context.Context, aggregateID string, since Version) ([]EventWithVersion, error)
-	
+
 	// LatestVersion returns the latest version in the store
 	LatestVersion(ctx context.Context) (Version, error)
-	
+
 	// ParseVersion converts a string representation into a Version
 	// This allows different storage implementations to handle their own version formats
 	ParseVersion(ctx context.Context, versionStr string) (Version, error)
-	
+
 	// Close closes the store and releases resources
 	Close() error
 }
@@ -82,16 +82,16 @@ type ConflictResolver interface {
 type Transport interface {
 	// Push sends events to the remote endpoint
 	Push(ctx context.Context, events []EventWithVersion) error
-	
+
 	// Pull retrieves events from the remote endpoint since the given version
 	Pull(ctx context.Context, since Version) ([]EventWithVersion, error)
-	
+
 	// GetLatestVersion efficiently retrieves the latest version from remote without pulling events
 	GetLatestVersion(ctx context.Context) (Version, error)
-	
+
 	// Subscribe listens for real-time updates (optional for polling-based transports)
 	Subscribe(ctx context.Context, handler func([]EventWithVersion) error) error
-	
+
 	// Close closes the transport connection
 	Close() error
 }
@@ -115,19 +115,19 @@ type RetryConfig struct {
 type SyncOptions struct {
 	// PushOnly indicates this client should only push events, not pull
 	PushOnly bool
-	
+
 	// PullOnly indicates this client should only pull events, not push
 	PullOnly bool
-	
+
 	// ConflictResolver to use for handling conflicts
 	ConflictResolver ConflictResolver
-	
+
 	// Filter can be used to sync only specific events
 	Filter func(Event) bool
-	
+
 	// BatchSize limits how many events to sync at once
 	BatchSize int
-	
+
 	// SyncInterval for automatic periodic sync (0 disables)
 	SyncInterval time.Duration
 
@@ -152,22 +152,22 @@ type SyncOptions struct {
 type SyncManager interface {
 	// Sync performs a bidirectional sync operation
 	Sync(ctx context.Context) (*SyncResult, error)
-	
+
 	// Push sends local events to remote
 	Push(ctx context.Context) (*SyncResult, error)
-	
+
 	// Pull retrieves remote events to local
 	Pull(ctx context.Context) (*SyncResult, error)
-	
+
 	// StartAutoSync begins automatic synchronization at the configured interval
 	StartAutoSync(ctx context.Context) error
-	
+
 	// StopAutoSync stops automatic synchronization
 	StopAutoSync() error
-	
+
 	// Subscribe to sync events (optional)
 	Subscribe(handler func(*SyncResult)) error
-	
+
 	// Close shuts down the sync manager
 	Close() error
 }
@@ -176,25 +176,25 @@ type SyncManager interface {
 type SyncResult struct {
 	// EventsPushed is the number of events sent to remote
 	EventsPushed int
-	
+
 	// EventsPulled is the number of events received from remote
 	EventsPulled int
-	
+
 	// ConflictsResolved is the number of conflicts that were resolved
 	ConflictsResolved int
-	
+
 	// Errors contains any non-fatal errors that occurred during sync
 	Errors []error
-	
+
 	// StartTime is when the sync operation began
 	StartTime time.Time
-	
+
 	// Duration is how long the sync took
 	Duration time.Duration
-	
+
 	// LocalVersion is the local version after sync
 	LocalVersion Version
-	
+
 	// RemoteVersion is the remote version after sync
 	RemoteVersion Version
 }
@@ -205,20 +205,20 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions) Sy
 		opts = &SyncOptions{
 			BatchSize: 100,
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  100 * time.Millisecond,
-				MaxDelay:      5 * time.Second,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: 100 * time.Millisecond,
+				MaxDelay:     5 * time.Second,
+				Multiplier:   2.0,
 			},
 			MetricsCollector: &NoOpMetricsCollector{}, // Default no-op collector
 		}
 	}
-	
+
 	// Set default metrics collector if none provided
 	if opts.MetricsCollector == nil {
 		opts.MetricsCollector = &NoOpMetricsCollector{}
 	}
-	
+
 	return &syncManager{
 		store:     store,
 		transport: transport,

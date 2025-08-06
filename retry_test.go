@@ -14,10 +14,10 @@ func TestSyncWithRetry_Success(t *testing.T) {
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  10 * time.Millisecond,
-				MaxDelay:      100 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
@@ -37,10 +37,10 @@ func TestSyncWithRetry_RetryableError(t *testing.T) {
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  10 * time.Millisecond,
-				MaxDelay:      100 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
@@ -67,10 +67,10 @@ func TestSyncWithRetry_NonRetryableError(t *testing.T) {
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  10 * time.Millisecond,
-				MaxDelay:      100 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
@@ -92,10 +92,10 @@ func TestSyncWithRetry_ContextCancelled(t *testing.T) {
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  10 * time.Millisecond,
-				MaxDelay:      100 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
@@ -108,19 +108,19 @@ func TestSyncWithRetry_ContextCancelled(t *testing.T) {
 	}
 
 	err := sm.syncWithRetry(ctx, operation)
-    if !errors.Is(err, context.Canceled) {
-        t.Fatalf("expected context.Canceled, got %v", err)
-    }
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
 }
 
 func TestSyncWithRetry_MaxRetriesExceeded(t *testing.T) {
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   2,
-				InitialDelay:  10 * time.Millisecond,
-				MaxDelay:      100 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  2,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
@@ -141,17 +141,17 @@ func TestSyncWithRetry_MaxRetriesExceeded(t *testing.T) {
 }
 
 func TestSyncWithRetry_ExponentialBackoff(t *testing.T) {
-// Updated test to accurately measure timing and ensure correct delay capture
+	// Updated test to accurately measure timing and ensure correct delay capture
 	// We'll use a larger initial delay to make the test more reliable, and log exact delays for clarity
 	var (
-		delays []time.Duration
+		delays          []time.Duration
 		lastAttemptTime time.Time
-		attemptCount int
+		attemptCount    int
 	)
 	initialDelay := 50 * time.Millisecond
 	// Add some buffer to the test timing to avoid flakiness
 	testStartTime := time.Now()
-t.Logf("Test started at: %v", testStartTime) 
+	t.Logf("Test started at: %v", testStartTime)
 	defer func() {
 		endTime := time.Now()
 		t.Logf("Test finished at: %v, took %v to run", endTime, endTime.Sub(testStartTime))
@@ -162,15 +162,15 @@ t.Logf("Test started at: %v", testStartTime)
 	sm := &syncManager{
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
-				MaxAttempts:   3,
-				InitialDelay:  initialDelay,
-				MaxDelay:      500 * time.Millisecond,
-				Multiplier:    2.0,
+				MaxAttempts:  3,
+				InitialDelay: initialDelay,
+				MaxDelay:     500 * time.Millisecond,
+				Multiplier:   2.0,
 			},
 		},
 	}
 
-operation := func() error {
+	operation := func() error {
 		// Record timing for this attempt
 		now := time.Now()
 		if !lastAttemptTime.IsZero() {

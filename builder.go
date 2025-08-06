@@ -7,20 +7,20 @@ import (
 
 // SyncManagerBuilder provides a fluent interface for constructing SyncManager instances.
 type SyncManagerBuilder struct {
-	store     EventStore
-	transport Transport
-	options   *SyncOptions
-	pushOnlySet bool  // Track if PushOnly was explicitly set
-	pullOnlySet bool  // Track if PullOnly was explicitly set
+	store       EventStore
+	transport   Transport
+	options     *SyncOptions
+	pushOnlySet bool // Track if PushOnly was explicitly set
+	pullOnlySet bool // Track if PullOnly was explicitly set
 }
 
 // NewSyncManagerBuilder creates a new builder with default options.
 func NewSyncManagerBuilder() *SyncManagerBuilder {
 	return &SyncManagerBuilder{
-options: &SyncOptions{
-			BatchSize: 100, // Default batch size
-			EnableValidation: false,
-			Timeout: 0, // No timeout by default
+		options: &SyncOptions{
+			BatchSize:         100, // Default batch size
+			EnableValidation:  false,
+			Timeout:           0, // No timeout by default
 			EnableCompression: false,
 		},
 	}
@@ -111,7 +111,7 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 		return nil, fmt.Errorf("cannot set both PushOnly and PullOnly to true")
 	}
 
-// Validate batch size
+	// Validate batch size
 	if b.options.BatchSize <= 0 {
 		return nil, fmt.Errorf("BatchSize must be positive, got %d", b.options.BatchSize)
 	}
@@ -124,10 +124,10 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 func (b *SyncManagerBuilder) Reset() *SyncManagerBuilder {
 	b.store = nil
 	b.transport = nil
-b.options = &SyncOptions{
-		BatchSize: 100,
-		EnableValidation: false,
-		Timeout: 0,
+	b.options = &SyncOptions{
+		BatchSize:         100,
+		EnableValidation:  false,
+		Timeout:           0,
 		EnableCompression: false,
 	}
 	b.pushOnlySet = false

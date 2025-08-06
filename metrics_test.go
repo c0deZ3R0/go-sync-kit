@@ -8,10 +8,10 @@ import (
 
 func TestMetricsCollection(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupMocks  func() (*TestEventStore, *TestTransport)
-		operation   func(SyncManager) error
-		assertions  func(*testing.T, *MockMetricsCollector)
+		name       string
+		setupMocks func() (*TestEventStore, *TestTransport)
+		operation  func(SyncManager) error
+		assertions func(*testing.T, *MockMetricsCollector)
 	}{
 		{
 			name: "successful sync records duration and events",
@@ -26,7 +26,7 @@ func TestMetricsCollection(t *testing.T) {
 				if len(mc.DurationCalls) == 0 {
 					t.Error("Expected duration metric to be recorded")
 				}
-				
+
 				foundFullSync := false
 				for _, call := range mc.DurationCalls {
 					if call.Operation == "full_sync" {
@@ -128,10 +128,10 @@ func TestMetricsCollection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store, transport := tt.setupMocks()
 			metrics := &MockMetricsCollector{}
-			
+
 			sm := NewSyncManager(store, transport, &SyncOptions{
 				MetricsCollector: metrics,
-				BatchSize:       100,
+				BatchSize:        100,
 			})
 
 			err := tt.operation(sm)
@@ -146,7 +146,7 @@ func TestMetricsCollection(t *testing.T) {
 
 func TestNoOpMetricsCollector(t *testing.T) {
 	noOp := &NoOpMetricsCollector{}
-	
+
 	// Verify that none of these operations panic
 	noOp.RecordSyncDuration("test", time.Second)
 	noOp.RecordSyncEvents(1, 2)

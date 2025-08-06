@@ -46,14 +46,14 @@ func (t *slowOperationTransport) Pull(ctx context.Context, version Version) ([]E
 
 type metricsRecorder struct {
 	contextCanceledCount atomic.Int64
-	timeoutCount        atomic.Int64
-	lastOperation       string
-	lastReason         string
+	timeoutCount         atomic.Int64
+	lastOperation        string
+	lastReason           string
 }
 
 func (m *metricsRecorder) RecordSyncDuration(operation string, duration time.Duration) {}
-func (m *metricsRecorder) RecordSyncEvents(pushed, pulled int) {}
-func (m *metricsRecorder) RecordConflicts(resolved int) {}
+func (m *metricsRecorder) RecordSyncEvents(pushed, pulled int)                         {}
+func (m *metricsRecorder) RecordConflicts(resolved int)                                {}
 func (m *metricsRecorder) RecordSyncErrors(operation, reason string) {
 	m.lastOperation = operation
 	m.lastReason = reason
@@ -68,7 +68,7 @@ func (m *metricsRecorder) RecordSyncErrors(operation, reason string) {
 func TestPullContextTimeout(t *testing.T) {
 	store := &slowOperationStore{
 		mockEventStore: &mockEventStore{},
-		delay:         2 * time.Second,
+		delay:          2 * time.Second,
 	}
 	transport := &slowOperationTransport{
 		mockTransport: &mockTransport{},
@@ -106,7 +106,7 @@ func TestPullContextTimeout(t *testing.T) {
 func TestPullContextCancellation(t *testing.T) {
 	store := &slowOperationStore{
 		mockEventStore: &mockEventStore{},
-		delay:         2 * time.Second,
+		delay:          2 * time.Second,
 	}
 	transport := &slowOperationTransport{
 		mockTransport: &mockTransport{},
@@ -160,7 +160,7 @@ func (r *delayedResolver) Resolve(ctx context.Context, local, remote []EventWith
 func TestConflictResolutionContextCancellation(t *testing.T) {
 	store := &slowOperationStore{
 		mockEventStore: &mockEventStore{},
-		delay:         50 * time.Millisecond,
+		delay:          50 * time.Millisecond,
 	}
 	transport := &slowOperationTransport{
 		mockTransport: &mockTransport{},
@@ -175,7 +175,7 @@ func TestConflictResolutionContextCancellation(t *testing.T) {
 		store:     store,
 		transport: transport,
 		options: SyncOptions{
-			ConflictResolver:  resolver,
+			ConflictResolver: resolver,
 			MetricsCollector: metrics,
 		},
 	}

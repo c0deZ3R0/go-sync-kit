@@ -1,0 +1,46 @@
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+*.db-shm
+*.db-wal
+
+# Database backup files
+*.bak
+*.backup
+*.dump
+
+# Database log files
+*.log
+
+# Binary database files
+*.rdb   # Redis database
+*.pdb   # Protocol buffer database
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Debug files
+debug/
+__debug_bin
+
+# Test coverage
+coverage.txt
+coverage.html
+*.db*
