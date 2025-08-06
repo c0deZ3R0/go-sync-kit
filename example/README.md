@@ -1,46 +1,84 @@
-# Sync Kit Example
+# Go Sync Kit Example
 
-This example demonstrates how to use the Sync Kit library to create a simple client-server application with real-time synchronization.
+This example demonstrates a real-time event synchronization system with a live monitoring dashboard. It showcases various features of the Go Sync Kit, including event synchronization, real-time monitoring, and metrics collection.
 
-## Structure
+![Dashboard Screenshot](dashboard.png)
 
-```
-example/
-├── cmd/
-│   ├── client/     # Client binary
-│   ├── demo/       # Combined client-server demo
-│   └── server/     # Server binary
-├── client/         # Client implementation
-├── server/         # Server implementation
-└── metrics_impl.go # Common metrics implementation
-```
+## Features
+
+- **Real-time Event Synchronization**: Demonstrates bidirectional event syncing between client and server
+- **Live Dashboard**: Real-time monitoring of events and system metrics
+- **Event Terminal**: Live event log with detailed metadata
+- **Metrics Display**: Track sync statistics, event counts, and performance metrics
+
+## Components
+
+- `client/`: Client implementation with auto-sync capabilities
+- `server/`: Server implementation with event handling and storage
+- `dashboard/`: Real-time web UI for monitoring
+- `metrics/`: Metrics collection and reporting
+- `demo.go`: Main entry point that runs the example
 
 ## Running the Example
 
-You have three options to run the example:
+1. Start the example:
+   ```bash
+   go run .
+   ```
 
-1. Run both client and server together (recommended for testing):
-```bash
-go run cmd/demo/main.go
-```
+2. Open the dashboard:
+   ```
+   http://localhost:8080
+   ```
 
-2. Run server and client separately (in different terminals):
-```bash
-# Terminal 1 - Start the server
-go run cmd/server/main.go
+3. Watch real-time events and metrics in the dashboard.
 
-# Terminal 2 - Start the client
-go run cmd/client/main.go
-```
+## Dashboard Features
+
+### Event Terminal
+- Real-time event log
+- Event type and content display
+- Detailed metadata including:
+  - Event version
+  - Priority level
+  - Author
+  - Hostname
+  - Timestamp
+
+### Metrics Panel
+- Events pushed/pulled counters
+- Sync duration tracking
+- Conflict resolution stats
+- Error monitoring
+- Last sync timestamp
+
+## Architecture
+
+The example uses several key components of Go Sync Kit:
+
+- SQLite event store for persistence
+- HTTP transport for sync communication
+- Real-time event monitoring
+- Auto-sync with configurable intervals
+- Metrics collection and reporting
+
+## Customization
+
+You can customize various aspects of the example:
+
+- Sync interval (default: 5s)
+- Event types and content
+- UI layout and styling
+- Metrics collection
+- Event metadata
 
 ## Implementation Details
 
-- The server maintains a SQLite database (`notes.db`) for persistent storage
-- The client maintains its own SQLite database (`notes_client.db`) for local state
-- Both use WAL (Write-Ahead Logging) mode for better concurrent access
-- Real-time synchronization is implemented using websockets
-- Changes are versioned using vector clocks
-
+- Uses SQLite with WAL mode for better concurrency
+- Implements event versioning for sync consistency
+- Provides real-time metrics updates
+- Features responsive dashboard design
+- Includes error handling and reporting
 ## Graceful Shutdown
 
 All commands handle graceful shutdown on SIGINT (Ctrl+C) or SIGTERM signals:
