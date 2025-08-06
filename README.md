@@ -226,8 +226,29 @@ func main() {
 
 ## Release Notes
 
-### v0.5.0 (Latest)
->>>>>>> feature/realtime-sync-example
+### v0.6.0 (Latest)
+
+This release introduces a comprehensive example that demonstrates the core features of Go Sync Kit through a real-time web dashboard. The example serves as a reference implementation and foundation for building more complex event synchronization systems.
+
+**Key Components:**
+- ✨ **Reference Implementation**: Complete example with real-time dashboard
+- 🎯 **Event Terminal**: Demonstrates versioning and metadata handling
+- 📊 **Metrics Display**: Shows sync performance and statistics
+- 🌐 **HTTP Transport**: Full client-server implementation
+- 💾 **SQLite Storage**: WAL mode for better concurrency
+- 🔄 **Auto-sync**: Configurable intervals and batching
+- 📝 **Event Tracking**: Version and metadata handling
+
+**Core Features Demonstrated:**
+- Event-driven architecture patterns
+- Real-time synchronization
+- Vector clock versioning
+- Conflict resolution strategies
+- Metrics collection and monitoring
+- Error handling and recovery
+- Production-ready practices
+
+### v0.5.0
 
 **Major Enhancements:**
 - ✅ **Enhanced Context Support**: Comprehensive context handling with timeouts and cancellation
