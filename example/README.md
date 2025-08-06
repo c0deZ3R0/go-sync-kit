@@ -1,6 +1,8 @@
-# Go Sync Kit Example
+# Go Sync Kit Basic Example
 
-This example demonstrates a real-time event synchronization system with a live monitoring dashboard. It showcases various features of the Go Sync Kit, including event synchronization, real-time monitoring, and metrics collection.
+This is the basic example that demonstrates the core features of Go Sync Kit. It provides a foundation for building more complex event synchronization systems and serves as a starting point for exploring advanced features.
+
+This example implements a real-time event synchronization system with a live monitoring dashboard, showcasing the fundamental capabilities of Go Sync Kit including basic event synchronization, monitoring, and metrics collection.
 
 ![Dashboard Screenshot](dashboard.png)
 
@@ -54,13 +56,21 @@ This example demonstrates a real-time event synchronization system with a live m
 
 ## Architecture
 
-The example uses several key components of Go Sync Kit:
+The example demonstrates the basic building blocks of Go Sync Kit:
 
-- SQLite event store for persistence
-- HTTP transport for sync communication
-- Real-time event monitoring
-- Auto-sync with configurable intervals
-- Metrics collection and reporting
+- SQLite event store for persistence (foundational storage system)
+- HTTP transport for sync communication (basic transport implementation)
+- Real-time event monitoring (core monitoring capabilities)
+- Auto-sync with configurable intervals (basic sync strategy)
+- Metrics collection and reporting (fundamental metrics system)
+
+This architecture serves as a foundation for more advanced features that can be built on top, such as:
+- Advanced conflict resolution strategies
+- Custom storage backends
+- Enhanced transport mechanisms
+- Complex event filtering and routing
+- Advanced monitoring and alerting systems
+- Custom sync strategies
 
 ## Customization
 
