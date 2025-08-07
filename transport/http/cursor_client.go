@@ -7,70 +7,73 @@ import (
     "fmt"
     "io"
     "net/http"
+    "strconv"
 
     "github.com/c0deZ3R0/go-sync-kit/cursor"
     sync "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
-// PullWithCursor fetches events using cursor-based pagination
-func (c *Client) PullWithCursor(ctx context.Context, since cursor.Cursor, limit int) ([]sync.EventWithVersion, cursor.Cursor, error) {
+// PullWithCursor POSTs /pull-cursor and returns events + the next cursor.
+func (t *HTTPTransport) PullWithCursor(ctx context.Context, since cursor.Cursor, limit int) ([]sync.EventWithVersion, cursor.Cursor, error) {
     var sinceWire *cursor.WireCursor
     var err error
     if since != nil {
         sinceWire, err = cursor.MarshalWire(since)
         if err != nil {
-            return nil, nil, fmt.Errorf("marshal cursor: %w", err)
+            return nil, nil, err
         }
     }
-
-    // Prepare request
-    req := PullCursorRequest{
-        Since: sinceWire,
-        Limit: limit,
-    }
-    reqBody, err := json.Marshal(req)
-    if err != nil {
-        return nil, nil, fmt.Errorf("marshal request: %w", err)
+    if limit <= 0 || limit > 1000 {
+        limit = 200
     }
 
-    // Create HTTP request
-    httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/pull-cursor", bytes.NewReader(reqBody))
+    reqBody, _ := json.Marshal(PullCursorRequest{Since: sinceWire, Limit: limit})
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/pull-cursor", bytes.NewReader(reqBody))
     if err != nil {
-        return nil, nil, fmt.Errorf("create request: %w", err)
+        return nil, nil, err
     }
-    httpReq.Header.Set("Content-Type", "application/json")
+    req.Header.Set("Content-Type", "application/json")
 
-    // Send request
-    resp, err := c.http.Do(httpReq)
+    resp, err := t.client.Do(req)
     if err != nil {
-        return nil, nil, fmt.Errorf("send request: %w", err)
+        return nil, nil, err
     }
     defer resp.Body.Close()
-
-    // Check status
     if resp.StatusCode != http.StatusOK {
-        body, _ := io.ReadAll(resp.Body)
-        return nil, nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+        b, _ := io.ReadAll(resp.Body)
+        return nil, nil, fmt.Errorf("pull-cursor failed: %s: %s", resp.Status, string(b))
     }
 
-    // Parse response
-    var pullResp PullCursorResponse
-    if err := json.NewDecoder(resp.Body).Decode(&pullResp); err != nil {
-        return nil, nil, fmt.Errorf("decode response: %w", err)
+    var pr PullCursorResponse
+    if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+        return nil, nil, err
     }
 
-    // Convert events
-    events := make([]sync.EventWithVersion, len(pullResp.Events))
-    for i, je := range pullResp.Events {
-        events[i] = fromJSONEventWithVersion(je)
-    }
-
-    // Parse next cursor
-    var next cursor.Cursor
-    if pullResp.Next != nil {
-        next, err = cursor.UnmarshalWire(pullResp.Next)
+    // Convert JSONEventWithVersion -> EventWithVersion
+    events := make([]sync.EventWithVersion, len(pr.Events))
+    for i, jev := range pr.Events {
+        // Integer-only parse; safe with current SQLite store
+        // If you later decouple, inject a VersionParser into HTTPTransport
+        vInt, err := strconv.ParseInt(jev.Version, 10, 64)
         if err != nil {
-            return nil, nil, fmt.Errorf("unmarshal next cursor: %w", err)
+            return nil, nil, fmt.Errorf("invalid version: %w", err)
+        }
+        ev := &SimpleEvent{
+            IDValue:          jev.Event.ID,
+            TypeValue:        jev.Event.Type,
+            AggregateIDValue: jev.Event.AggregateID,
+            DataValue:        jev.Event.Data,
+            MetadataValue:    jev.Event.Metadata,
+        }
+        events[i] = sync.EventWithVersion{Event: ev, Version: sqlite.IntegerVersion(vInt)}
+    }
+
+    var next cursor.Cursor
+    if pr.Next != nil {
+        next, err = cursor.UnmarshalWire(pr.Next)
+        if err != nil {
+            return nil, nil, fmt.Errorf("bad next cursor: %w", err)
         }
     }
 

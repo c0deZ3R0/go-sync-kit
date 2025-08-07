@@ -8,63 +8,57 @@ import (
 )
 
 // JSONEventWithVersion represents an event with version in JSON format
+type JSONEvent struct {
+    ID          string                 `json:"id"`
+    Type        string                 `json:"type"`
+    AggregateID string                 `json:"aggregate_id"`
+    Data        map[string]interface{} `json:"data,omitempty"`
+    Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
 type JSONEventWithVersion struct {
-    ID          string          `json:"id"`
-    Type        string          `json:"type"`
-    AggregateID string          `json:"aggregate_id"`
-    Data        json.RawMessage `json:"data,omitempty"`
-    Metadata    json.RawMessage `json:"metadata,omitempty"`
-    Version     uint64          `json:"version"`
+    Event   JSONEvent `json:"event"`
+    Version string    `json:"version"`
 }
 
 func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
-    je := JSONEventWithVersion{
-        ID:          ev.Event.ID,
-        Type:        ev.Event.Type,
-        AggregateID: ev.Event.AggregateID,
+    jsonEvent := JSONEvent{
+        ID:          ev.Event.ID(),
+        Type:        ev.Event.Type(),
+        AggregateID: ev.Event.AggregateID(),
+        Data:        ev.Event.Data(),
+        Metadata:    ev.Event.Metadata(),
     }
 
-    // Convert version
+    // Convert version to string
+    version := "0"
     if iv, ok := ev.Version.(sqlite.IntegerVersion); ok {
-        je.Version = uint64(iv)
+        version = strconv.FormatInt(int64(iv), 10)
     }
 
-    // Marshal data and metadata if present
-    if ev.Event.Data != nil {
-        data, _ := json.Marshal(ev.Event.Data)
-        je.Data = data
+    return JSONEventWithVersion{
+        Event:   jsonEvent,
+        Version: version,
     }
-    if ev.Event.Metadata != nil {
-        meta, _ := json.Marshal(ev.Event.Metadata)
-        je.Metadata = meta
-    }
-
-    return je
 }
 
 func fromJSONEventWithVersion(je JSONEventWithVersion) sync.EventWithVersion {
-    ev := sync.EventWithVersion{
-        Event: sync.Event{
-            ID:          je.ID,
-            Type:        je.Type,
-            AggregateID: je.AggregateID,
-        },
-        Version: sqlite.IntegerVersion(je.Version),
+    ev := &SimpleEvent{
+        IDValue:          je.Event.ID,
+        TypeValue:        je.Event.Type,
+        AggregateIDValue: je.Event.AggregateID,
+        DataValue:        je.Event.Data,
+        MetadataValue:    je.Event.Metadata,
     }
 
-    // Unmarshal data and metadata if present
-    if len(je.Data) > 0 {
-        var data map[string]interface{}
-        if err := json.Unmarshal(je.Data, &data); err == nil {
-            ev.Event.Data = data
-        }
-    }
-    if len(je.Metadata) > 0 {
-        var meta map[string]interface{}
-        if err := json.Unmarshal(je.Metadata, &meta); err == nil {
-            ev.Event.Metadata = meta
-        }
+    // Parse version as integer
+    var version sqlite.IntegerVersion
+    if v, err := strconv.ParseInt(je.Version, 10, 64); err == nil {
+        version = sqlite.IntegerVersion(v)
     }
 
-    return ev
+    return sync.EventWithVersion{
+        Event:   ev,
+        Version: version,
+    }
 }
