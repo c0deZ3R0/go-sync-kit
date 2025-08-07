@@ -1,4 +1,4 @@
-module github.com/c0deZ3R0/go-sync-kit
+module github.com/c0deZ3R0/go-sync-kit-agent2
 
 go 1.24
 

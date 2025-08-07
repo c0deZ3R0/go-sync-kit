@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/c0deZ3R0/go-sync-kit-agent2/cursor"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 )
 
@@ -290,15 +291,74 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		}
 	}()
 
-	// Get local version
+	// Create a timeout context for transport operations
+	opCtx, cancel := sm.withTimeout(ctx)
+	defer cancel()
+
+	// Prefer cursor path if supported
+	if ct, ok := sm.transport.(CursorTransport); ok {
+		var since cursor.Cursor
+		if sm.options.LastCursorLoader != nil {
+			since = sm.options.LastCursorLoader()
+		}
+		limit := sm.options.BatchSize
+		if limit <= 0 {
+			limit = 200
+		}
+
+		events, next, err := ct.PullWithCursor(opCtx, since, limit)
+		if err != nil {
+			// Record pull metrics
+			if errors.Is(err, context.Canceled) {
+				sm.options.MetricsCollector.RecordSyncErrors("pull", "context_canceled")
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				sm.options.MetricsCollector.RecordSyncErrors("pull", "timeout")
+			} else {
+				sm.options.MetricsCollector.RecordSyncErrors("pull", "pull_failure")
+			}
+			return result, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", err)
+		}
+
+		// Apply filter
+		if sm.options.Filter != nil {
+			filtered := make([]EventWithVersion, 0, len(events))
+			for _, ev := range events {
+				if sm.options.Filter(ev.Event) {
+					filtered = append(filtered, ev)
+				}
+			}
+			events = filtered
+		}
+
+		// Store remote events locally
+		for _, ev := range events {
+			select {
+			case <-ctx.Done():
+				return result, ctx.Err()
+			default:
+			}
+			if err := sm.store.Store(ctx, ev.Event, ev.Version); err != nil {
+				return result, syncErrors.NewWithComponent(syncErrors.OpStore, "store", err)
+			}
+			result.EventsPulled++
+		}
+
+		// Save cursor
+		if sm.options.CursorSaver != nil && next != nil {
+			_ = sm.options.CursorSaver(next)
+		}
+
+		if len(events) > 0 {
+			result.RemoteVersion = findLatestVersion(events)
+		}
+		return result, nil
+	}
+
+	// Fallback: legacy version-based path
 	localVersion, err := sm.store.LatestVersion(ctx)
 	if err != nil {
 		return result, syncErrors.NewWithComponent(syncErrors.OpLoad, "store", err)
 	}
-
-	// Create a timeout context for transport operations
-	opCtx, cancel := sm.withTimeout(ctx)
-	defer cancel()
 
 	// Pull remote events since our local version
 	remoteEvents, err := sm.transport.Pull(opCtx, localVersion)

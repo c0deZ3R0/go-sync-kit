@@ -6,9 +6,11 @@ package sync
 import (
 	"context"
 	"time"
+
+	"github.com/c0deZ3R0/go-sync-kit-agent2/cursor"
 )
 
-// Event represents a syncable event in the system.
+// Event represents
 // This interface should be implemented by user's event types.
 type Event interface {
 	// ID returns a unique identifier for this event
@@ -113,6 +115,11 @@ type RetryConfig struct {
 
 // SyncOptions configures the synchronization behavior
 type SyncOptions struct {
+    // LastCursorLoader loads the last saved cursor for cursor-based syncs
+    LastCursorLoader func() cursor.Cursor
+
+    // CursorSaver saves the latest cursor after a successful sync
+    CursorSaver func(cursor.Cursor) error
 	// PushOnly indicates this client should only push events, not pull
 	PushOnly bool
 
