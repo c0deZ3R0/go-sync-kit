@@ -18,14 +18,49 @@ func NewHandler(store sync.EventStore) *SyncHandler {
 }
 
 func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    // Handle cursor-based pull endpoint
-    if r.URL.Path == "/pull-cursor" {
-        h.handlePullCursor(w, r)
+    path := r.URL.Path
+    if p := "/sync"; len(path) >= len(p) && path[:len(p)] == p {
+        path = path[len(p):]
+    }
+    switch path {
+    case "/push":
+        h.handlePush(w, r)
+    case "/pull":
+        h.handlePull(w, r) // legacy
+    case "/pull-cursor":
+        h.handlePullCursor(w, r) // new
+    case "/latest-version":
+        h.handleLatestVersion(w, r)
+    default:
+        http.NotFound(w, r)
+    }
+}
+
+func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
         return
     }
+    // TODO: Implement push handler
+    http.Error(w, "not implemented", http.StatusNotImplemented)
+}
 
-    // Handle other endpoints...
-    respondWithError(w, http.StatusNotFound, "endpoint not found")
+func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+        return
+    }
+    // TODO: Implement legacy pull handler
+    http.Error(w, "not implemented", http.StatusNotImplemented)
+}
+
+func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+        return
+    }
+    // TODO: Implement latest version handler
+    http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {
