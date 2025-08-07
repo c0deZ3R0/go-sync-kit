@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 )
@@ -89,29 +90,24 @@ type ExponentialBackoff struct {
 }
 
 func (eb *ExponentialBackoff) NextDelay(attempt int) time.Duration {
-	// Ensure attempt is at least 0
-	if attempt < 0 {
-		attempt = 0
+	if attempt <= 0 {
+		return min(eb.InitialDelay, eb.MaxDelay)
 	}
-
-	// Base delay is always InitialDelay
-	delay := float64(eb.InitialDelay)
-
-	// Calculate exponential multiplier: Multiplier^attempt
-	multiplier := 1.0
-	for i := 0; i < attempt; i++ {
-		multiplier *= eb.Multiplier
+	// Compute multiplier^attempt using math.Pow on floats, then clamp to maxDelay,
+	// but convert to integer duration safely.
+	factor := math.Pow(eb.Multiplier, float64(attempt))
+	delay := time.Duration(float64(eb.InitialDelay) * factor)
+	if delay > eb.MaxDelay || delay < 0 {
+		return eb.MaxDelay
 	}
+	return delay
+}
 
-	// Apply multiplier to initial delay
-	result := time.Duration(delay * multiplier)
-
-	// Cap at MaxDelay
-	if result > eb.MaxDelay {
-		result = eb.MaxDelay
+func min(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
 	}
-
-	return result
+	return b
 }
 
 func (eb *ExponentialBackoff) Reset() {
