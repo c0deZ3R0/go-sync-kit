@@ -10,30 +10,30 @@ import (
 	"testing"
 	"time"
 
-	sync "github.com/c0deZ3R0/go-sync-kit"
+	synckit "github.com/c0deZ3R0/go-sync-kit"
 )
 
 func TestStoreContextCancellation(t *testing.T) {
-    store, _ := NewWithDataSource(":memory:")
-    defer store.Close()
+	store, _ := NewWithDataSource(":memory:")
+	defer store.Close()
 
-    event := &MockEvent{
-        id:          "test-1",
-        eventType:   "TestEvent",
-        aggregateID: "agg-1",
-        data:        map[string]string{"key": "value"},
-    }
+	event := &MockEvent{
+		id:          "test-1",
+		eventType:   "TestEvent",
+		aggregateID: "agg-1",
+		data:        map[string]string{"key": "value"},
+	}
 
-    ctx, cancel := context.WithCancel(context.Background())
-    cancel() // Immediately cancel the context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Immediately cancel the context
 
-    err := store.Store(ctx, event, IntegerVersion(1))
-    if err == nil {
-        t.Fatal("expected error on cancelled context")
-    }
-    if err != context.Canceled {
-        t.Errorf("expected context.Canceled error, got: %v", err)
-    }
+	err := store.Store(ctx, event, IntegerVersion(1))
+	if err == nil {
+		t.Fatal("expected error on cancelled context")
+	}
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled error, got: %v", err)
+	}
 }
 
 // MockEvent implements the sync.Event interface for testing
@@ -45,11 +45,11 @@ type MockEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (m *MockEvent) ID() string                               { return m.id }
-func (m *MockEvent) Type() string                             { return m.eventType }
-func (m *MockEvent) AggregateID() string                      { return m.aggregateID }
-func (m *MockEvent) Data() interface{}                        { return m.data }
-func (m *MockEvent) Metadata() map[string]interface{}         { return m.metadata }
+func (m *MockEvent) ID() string                       { return m.id }
+func (m *MockEvent) Type() string                     { return m.eventType }
+func (m *MockEvent) AggregateID() string              { return m.aggregateID }
+func (m *MockEvent) Data() interface{}                { return m.data }
+func (m *MockEvent) Metadata() map[string]interface{} { return m.metadata }
 
 func setupTestDB(t *testing.T) (*SQLiteEventStore, func()) {
 	// Create a temporary database file
@@ -399,9 +399,9 @@ type IncompatibleVersion struct {
 	value int
 }
 
-func (v IncompatibleVersion) Compare(other sync.Version) int { return 0 }
-func (v IncompatibleVersion) String() string                { return "incompatible" }
-func (v IncompatibleVersion) IsZero() bool                  { return v.value == 0 }
+func (v IncompatibleVersion) Compare(other synckit.Version) int { return 0 }
+func (v IncompatibleVersion) String() string                    { return "incompatible" }
+func (v IncompatibleVersion) IsZero() bool                      { return v.value == 0 }
 
 func TestSQLiteEventStore_IncompatibleVersionProper(t *testing.T) {
 	store, cleanup := setupTestDB(t)

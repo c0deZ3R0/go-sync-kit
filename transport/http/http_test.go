@@ -1,4 +1,4 @@
-package http
+package httptransport
 
 import (
 	"bytes"
@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	sync "github.com/c0deZ3R0/go-sync-kit"
+synckit "github.com/c0deZ3R0/go-sync-kit"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
-// MockEvent implements the sync.Event interface for testing
+// MockEvent implements the synckit.Event interface for testing
 type MockEvent struct {
 	id          string
 	eventType   string
@@ -75,7 +75,7 @@ func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
 	transport := NewTransport("http://example.com", nil)
 	
 	ctx := context.Background()
-	err := transport.Push(ctx, []sync.EventWithVersion{})
+	err := transport.Push(ctx, []synckit.EventWithVersion{})
 	
 	if err != nil {
 		t.Errorf("Expected no error for empty events, got: %v", err)
@@ -110,7 +110,7 @@ func TestHTTPTransport_Push_Success(t *testing.T) {
 
 	transport := NewTransport(server.URL, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -140,7 +140,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 
 	transport := NewTransport(server.URL, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{id: "test-1"},
 			Version: sqlite.IntegerVersion(1),
@@ -159,7 +159,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 }
 
 func TestHTTPTransport_Pull_Success(t *testing.T) {
-	expectedEvents := []sync.EventWithVersion{
+	expectedEvents := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -224,7 +224,7 @@ func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 	transport := NewTransport("http://example.com", nil)
 	
 	ctx := context.Background()
-	err := transport.Subscribe(ctx, func([]sync.EventWithVersion) error { return nil })
+	err := transport.Subscribe(ctx, func([]synckit.EventWithVersion) error { return nil })
 	
 	if err == nil {
 		t.Error("Expected error for unimplemented Subscribe method")
@@ -266,7 +266,7 @@ func TestSyncHandler_HandlePush_Success(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	handler := NewSyncHandler(store, logger)
 	
-	events := []sync.EventWithVersion{
+events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -466,7 +466,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	transport := NewTransport(server.URL, nil)
 	
 	// Create test events
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "e2e-test-1",
@@ -524,7 +524,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 	
 	transport := NewTransport(server.URL, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "bench-test-1",
@@ -537,8 +537,8 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 	}
 	
 	ctx := context.Background()
-	
 	b.ResetTimer()
+	
 	for i := 0; i < b.N; i++ {
 		events[0].Event.(*MockEvent).id = fmt.Sprintf("bench-test-%d", i)
 		err := transport.Push(ctx, events)
@@ -550,7 +550,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 
 func BenchmarkHTTPTransport_Pull(b *testing.B) {
 	// Set up a test server that returns events
-	events := []sync.EventWithVersion{
+events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "bench-test-1",

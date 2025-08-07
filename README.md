@@ -94,8 +94,8 @@ import (
     "time"
 
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
-    sync "github.com/c0deZ3R0/go-sync-kit"
-    transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
+    synckit "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 )
 
 type MyEvent struct {
@@ -136,13 +136,13 @@ func main() {
     clientTransport := transport.NewTransport("http://localhost:8080", nil)
 
     // Configure Sync Options
-    syncOptions := &sync.SyncOptions{
+    syncOptions := &synckit.SyncOptions{
         BatchSize: 10,
         SyncInterval: 10 * time.Second,
     }
 
     // Create and start SyncManager
-    syncManager := sync.NewSyncManager(store, clientTransport, syncOptions)
+    syncManager := synckit.NewSyncManager(store, clientTransport, syncOptions)
     ctx := context.Background()
 
     // Run synchronization
@@ -202,14 +202,14 @@ func main() {
     transport := &MyTransport{} // Your Transport implementation
 
     // Configure sync options
-    options := &sync.SyncOptions{
+    options := &synckit.SyncOptions{
         BatchSize:        100,
         SyncInterval:     30 * time.Second,
         ConflictResolver: &LastWriteWinsResolver{},
     }
 
     // Create sync manager
-    syncManager := sync.NewSyncManager(store, transport, options)
+    syncManager := synckit.NewSyncManager(store, transport, options)
 
     // Perform sync
     ctx := context.Background()
@@ -357,9 +357,9 @@ type SyncOptions struct {
 
 ### Example with filtering:
 ```go
-options := &sync.SyncOptions{
+options := &synckit.SyncOptions{
     BatchSize: 50,
-    Filter: func(e sync.Event) bool {
+    Filter: func(e synckit.Event) bool {
         // Only sync specific event types
         return e.Type() == "UserCreated" || e.Type() == "OrderPlaced"
     },
@@ -449,11 +449,11 @@ type CustomVersionManager struct {
     // Your custom state
 }
 
-func (vm *CustomVersionManager) CurrentVersion() sync.Version {
+func (vm *CustomVersionManager) CurrentVersion() synckit.Version
     // Return current version
 }
 
-func (vm *CustomVersionManager) NextVersion(nodeID string) sync.Version {
+func (vm *CustomVersionManager) NextVersion(nodeID string) synckit.Version
     // Generate next version
 }
 
@@ -511,22 +511,22 @@ Go Sync Kit includes a production-ready HTTP transport implementation that provi
 
 #### Client Setup
 ```go
-import "github.com/c0deZ3R0/go-sync-kit/transport/http"
+import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP transport client
-clientTransport := http.NewTransport("http://localhost:8080", nil)
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil)
 
 // Use with SyncManager
-syncManager := sync.NewSyncManager(store, clientTransport, options)
+syncManager := synckit.NewSyncManager(store, clientTransport, options)
 ```
 
 #### Server Setup
 ```go
-import "github.com/c0deZ3R0/go-sync-kit/transport/http"
+import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP sync handler
 logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-handler := http.NewSyncHandler(store, logger)
+handler := httptransport.NewSyncHandler(store, logger)
 
 // Start HTTP server
 server := &http.Server{Addr: ":8080", Handler: handler}
@@ -561,8 +561,8 @@ import (
     "time"
 
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
-    sync "github.com/c0deZ3R0/go-sync-kit"
-    transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
+synckit "github.com/c0deZ3R0/go-sync-kit"
+"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 )
 
 func main() {
@@ -592,7 +592,7 @@ func main() {
     clientTransport := transport.NewTransport("http://localhost:8080", nil)
 
     // 4. Configure sync options
-    syncOptions := &sync.SyncOptions{
+    syncOptions := &synckit.SyncOptions{
         BatchSize: 10,
         SyncInterval: 10 * time.Second,
     }

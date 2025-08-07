@@ -1,5 +1,5 @@
 // Package http provides a client and server implementation for the go-sync-kit Transport over HTTP.
-package http
+package httptransport
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"log"
 	"net/http"
 
-sync "github.com/c0deZ3R0/go-sync-kit"
-syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	synckit "github.com/c0deZ3R0/go-sync-kit"
+	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite" // Used for client-side version parsing
 )
 
@@ -30,8 +30,8 @@ type JSONEventWithVersion struct {
 	Version string    `json:"version"`
 }
 
-// toJSONEvent converts a sync.Event to JSONEvent
-func toJSONEvent(event sync.Event) JSONEvent {
+// toJSONEvent converts a synckit.Event to JSONEvent
+func toJSONEvent(event synckit.Event) JSONEvent {
 	return JSONEvent{
 		ID:          event.ID(),
 		Type:        event.Type(),
@@ -41,8 +41,8 @@ func toJSONEvent(event sync.Event) JSONEvent {
 	}
 }
 
-// toJSONEventWithVersion converts sync.EventWithVersion to JSONEventWithVersion
-func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
+// toJSONEventWithVersion converts synckit.EventWithVersion to JSONEventWithVersion
+func toJSONEventWithVersion(ev synckit.EventWithVersion) JSONEventWithVersion {
 	return JSONEventWithVersion{
 		Event:   toJSONEvent(ev.Event),
 		Version: ev.Version.String(),
@@ -50,7 +50,7 @@ func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
 }
 
 // fromJSONEvent converts JSONEvent to a concrete Event implementation
-func fromJSONEvent(je JSONEvent) sync.Event {
+func fromJSONEvent(je JSONEvent) synckit.Event {
 	return &SimpleEvent{
 		IDValue:          je.ID,
 		TypeValue:        je.Type,
@@ -60,7 +60,7 @@ func fromJSONEvent(je JSONEvent) sync.Event {
 	}
 }
 
-// SimpleEvent is a simple implementation of sync.Event for HTTP transport
+// SimpleEvent is a simple implementation of synckit.Event for HTTP transport
 type SimpleEvent struct {
 	IDValue          string                 `json:"id"`
 	TypeValue        string                 `json:"type"`
@@ -69,20 +69,20 @@ type SimpleEvent struct {
 	MetadataValue    map[string]interface{} `json:"metadata"`
 }
 
-func (e *SimpleEvent) ID() string                               { return e.IDValue }
-func (e *SimpleEvent) Type() string                             { return e.TypeValue }
-func (e *SimpleEvent) AggregateID() string                      { return e.AggregateIDValue }
-func (e *SimpleEvent) Data() interface{}                        { return e.DataValue }
-func (e *SimpleEvent) Metadata() map[string]interface{}         { return e.MetadataValue }
+func (e *SimpleEvent) ID() string                       { return e.IDValue }
+func (e *SimpleEvent) Type() string                     { return e.TypeValue }
+func (e *SimpleEvent) AggregateID() string              { return e.AggregateIDValue }
+func (e *SimpleEvent) Data() interface{}                { return e.DataValue }
+func (e *SimpleEvent) Metadata() map[string]interface{} { return e.MetadataValue }
 
-// fromJSONEventWithVersion converts JSONEventWithVersion back to sync.EventWithVersion
+// fromJSONEventWithVersion converts JSONEventWithVersion back to synckit.EventWithVersion
 // It uses the provided EventStore to parse the version string, making it version-implementation agnostic
-func fromJSONEventWithVersion(ctx context.Context, store sync.EventStore, jev JSONEventWithVersion) (sync.EventWithVersion, error) {
+func fromJSONEventWithVersion(ctx context.Context, store synckit.EventStore, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {
 	version, err := store.ParseVersion(ctx, jev.Version)
 	if err != nil {
-		return sync.EventWithVersion{}, fmt.Errorf("invalid version: %w", err)
+		return synckit.EventWithVersion{}, fmt.Errorf("invalid version: %w", err)
 	}
-	
+
 	event := &SimpleEvent{
 		IDValue:          jev.Event.ID,
 		TypeValue:        jev.Event.Type,
@@ -90,8 +90,8 @@ func fromJSONEventWithVersion(ctx context.Context, store sync.EventStore, jev JS
 		DataValue:        jev.Event.Data,
 		MetadataValue:    jev.Event.Metadata,
 	}
-	
-	return sync.EventWithVersion{
+
+	return synckit.EventWithVersion{
 		Event:   event,
 		Version: version,
 	}, nil
@@ -99,7 +99,7 @@ func fromJSONEventWithVersion(ctx context.Context, store sync.EventStore, jev JS
 
 // --- HTTP Transport Client ---
 
-// HTTPTransport implements the sync.Transport interface for communicating over HTTP.
+// HTTPTransport implements the synckit.Transport interface for communicating over HTTP.
 type HTTPTransport struct {
 	client  *http.Client
 	baseURL string // e.g., "http://remote-server.com/sync"
@@ -118,7 +118,7 @@ func NewTransport(baseURL string, client *http.Client) *HTTPTransport {
 }
 
 // Push sends a batch of events to the remote server via an HTTP POST request.
-func (t *HTTPTransport) Push(ctx context.Context, events []sync.EventWithVersion) error {
+func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVersion) error {
 	if len(events) == 0 {
 		return nil // Nothing to push
 	}
@@ -130,62 +130,62 @@ func (t *HTTPTransport) Push(ctx context.Context, events []sync.EventWithVersion
 
 	data, err := json.Marshal(jsonData)
 	if err != nil {
-	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
+		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/push", bytes.NewBuffer(data))
 	if err != nil {
-	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
+		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-	return syncErrors.NewRetryable(syncErrors.OpPush, fmt.Errorf("network error: %w", err))
+		return syncErrors.NewRetryable(syncErrors.OpPush, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-	return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
+		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
 	return nil
 }
 
 // Pull fetches events from the remote server since a given version via an HTTP GET request.
-func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.EventWithVersion, error) {
+func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
 	url := fmt.Sprintf("%s/pull?since=%s", t.baseURL, since.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-	return nil, syncErrors.NewRetryable(syncErrors.OpPull, fmt.Errorf("network error: %w", err))
+		return nil, syncErrors.NewRetryable(syncErrors.OpPull, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(resp.Body).Decode(&jsonEvents); err != nil {
-	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
 	}
 
-	events := make([]sync.EventWithVersion, len(jsonEvents))
+	events := make([]synckit.EventWithVersion, len(jsonEvents))
 	for i, jev := range jsonEvents {
 		// For client-side decoding, we use SQLite's ParseVersion directly
 		// since the HTTP transport client doesn't have access to an EventStore
 		version, err := sqlite.ParseVersion(jev.Version)
 		if err != nil {
-	return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
+			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
 		}
-		
+
 		event := &SimpleEvent{
 			IDValue:          jev.Event.ID,
 			TypeValue:        jev.Event.Type,
@@ -193,8 +193,8 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 			DataValue:        jev.Event.Data,
 			MetadataValue:    jev.Event.Metadata,
 		}
-		
-		events[i] = sync.EventWithVersion{
+
+		events[i] = synckit.EventWithVersion{
 			Event:   event,
 			Version: version,
 		}
@@ -204,40 +204,40 @@ func (t *HTTPTransport) Pull(ctx context.Context, since sync.Version) ([]sync.Ev
 }
 
 // GetLatestVersion fetches the latest version from the remote server.
-func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (sync.Version, error) {
-    url := fmt.Sprintf("%s/latest-version", t.baseURL)
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-    if err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create request for latest version: %w", err))
-    }
+func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, error) {
+	url := fmt.Sprintf("%s/latest-version", t.baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create request for latest version: %w", err))
+	}
 
-    resp, err := t.client.Do(req)
-    if err != nil {
-        return nil, syncErrors.NewRetryable(syncErrors.OpTransport, fmt.Errorf("network error while getting latest version: %w", err))
-    }
-    defer resp.Body.Close()
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return nil, syncErrors.NewRetryable(syncErrors.OpTransport, fmt.Errorf("network error while getting latest version: %w", err))
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        body, _ := io.ReadAll(resp.Body)
-        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
-    }
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
+	}
 
-    var versionStr string
-    if err := json.NewDecoder(resp.Body).Decode(&versionStr); err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
-    }
+	var versionStr string
+	if err := json.NewDecoder(resp.Body).Decode(&versionStr); err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
+	}
 
-    version, err := sqlite.ParseVersion(versionStr)
-    if err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
-    }
+	version, err := sqlite.ParseVersion(versionStr)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
+	}
 
-    return version, nil
+	return version, nil
 }
 
 // Subscribe is not supported by this simple HTTP transport.
 // Real-time subscriptions would require WebSockets or gRPC streams.
-func (t *HTTPTransport) Subscribe(ctx context.Context, handler func([]sync.EventWithVersion) error) error {
+func (t *HTTPTransport) Subscribe(ctx context.Context, handler func([]synckit.EventWithVersion) error) error {
 	return syncErrors.New(syncErrors.OpTransport, fmt.Errorf("subscribe is not implemented for HTTP transport"))
 }
 
@@ -250,13 +250,13 @@ func (t *HTTPTransport) Close() error {
 
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
-	store  sync.EventStore
+	store  synckit.EventStore
 	logger *log.Logger
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
 // It requires an EventStore to interact with the database.
-func NewSyncHandler(store sync.EventStore, logger *log.Logger) *SyncHandler {
+func NewSyncHandler(store synckit.EventStore, logger *log.Logger) *SyncHandler {
 	return &SyncHandler{
 		store:  store,
 		logger: logger,
@@ -318,19 +318,19 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
-        return
-    }
+	if r.Method != http.MethodGet {
+		respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 
-    version, err := h.store.LatestVersion(r.Context())
-    if err != nil {
-        h.logger.Printf("Error getting latest version: %v", err)
-        respondWithError(w, http.StatusInternalServerError, "could not get latest version")
-        return
-    }
+	version, err := h.store.LatestVersion(r.Context())
+	if err != nil {
+		h.logger.Printf("Error getting latest version: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "could not get latest version")
+		return
+	}
 
-    respondWithJSON(w, http.StatusOK, version.String())
+	respondWithJSON(w, http.StatusOK, version.String())
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
@@ -387,4 +387,3 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.WriteHeader(code)
 	w.Write(response)
 }
-

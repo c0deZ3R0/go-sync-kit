@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	sync "github.com/c0deZ3R0/go-sync-kit"
+synckit "github.com/c0deZ3R0/go-sync-kit"
 )
 
 // VectorClockError represents errors that can occur during vector clock operations
@@ -46,7 +46,7 @@ type VectorClock struct {
 }
 
 // Compile-time check to ensure VectorClock satisfies the Version interface
-var _ sync.Version = (*VectorClock)(nil)
+var _ synckit.Version = (*VectorClock)(nil)
 
 // NewVectorClock creates an empty VectorClock.
 // This is the primary constructor for creating vector clocks.
@@ -184,7 +184,7 @@ func (vc *VectorClock) Merge(other *VectorClock) error {
 // - A ≺ B if A[i] ≤ B[i] for all i, and A[j] < B[j] for at least one j
 // - A ≻ B if B ≺ A
 // - A || B if neither A ≺ B nor B ≺ A (concurrent)
-func (vc *VectorClock) Compare(other sync.Version) int {
+func (vc *VectorClock) Compare(other synckit.Version) int {
 	otherVC, ok := other.(*VectorClock)
 	if !ok {
 		// Cannot compare with a different Version implementation.
