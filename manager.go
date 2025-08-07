@@ -125,7 +125,7 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 	}()
 
 	// Create a timeout context for database and transport operations
-	opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	opCtx, cancel := sm.withTimeout(ctx)
 	defer cancel()
 
 	// Get remote version efficiently
@@ -297,7 +297,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	}
 
 	// Create a timeout context for transport operations
-	opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	opCtx, cancel := sm.withTimeout(ctx)
 	defer cancel()
 
 	// Pull remote events since our local version
@@ -330,9 +330,9 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 
 	// Check for conflicts if we have a conflict resolver
 	if sm.options.ConflictResolver != nil {
-		// Create a timeout context for database operations
-		dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
+	// Create a timeout context for database operations
+	dbCtx, cancel := sm.withTimeout(ctx)
+	defer cancel()
 
 		// Load local events that might conflict
 		localEvents, err := sm.store.Load(dbCtx, localVersion)
@@ -387,6 +387,14 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 	return result, nil
 }
 
+func (sm *syncManager) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if sm.options.Timeout > 0 {
+		return context.WithTimeout(ctx, sm.options.Timeout)
+	}
+	// If no timeout is specified, use 30 seconds as a reasonable default
+	return context.WithTimeout(ctx, 30*time.Second)
+}
+
 // StartAutoSync begins automatic synchronization at the configured interval
 func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 	sm.mu.Lock()
@@ -427,7 +435,7 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				// Create timeout context derived from parent context
-				syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				syncCtx, cancel := sm.withTimeout(ctx)
 				_, err := sm.Sync(syncCtx)
 				cancel() // Always cancel to free resources
 
