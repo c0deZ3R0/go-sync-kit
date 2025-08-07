@@ -539,11 +539,10 @@ func findLatestVersion(events []EventWithVersion) Version {
 	if len(events) == 0 {
 		return nil
 	}
-
 	latest := events[0].Version
-	for _, ev := range events[1:] {
-		if ev.Version.Compare(latest) > 0 {
-			latest = ev.Version
+	for i := 1; i < len(events); i++ {
+		if events[i].Version.Compare(latest) > 0 {
+			latest = events[i].Version
 		}
 	}
 	return latest
