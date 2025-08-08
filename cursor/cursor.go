@@ -44,6 +44,9 @@ func Lookup(kind string) (Codec, bool) {
 	return cc, ok
 }
 
+// Maximum allowed size for a wire cursor payload.
+const maxWireCursorSize = 64 * 1024 // 64 KB
+
 // WireCursor is the typed union for transport (HTTP JSON).
 type WireCursor struct {
 	Kind string          `json:"kind"`
@@ -62,9 +65,24 @@ func MarshalWire(c Cursor) (*WireCursor, error) {
 	return &WireCursor{Kind: codec.Kind(), Data: data}, nil
 }
 
-func UnmarshalWire(wc *WireCursor) (Cursor, error) {
+func ValidateWireCursor(wc *WireCursor) error {
 	if wc == nil {
-		return nil, errors.New("nil wire cursor")
+		return errors.New("nil wire cursor")
+	}
+	if len(wc.Data) > maxWireCursorSize {
+		return fmt.Errorf("cursor payload too large: %d bytes", len(wc.Data))
+	}
+	// Check if codec exists before trying to unmarshal
+	_, ok := Lookup(wc.Kind)
+	if !ok {
+		return fmt.Errorf("unknown cursor kind: %s", wc.Kind)
+	}
+	return nil
+}
+
+func UnmarshalWire(wc *WireCursor) (Cursor, error) {
+	if err := ValidateWireCursor(wc); err != nil {
+		return nil, err
 	}
 	codec, ok := Lookup(wc.Kind)
 	if !ok {

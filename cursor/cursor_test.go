@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -125,6 +126,59 @@ func TestVectorCursor(t *testing.T) {
 			for k, v := range tt.cursor.Counters {
 				if got := vc.Counters[k]; got != v {
 					t.Errorf("UnmarshalWire() counter[%s] = %v, want %v", k, got, v)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateWireCursor(t *testing.T) {
+	tests := []struct {
+		name    string
+		cursor  *WireCursor
+		wantErr string
+	}{
+		{
+			name:    "nil cursor",
+			cursor:  nil,
+			wantErr: "nil wire cursor",
+		},
+		{
+			name: "payload too large",
+			cursor: &WireCursor{
+				Kind: KindInteger,
+				Data: make([]byte, maxWireCursorSize+1),
+			},
+			wantErr: "cursor payload too large",
+		},
+		{
+			name: "unknown kind",
+			cursor: &WireCursor{
+				Kind: "unknown",
+				Data: []byte(`{}`),
+			},
+			wantErr: "unknown cursor kind",
+		},
+		{
+			name: "valid cursor",
+			cursor: &WireCursor{
+				Kind: KindInteger,
+				Data: []byte(`42`),
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateWireCursor(tt.cursor)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("ValidateWireCursor() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			} else {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("ValidateWireCursor() error = %v, wantErr %v", err, tt.wantErr)
 				}
 			}
 		})
