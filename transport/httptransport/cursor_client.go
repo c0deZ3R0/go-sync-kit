@@ -6,10 +6,9 @@ import (
     "encoding/json"
     "fmt"
     "io"
-    "net/http"
-    "strconv"
+	"net/http"
 
-    "github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
     "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -52,20 +51,19 @@ func (t *HTTPTransport) PullWithCursor(ctx context.Context, since cursor.Cursor,
     // Convert JSONEventWithVersion -> EventWithVersion
     events := make([]synckit.EventWithVersion, len(pr.Events))
     for i, jev := range pr.Events {
-        // Integer-only parse; safe with current SQLite store
-        // If you later decouple, inject a VersionParser into HTTPTransport
-        vInt, err := strconv.ParseInt(jev.Version, 10, 64)
-        if err != nil {
-            return nil, nil, fmt.Errorf("invalid version: %w", err)
-        }
-        ev := &SimpleEvent{
-            IDValue:          jev.Event.ID,
-            TypeValue:        jev.Event.Type,
-            AggregateIDValue: jev.Event.AggregateID,
-            DataValue:        jev.Event.Data,
-            MetadataValue:    jev.Event.Metadata,
-        }
-        events[i] = synckit.EventWithVersion{Event: ev, Version: cursor.IntegerCursor{Seq: uint64(vInt)}}
+		// Use version parser to decode version
+		version, err := t.versionParser(ctx, jev.Version)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid version: %w", err)
+		}
+		ev := &SimpleEvent{
+			IDValue:          jev.Event.ID,
+			TypeValue:        jev.Event.Type,
+			AggregateIDValue: jev.Event.AggregateID,
+			DataValue:        jev.Event.Data,
+			MetadataValue:    jev.Event.Metadata,
+		}
+		events[i] = synckit.EventWithVersion{Event: ev, Version: version}
     }
 
     var next cursor.Cursor

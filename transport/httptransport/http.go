@@ -18,21 +18,36 @@ import (
 
 // --- HTTP Transport Client ---
 
+// VersionParser converts a version string into synckit.Version.
+type VersionParser func(ctx context.Context, s string) (synckit.Version, error)
+
 // HTTPTransport implements the synckit.Transport interface for communicating over HTTP.
 type HTTPTransport struct {
-	client  *http.Client
-	baseURL string // e.g., "http://remote-server.com/sync"
+	client        *http.Client
+	baseURL       string // e.g., "http://remote-server.com/sync"
+	versionParser VersionParser // NEW
 }
 
 // NewTransport creates a new HTTPTransport client.
 // If a custom http.Client is not provided, http.DefaultClient will be used.
-func NewTransport(baseURL string, client *http.Client) *HTTPTransport {
+func NewTransport(baseURL string, client *http.Client, parser VersionParser) *HTTPTransport {
 	if client == nil {
 		client = http.DefaultClient
 	}
+	if parser == nil {
+		// default to integer parser for backward compatibility
+		parser = func(ctx context.Context, s string) (synckit.Version, error) {
+			v, err := strconv.ParseInt(s, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			return cursor.IntegerCursor{Seq: uint64(v)}, nil
+		}
+	}
 	return &HTTPTransport{
-		client:  client,
-		baseURL: baseURL,
+		client:        client,
+		baseURL:       baseURL,
+		versionParser: parser,
 	}
 }
 
@@ -98,12 +113,11 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 
 	events := make([]synckit.EventWithVersion, len(jsonEvents))
 	for i, jev := range jsonEvents {
-		// Parse version as an integer
-		vInt, err := strconv.ParseInt(jev.Version, 10, 64)
-		if err != nil {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
-		}
-		version := cursor.IntegerCursor{Seq: uint64(vInt)}
+	// Use version parser to decode version
+	version, err := t.versionParser(ctx, jev.Version)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
+	}
 
 		event := &SimpleEvent{
 			IDValue:          jev.Event.ID,
@@ -146,11 +160,10 @@ func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
 	}
 
-	vInt, err := strconv.ParseInt(versionStr, 10, 64)
+	version, err := t.versionParser(ctx, versionStr)
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
 	}
-	version := cursor.IntegerCursor{Seq: uint64(vInt)}
 
 	return version, nil
 }
