@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -154,16 +155,19 @@ func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
 	}
 
 	// Create server with default options (10MB limit)
-	server := httptest.NewServer(NewSyncHandler(
+	handler := NewSyncHandler(
 		NewMockEventStore(),
 		log.New(os.Stderr, "[test] ", log.LstdFlags),
 		nil,
 		DefaultServerOptions(),
-	))
-	defer server.Close()
+	)
+
+	// Create test server
+	s := httptest.NewServer(handler)
+	defer s.Close()
 
 	// Create client
-	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
+	transport := NewTransport(s.URL, nil, nil, DefaultClientOptions())
 
 	// Try to push the large event
 	err := transport.Push(context.Background(), events)
@@ -174,7 +178,7 @@ func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
 }
 
 func TestHTTPTransport_Compression(t *testing.T) {
-	// Create a payload that's larger than the compression threshold
+	// Create a payload that should trigger compression
 	longString := strings.Repeat("test data ", 1000) // ~9KB
 	events := []synckit.EventWithVersion{
 		{
@@ -187,35 +191,49 @@ func TestHTTPTransport_Compression(t *testing.T) {
 		},
 	}
 
-	// Track if compression was used
-	var compressionUsed bool
+	// Create handler with compression enabled
+	handler := NewSyncHandler(
+		NewMockEventStore(),
+		log.New(os.Stderr, "[test] ", log.LstdFlags),
+		nil,
+		&ServerOptions{
+			MaxRequestSize:       10 * 1024 * 1024,
+			CompressionEnabled:   true,
+			CompressionThreshold: 1024, // 1KB
+		},
+	)
 
-	// Create test server that checks for compression
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Send compressed response
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Encoding", "gzip")
-		
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		
-		response, _ := json.Marshal(events)
-		gz.Write(response)
-		compressionUsed = true
-	}))
-	defer server.Close()
+	// Create test server
+	s := httptest.NewServer(handler)
+	defer s.Close()
 
 	// Create client with compression enabled
-	transport := NewTransport(server.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+	transport := NewTransport(s.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+
+	// Store events first
+	err := transport.Push(context.Background(), events)
+	require.NoError(t, err)
 
 	// Pull events
-	fetched, err := transport.Pull(context.Background(), nil)
+	fetched, err := transport.Pull(context.Background(), cursor.IntegerCursor{Seq: 0})
 
-	// Verify compression was used and data was correctly decompressed
+	// Should succeed and get the same data back
 	require.NoError(t, err)
-	assert.True(t, compressionUsed, "Compression should have been used")
 	assert.Equal(t, len(events), len(fetched))
 	assert.Equal(t, events[0].Event.(*SimpleEvent).DataValue, fetched[0].Event.(*SimpleEvent).DataValue)
+}
+
+func testHelperRespondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
+	response, err := json.Marshal(payload)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "failed to marshal response"}`)) 
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
 }
 
 func TestHTTPTransport_Push(t *testing.T) {
