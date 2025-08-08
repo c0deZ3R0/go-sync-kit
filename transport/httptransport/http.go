@@ -235,7 +235,7 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, jev := range jsonEvents {
-		ev, err := fromJSONEventWithVersion(r.Context(), h.store, jev)
+		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
 			h.logger.Printf("Failed to convert JSONEventWithVersion: %v", err)
 			continue

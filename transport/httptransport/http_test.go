@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -248,34 +249,50 @@ func TestHTTPTransport_Close(t *testing.T) {
 func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	
 	// Test with default parser
 	handler := NewSyncHandler(store, logger, nil)
-	
+
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
 	}
 	if handler.logger != logger {
 		t.Error("Expected logger to be set correctly")
 	}
-	if handler.versionParser == nil {
-		t.Error("Expected default version parser to be set")
+
+	// Verify default parser uses store's ParseVersion
+	ctx := context.Background()
+	version, err := handler.versionParser(ctx, "1")
+	if err != nil {
+		t.Errorf("Expected no error from default parser, got: %v", err)
+	}
+
+	// Verify parsed version matches store's ParseVersion result
+	expectedVersion, err := store.ParseVersion(ctx, "1")
+	if err != nil {
+		t.Errorf("Expected no error from store ParseVersion, got: %v", err)
+	}
+
+	if version.String() != expectedVersion.String() {
+		t.Errorf("Expected version %v, got %v", expectedVersion, version)
 	}
 }
-
 func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+
+	// Create a custom parser that always returns version 42
 	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 		return cursor.IntegerCursor{Seq: 42}, nil
 	}
-	
+
 	// Test with custom parser
 	handler := NewSyncHandler(store, logger, customParser)
-	
+
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
 	}
@@ -285,9 +302,10 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	if handler.versionParser == nil {
 		t.Error("Expected custom version parser to be set")
 	}
-	
-	// Test that custom parser is used
-	version, err := handler.versionParser(context.Background(), "any")
+
+	// Test that custom parser is used and ignores input
+	ctx := context.Background()
+	version, err := handler.versionParser(ctx, "any")
 	if err != nil {
 		t.Errorf("Expected no error from custom parser, got: %v", err)
 	}
@@ -295,36 +313,6 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 		t.Errorf("Expected version to be IntegerCursor{42}, got: %v", version)
 	}
 }
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-	
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-// Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
-	
-	if handler.store != store {
-		t.Error("Expected store to be set correctly")
-	}
-	if handler.logger != logger {
-		t.Error("Expected logger to be set correctly")
-	}
-}
-
-func TestSyncHandler_HandlePush_Success(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-	
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-// Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
-	
-events := []synckit.EventWithVersion{
-		{
-			Event: &MockEvent{
-				id:          "test-1",
-				eventType:   "TestEvent",
-				aggregateID: "agg-1",
-				data:        "test data",
 			},
 			Version: cursor.IntegerCursor{Seq: 1},
 		},
@@ -455,6 +443,56 @@ handler := NewSyncHandler(store, logger, nil)
 	
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+
+	// Create a custom parser that validates version format
+	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
+		if !strings.HasPrefix(s, "v") {
+			return nil, fmt.Errorf("version must start with 'v'")
+		}
+		// Strip 'v' prefix and parse as integer
+		seq, err := strconv.ParseUint(s[1:], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid version number: %w", err)
+		}
+		return cursor.IntegerCursor{Seq: seq}, nil
+	}
+
+	// Create handler with custom parser
+	handler := NewSyncHandler(store, logger, customParser)
+
+	// Test valid version format
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=v1", nil)
+	w := httptest.NewRecorder()
+	handler.handlePull(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for valid version, got %d", w.Code)
+	}
+
+	// Test invalid version format
+	req = httptest.NewRequest(http.MethodGet, "/pull?since=1", nil)
+	w = httptest.NewRecorder()
+	handler.handlePull(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 for invalid version format, got %d", w.Code)
+	}
+
+	// Verify error message
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Errorf("Failed to decode response: %v", err)
+	}
+	if !strings.Contains(response["error"], "version must start with 'v'") {
+		t.Errorf("Expected error message about version format, got: %s", response["error"])
 	}
 }
 
