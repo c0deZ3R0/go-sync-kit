@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync" // NEW
 
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
@@ -25,13 +26,20 @@ type Codec interface {
 	Unmarshal(data json.RawMessage) (Cursor, error) // parse Data into a Cursor
 }
 
-var registry = map[string]Codec{}
+var (
+	registry   = map[string]Codec{}
+	registryMu sync.RWMutex // NEW
+)
 
 func Register(c Codec) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	registry[c.Kind()] = c
 }
 
 func Lookup(kind string) (Codec, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	cc, ok := registry[kind]
 	return cc, ok
 }
@@ -153,7 +161,7 @@ func InitDefaultCodecs() {
 
 // Optional: compact binary helpers if you later want non-JSON wire payloads.
 func EncodeUvarint(u uint64) []byte {
-	var buf [10]byte
-	n := binary.PutUvarint(buf[:], u)
-	return append([]byte(nil), buf[:n]...)
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, u)
+	return buf[:n]
 }
