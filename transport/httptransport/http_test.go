@@ -279,6 +279,7 @@ func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 		t.Errorf("Expected version %v, got %v", expectedVersion, version)
 	}
 }
+
 func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
@@ -311,46 +312,6 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	}
 	if v, ok := version.(cursor.IntegerCursor); !ok || v.Seq != 42 {
 		t.Errorf("Expected version to be IntegerCursor{42}, got: %v", version)
-	}
-}
-			},
-			Version: cursor.IntegerCursor{Seq: 1},
-		},
-	}
-	
-	// Convert to JSON format for the request
-	jsonEvents := make([]JSONEventWithVersion, len(events))
-	for i, ev := range events {
-		jsonEvents[i] = JSONEventWithVersion{
-			Event: JSONEvent{
-				ID:          ev.Event.ID(),
-				Type:        ev.Event.Type(),
-				AggregateID: ev.Event.AggregateID(),
-				Data:        ev.Event.Data(),
-				Metadata:    ev.Event.Metadata(),
-			},
-			Version: ev.Version.String(),
-		}
-	}
-	
-	jsonData, _ := json.Marshal(jsonEvents)
-	req := httptest.NewRequest(http.MethodPost, "/push", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	
-	handler.handlePush(w, req)
-	
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-	
-	var response map[string]string
-	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-		t.Errorf("Failed to decode response: %v", err)
-	}
-	
-	if response["status"] != "ok" {
-		t.Errorf("Expected status 'ok', got '%s'", response["status"])
 	}
 }
 
