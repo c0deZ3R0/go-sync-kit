@@ -2,56 +2,56 @@
 package sqlite
 
 import (
-    "context"
-    "database/sql"
-    "encoding/json"
-    "errors"
-    "fmt"
-    "io"
-    "log"
-    "strconv"
-    "strings"
-    stdSync "sync"
-    "time"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"strconv"
+	"strings"
+	stdSync "sync"
+	"time"
 
-    "github.com/c0deZ3R0/go-sync-kit/cursor"
-    syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
-    "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 
-    // Go SQLite driver
-    _ "github.com/mattn/go-sqlite3"
+	// Go SQLite driver
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // Custom errors for better error handling
 var (
-    ErrIncompatibleVersion = errors.New("incompatible version type: expected cursor.IntegerCursor")
-    ErrEventNotFound       = errors.New("event not found")
-    ErrStoreClosed         = errors.New("store is closed")
+	ErrIncompatibleVersion = errors.New("incompatible version type: expected cursor.IntegerCursor")
+	ErrEventNotFound       = errors.New("event not found")
+	ErrStoreClosed         = errors.New("store is closed")
 )
 
 // ParseVersion parses a version string into a cursor.IntegerCursor.
 // This is useful for HTTP transport and other external integrations.
 func ParseVersion(s string) (cursor.IntegerCursor, error) {
-    if s == "" || s == "0" {
-        return cursor.IntegerCursor{Seq: 0}, nil
-    }
+	if s == "" || s == "0" {
+		return cursor.IntegerCursor{Seq: 0}, nil
+	}
 
-    val, err := strconv.ParseInt(s, 10, 64)
-    if err != nil {
-        return cursor.IntegerCursor{}, fmt.Errorf("invalid version string '%s': %w", s, err)
-    }
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return cursor.IntegerCursor{}, fmt.Errorf("invalid version string '%s': %w", s, err)
+	}
 
-    return cursor.IntegerCursor{Seq: uint64(val)}, nil
+	return cursor.IntegerCursor{Seq: uint64(val)}, nil
 }
 
 // StoredEvent is a concrete implementation of synckit.Event used for retrieving
 // events from the database. It holds data and metadata as raw JSON.
 type StoredEvent struct {
-    id          string
-    eventType   string
-    aggregateID string
-    data        json.RawMessage
-    metadata    json.RawMessage
+	id          string
+	eventType   string
+	aggregateID string
+	data        json.RawMessage
+	metadata    json.RawMessage
 }
 
 func (e *StoredEvent) ID() string          { return e.id }
@@ -59,91 +59,91 @@ func (e *StoredEvent) Type() string        { return e.eventType }
 func (e *StoredEvent) AggregateID() string { return e.aggregateID }
 func (e *StoredEvent) Data() interface{}   { return e.data }
 func (e *StoredEvent) Metadata() map[string]interface{} {
-    if e.metadata == nil {
-        return nil
-    }
-    var m map[string]interface{}
-    // It's acceptable to ignore the error here for the interface contract.
-    // The consumer can handle the raw json.RawMessage from Data().
-    _ = json.Unmarshal(e.metadata, &m)
-    return m
+	if e.metadata == nil {
+		return nil
+	}
+	var m map[string]interface{}
+	// It's acceptable to ignore the error here for the interface contract.
+	// The consumer can handle the raw json.RawMessage from Data().
+	_ = json.Unmarshal(e.metadata, &m)
+	return m
 }
 
 // Config holds configuration options for the SQLiteEventStore.
 type Config struct {
-    // DataSourceName is the connection string for the SQLite database.
-    // For production use, consider enabling WAL mode for better concurrency.
-    // Example: "file:events.db?_journal_mode=WAL"
-    DataSourceName string
+	// DataSourceName is the connection string for the SQLite database.
+	// For production use, consider enabling WAL mode for better concurrency.
+	// Example: "file:events.db?_journal_mode=WAL"
+	DataSourceName string
 
-    // EnableWAL enables Write-Ahead Logging mode for better concurrency.
-    // This is recommended for production use.
-    EnableWAL bool
+	// EnableWAL enables Write-Ahead Logging mode for better concurrency.
+	// This is recommended for production use.
+	EnableWAL bool
 
-    // Logger is an optional logger for logging internal operations and errors.
-    // If nil, logging is disabled.
-    Logger *log.Logger
+	// Logger is an optional logger for logging internal operations and errors.
+	// If nil, logging is disabled.
+	Logger *log.Logger
 
-    // TableName is the name of the table to store events.
-    // Defaults to "events" if empty.
-    TableName string
+	// TableName is the name of the table to store events.
+	// Defaults to "events" if empty.
+	TableName string
 
-    // Connection pool settings
-    MaxOpenConns    int
-    MaxIdleConns    int
-    ConnMaxLifetime time.Duration
-    ConnMaxIdleTime time.Duration
+	// Connection pool settings
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 // setDefaults applies default values to the config
 func (c *Config) setDefaults() {
-    if c.TableName == "" {
-        c.TableName = "events"
-    }
-    if c.Logger == nil {
-        c.Logger = log.New(io.Discard, "", 0) // Disable logging by default
-    }
-    if c.MaxOpenConns == 0 {
-        c.MaxOpenConns = 25
-    }
-    if c.MaxIdleConns == 0 {
-        c.MaxIdleConns = 5
-    }
-    if c.ConnMaxLifetime == 0 {
-        c.ConnMaxLifetime = time.Hour
-    }
-    if c.ConnMaxIdleTime == 0 {
-        c.ConnMaxIdleTime = 5 * time.Minute
-    }
-    if c.EnableWAL {
-        if !strings.Contains(c.DataSourceName, "?_journal_mode=") {
-            c.DataSourceName += "?_journal_mode=WAL"
-        }
-    }
+	if c.TableName == "" {
+		c.TableName = "events"
+	}
+	if c.Logger == nil {
+		c.Logger = log.New(io.Discard, "", 0) // Disable logging by default
+	}
+	if c.MaxOpenConns == 0 {
+		c.MaxOpenConns = 25
+	}
+	if c.MaxIdleConns == 0 {
+		c.MaxIdleConns = 5
+	}
+	if c.ConnMaxLifetime == 0 {
+		c.ConnMaxLifetime = time.Hour
+	}
+	if c.ConnMaxIdleTime == 0 {
+		c.ConnMaxIdleTime = 5 * time.Minute
+	}
+	if c.EnableWAL {
+		if !strings.Contains(c.DataSourceName, "?_journal_mode=") {
+			c.DataSourceName += "?_journal_mode=WAL"
+		}
+	}
 }
 
 // NewWithDataSource is a convenience constructor
 func NewWithDataSource(dataSourceName string) (*SQLiteEventStore, error) {
-    config := DefaultConfig(dataSourceName)
-    return New(config)
+	config := DefaultConfig(dataSourceName)
+	return New(config)
 }
 
 // DefaultConfig returns a Config with sensible defaults for SQLite
 func DefaultConfig(dataSourceName string) *Config {
-    config := &Config{
-        DataSourceName: dataSourceName,
-    }
-    config.setDefaults()
-    return config
+	config := &Config{
+		DataSourceName: dataSourceName,
+	}
+	config.setDefaults()
+	return config
 }
 
 // SQLiteEventStore implements the sync.EventStore interface for SQLite.
 type SQLiteEventStore struct {
-    db        *sql.DB
-    mu        stdSync.RWMutex
-    closed    bool
-    logger    *log.Logger
-    tableName string
+	db        *sql.DB
+	mu        stdSync.RWMutex
+	closed    bool
+	logger    *log.Logger
+	tableName string
 }
 
 // Compile-time check to ensure SQLiteEventStore satisfies the EventStore interface
@@ -152,56 +152,56 @@ var _ synckit.EventStore = (*SQLiteEventStore)(nil)
 // New creates a new SQLiteEventStore from a Config.
 // If config is nil, DefaultConfig will be used with an empty DataSourceName.
 func New(config *Config) (*SQLiteEventStore, error) {
-    if config == nil {
-        return nil, fmt.Errorf("config cannot be nil")
-    }
+	if config == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
 
-    // Apply defaults
-    config.setDefaults()
+	// Apply defaults
+	config.setDefaults()
 
-    if config.DataSourceName == "" {
-        return nil, fmt.Errorf("DataSourceName is required")
-    }
+	if config.DataSourceName == "" {
+		return nil, fmt.Errorf("DataSourceName is required")
+	}
 
-    config.Logger.Printf("[SQLite EventStore] Opening database: %s", config.DataSourceName)
+	config.Logger.Printf("[SQLite EventStore] Opening database: %s", config.DataSourceName)
 
-    db, err := sql.Open("sqlite3", config.DataSourceName)
-    if err != nil {
-        return nil, fmt.Errorf("failed to open sqlite database: %w", err)
-    }
+	db, err := sql.Open("sqlite3", config.DataSourceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
+	}
 
-    // Configure connection pool
-    db.SetMaxOpenConns(config.MaxOpenConns)
-    db.SetMaxIdleConns(config.MaxIdleConns)
-    db.SetConnMaxLifetime(config.ConnMaxLifetime)
-    db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
+	// Configure connection pool
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(config.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
-    config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d",
-        config.MaxOpenConns, config.MaxIdleConns)
+	config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d",
+		config.MaxOpenConns, config.MaxIdleConns)
 
-    if err := db.Ping(); err != nil {
-        db.Close()
-        return nil, fmt.Errorf("failed to connect to sqlite database: %w", err)
-    }
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to connect to sqlite database: %w", err)
+	}
 
-    store := &SQLiteEventStore{
-        db:        db,
-        logger:    config.Logger,
-        tableName: config.TableName,
-    }
+	store := &SQLiteEventStore{
+		db:        db,
+		logger:    config.Logger,
+		tableName: config.TableName,
+	}
 
-    if err := store.setupSchema(); err != nil {
-        db.Close()
-        return nil, fmt.Errorf("failed to setup database schema: %w", err)
-    }
+	if err := store.setupSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to setup database schema: %w", err)
+	}
 
-    config.Logger.Printf("[SQLite EventStore] Successfully initialized with table: %s", config.TableName)
-    return store, nil
+	config.Logger.Printf("[SQLite EventStore] Successfully initialized with table: %s", config.TableName)
+	return store, nil
 }
 
 // setupSchema creates the 'events' table if it doesn't exist.
 func (s *SQLiteEventStore) setupSchema() error {
-    query := `
+	query := `
     CREATE TABLE IF NOT EXISTS events (
         version         INTEGER PRIMARY KEY AUTOINCREMENT,
         id              TEXT NOT NULL UNIQUE,
@@ -215,278 +215,278 @@ func (s *SQLiteEventStore) setupSchema() error {
     CREATE INDEX IF NOT EXISTS idx_version ON events (version);
     CREATE INDEX IF NOT EXISTS idx_created_at ON events (created_at);
     `
-    _, err := s.db.Exec(query)
-    return err
+	_, err := s.db.Exec(query)
+	return err
 }
 
 // Store saves an event to the SQLite database.
 // Note: This implementation ignores the 'version' parameter and relies on
 // SQLite's AUTOINCREMENT to assign a new, sequential version.
 func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, version synckit.Version) error {
-    // Check for context cancellation at start
-    select {
-    case <-ctx.Done():
-        return ctx.Err()
-    default:
-    }
+	// Check for context cancellation at start
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 
-    // Check context deadline
-    if deadline, ok := ctx.Deadline(); ok {
-        if time.Until(deadline) < time.Second {
-            return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
-        }
-    }
+	// Check context deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < time.Second {
+			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+		}
+	}
 
-    s.mu.RLock()
-    if s.closed {
-        s.mu.RUnlock()
-        return ErrStoreClosed
-    }
-    s.mu.RUnlock()
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return ErrStoreClosed
+	}
+	s.mu.RUnlock()
 
-    // Begin transaction for atomicity
-    tx, err := s.db.BeginTx(ctx, nil)
-    if err != nil {
-        return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to begin transaction: %w", err))
-    }
-    defer func() {
-        if err != nil {
-            tx.Rollback()
-        }
-    }()
+	// Begin transaction for atomicity
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to begin transaction: %w", err))
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-    dataJSON, err := json.Marshal(event.Data())
-    if err != nil {
-        return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event data: %w", err))
-    }
+	dataJSON, err := json.Marshal(event.Data())
+	if err != nil {
+		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event data: %w", err))
+	}
 
-    metadataJSON, err := json.Marshal(event.Metadata())
-    if err != nil {
-        return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event metadata: %w", err))
-    }
+	metadataJSON, err := json.Marshal(event.Metadata())
+	if err != nil {
+		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event metadata: %w", err))
+	}
 
-    query := `INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`
-    _, err = tx.ExecContext(ctx, query, event.ID(), event.AggregateID(), event.Type(), string(dataJSON), string(metadataJSON))
-    if err != nil {
-        return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to insert event: %w", err))
-    }
+	query := `INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`
+	_, err = tx.ExecContext(ctx, query, event.ID(), event.AggregateID(), event.Type(), string(dataJSON), string(metadataJSON))
+	if err != nil {
+		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to insert event: %w", err))
+	}
 
-    if err = tx.Commit(); err != nil {
-        return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to commit transaction: %w", err))
-    }
+	if err = tx.Commit(); err != nil {
+		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to commit transaction: %w", err))
+	}
 
-    return nil
+	return nil
 }
 
 // Load retrieves all events since a given version.
 func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
-    s.mu.RLock()
-    if s.closed {
-        s.mu.RUnlock()
-        return nil, ErrStoreClosed
-    }
-    s.mu.RUnlock()
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return nil, ErrStoreClosed
+	}
+	s.mu.RUnlock()
 
-    sinceCursor, ok := since.(cursor.IntegerCursor)
-    if !ok && !since.IsZero() {
-        return nil, ErrIncompatibleVersion
-    }
+	sinceCursor, ok := since.(cursor.IntegerCursor)
+	if !ok && !since.IsZero() {
+		return nil, ErrIncompatibleVersion
+	}
 
-    query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ? ORDER BY version ASC`
-    rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
-    if err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events: %w", err))
-    }
-    defer rows.Close()
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ? ORDER BY version ASC`
+	rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events: %w", err))
+	}
+	defer rows.Close()
 
-    return s.scanEvents(rows)
+	return s.scanEvents(rows)
 }
 
 // LoadByAggregate retrieves events for a specific aggregate since a given version.
 func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
-    s.mu.RLock()
-    if s.closed {
-        s.mu.RUnlock()
-        return nil, ErrStoreClosed
-    }
-    s.mu.RUnlock()
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return nil, ErrStoreClosed
+	}
+	s.mu.RUnlock()
 
-    sinceCursor, ok := since.(cursor.IntegerCursor)
-    if !ok && !since.IsZero() {
-        return nil, ErrIncompatibleVersion
-    }
+	sinceCursor, ok := since.(cursor.IntegerCursor)
+	if !ok && !since.IsZero() {
+		return nil, ErrIncompatibleVersion
+	}
 
-    query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ? ORDER BY version ASC`
-    rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
-    if err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events by aggregate: %w", err))
-    }
-    defer rows.Close()
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ? ORDER BY version ASC`
+	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events by aggregate: %w", err))
+	}
+	defer rows.Close()
 
-    return s.scanEvents(rows)
+	return s.scanEvents(rows)
 }
 
 // LatestVersion returns the highest version number in the store.
 func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (synckit.Version, error) {
-    s.mu.RLock()
-    if s.closed {
-        s.mu.RUnlock()
-        return nil, ErrStoreClosed
-    }
-    s.mu.RUnlock()
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return nil, ErrStoreClosed
+	}
+	s.mu.RUnlock()
 
-    var maxVersion sql.NullInt64
-    query := `SELECT MAX(version) FROM events`
-    err := s.db.QueryRowContext(ctx, query).Scan(&maxVersion)
-    if err != nil {
-        return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query latest version: %w", err))
-    }
+	var maxVersion sql.NullInt64
+	query := `SELECT MAX(version) FROM events`
+	err := s.db.QueryRowContext(ctx, query).Scan(&maxVersion)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query latest version: %w", err))
+	}
 
-    if !maxVersion.Valid {
-        return cursor.IntegerCursor{Seq: 0}, nil // No events in store
-    }
+	if !maxVersion.Valid {
+		return cursor.IntegerCursor{Seq: 0}, nil // No events in store
+	}
 
-    return cursor.IntegerCursor{Seq: uint64(maxVersion.Int64)}, nil
+	return cursor.IntegerCursor{Seq: uint64(maxVersion.Int64)}, nil
 }
 
 // ParseVersion converts a string representation into a cursor.IntegerCursor.
 // This allows external integrations to handle SQLite's integer versioning gracefully.
 func (s *SQLiteEventStore) ParseVersion(ctx context.Context, versionStr string) (synckit.Version, error) {
-    if versionStr == "" || versionStr == "0" {
-        return cursor.IntegerCursor{Seq: 0}, nil
-    }
+	if versionStr == "" || versionStr == "0" {
+		return cursor.IntegerCursor{Seq: 0}, nil
+	}
 
-    val, err := strconv.ParseInt(versionStr, 10, 64)
-    if err != nil {
-        return nil, fmt.Errorf("invalid integer version string '%s': %w", versionStr, err)
-    }
+	val, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid integer version string '%s': %w", versionStr, err)
+	}
 
-    return cursor.IntegerCursor{Seq: uint64(val)}, nil
+	return cursor.IntegerCursor{Seq: uint64(val)}, nil
 }
 
 // Close closes the database connection.
 func (s *SQLiteEventStore) Close() error {
-    s.mu.Lock()
-    defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-    if s.closed {
-        return nil
-    }
+	if s.closed {
+		return nil
+	}
 
-    s.closed = true
-    return s.db.Close()
+	s.closed = true
+	return s.db.Close()
 }
 
 // StoreBatch stores multiple events in a single transaction for better performance.
 func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []synckit.EventWithVersion) error {
-    // Check context deadline
-    if deadline, ok := ctx.Deadline(); ok {
-        if time.Until(deadline) < time.Second {
-            return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
-        }
-    }
+	// Check context deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < time.Second {
+			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+		}
+	}
 
-    s.mu.RLock()
-    if s.closed {
-        s.mu.RUnlock()
-        return ErrStoreClosed
-    }
-    s.mu.RUnlock()
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return ErrStoreClosed
+	}
+	s.mu.RUnlock()
 
-    if len(events) == 0 {
-        return nil // Nothing to store
-    }
+	if len(events) == 0 {
+		return nil // Nothing to store
+	}
 
-    // Begin transaction for atomicity
-    tx, err := s.db.BeginTx(ctx, nil)
-    if err != nil {
-        return fmt.Errorf("failed to begin batch transaction: %w", err)
-    }
-    defer func() {
-        if err != nil {
-            tx.Rollback()
-        }
-    }()
+	// Begin transaction for atomicity
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin batch transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-    // Prepare statement for batch inserts
-    stmt, err := tx.PrepareContext(ctx,
-        `INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`)
-    if err != nil {
-        return fmt.Errorf("failed to prepare batch statement: %w", err)
-    }
-    defer stmt.Close()
+	// Prepare statement for batch inserts
+	stmt, err := tx.PrepareContext(ctx,
+		`INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare batch statement: %w", err)
+	}
+	defer stmt.Close()
 
-    // Process each event
-    for _, ev := range events {
-        dataJSON, err := json.Marshal(ev.Event.Data())
-        if err != nil {
-            return fmt.Errorf("failed to marshal event data: %w", err)
-        }
+	// Process each event
+	for _, ev := range events {
+		dataJSON, err := json.Marshal(ev.Event.Data())
+		if err != nil {
+			return fmt.Errorf("failed to marshal event data: %w", err)
+		}
 
-        metadataJSON, err := json.Marshal(ev.Event.Metadata())
-        if err != nil {
-            return fmt.Errorf("failed to marshal event metadata: %w", err)
-        }
+		metadataJSON, err := json.Marshal(ev.Event.Metadata())
+		if err != nil {
+			return fmt.Errorf("failed to marshal event metadata: %w", err)
+		}
 
-        _, err = stmt.ExecContext(ctx,
-            ev.Event.ID(),
-            ev.Event.AggregateID(),
-            ev.Event.Type(),
-            string(dataJSON),
-            string(metadataJSON))
-        if err != nil {
-            return fmt.Errorf("failed to insert event: %w", err)
-        }
-    }
+		_, err = stmt.ExecContext(ctx,
+			ev.Event.ID(),
+			ev.Event.AggregateID(),
+			ev.Event.Type(),
+			string(dataJSON),
+			string(metadataJSON))
+		if err != nil {
+			return fmt.Errorf("failed to insert event: %w", err)
+		}
+	}
 
-    // Commit the transaction
-    if err = tx.Commit(); err != nil {
-        return fmt.Errorf("failed to commit batch transaction: %w", err)
-    }
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit batch transaction: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 // Stats returns database statistics for monitoring
 func (s *SQLiteEventStore) Stats() sql.DBStats {
-    s.mu.RLock()
-    defer s.mu.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-    if s.closed {
-        return sql.DBStats{}
-    }
+	if s.closed {
+		return sql.DBStats{}
+	}
 
-    return s.db.Stats()
+	return s.db.Stats()
 }
 
 // scanEvents is a helper to scan sql.Rows into a slice of EventWithVersion.
 func (s *SQLiteEventStore) scanEvents(rows *sql.Rows) ([]synckit.EventWithVersion, error) {
-    var events []synckit.EventWithVersion
-    for rows.Next() {
-        var version int64
-        var data, metadata sql.NullString
-        evt := &StoredEvent{}
+	var events []synckit.EventWithVersion
+	for rows.Next() {
+		var version int64
+		var data, metadata sql.NullString
+		evt := &StoredEvent{}
 
-        if err := rows.Scan(&version, &evt.id, &evt.aggregateID, &evt.eventType, &data, &metadata); err != nil {
-            return nil, fmt.Errorf("failed to scan event row: %w", err)
-        }
+		if err := rows.Scan(&version, &evt.id, &evt.aggregateID, &evt.eventType, &data, &metadata); err != nil {
+			return nil, fmt.Errorf("failed to scan event row: %w", err)
+		}
 
-        if data.Valid {
-            evt.data = []byte(data.String)
-        }
-        if metadata.Valid {
-            evt.metadata = []byte(metadata.String)
-        }
+		if data.Valid {
+			evt.data = []byte(data.String)
+		}
+		if metadata.Valid {
+			evt.metadata = []byte(metadata.String)
+		}
 
-        events = append(events, synckit.EventWithVersion{
-            Event:   evt,
-            Version: cursor.IntegerCursor{Seq: uint64(version)},
-        })
-    }
+		events = append(events, synckit.EventWithVersion{
+			Event:   evt,
+			Version: cursor.IntegerCursor{Seq: uint64(version)},
+		})
+	}
 
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("error during row iteration: %w", err)
-    }
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during row iteration: %w", err)
+	}
 
-    return events, nil
+	return events, nil
 }

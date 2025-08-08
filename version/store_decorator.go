@@ -5,7 +5,7 @@ import (
 	"fmt"
 	syncLib "sync"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // VersionManager defines the interface for managing version state.

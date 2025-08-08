@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-synckit "github.com/c0deZ3R0/go-sync-kit"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // VectorClockError represents errors that can occur during vector clock operations
@@ -102,9 +102,10 @@ func NewVectorClockFromMap(clocks map[string]uint64) *VectorClock {
 // This should be called whenever a node generates a new event.
 //
 // Example usage:
-//   clock := NewVectorClock()
-//   clock.Increment("node-1") // {"node-1": 1}
-//   clock.Increment("node-1") // {"node-1": 2}
+//
+//	clock := NewVectorClock()
+//	clock.Increment("node-1") // {"node-1": 1}
+//	clock.Increment("node-1") // {"node-1": 2}
 //
 // Returns an error if:
 // - The node ID is empty
@@ -136,9 +137,10 @@ func (vc *VectorClock) Increment(nodeID string) error {
 // history that both clocks have observed.
 //
 // Example:
-//   clock1 := {"node-1": 2, "node-2": 1}
-//   clock2 := {"node-1": 1, "node-3": 2}
-//   clock1.Merge(clock2) results in {"node-1": 2, "node-2": 1, "node-3": 2}
+//
+//	clock1 := {"node-1": 2, "node-2": 1}
+//	clock2 := {"node-1": 1, "node-3": 2}
+//	clock1.Merge(clock2) results in {"node-1": 2, "node-2": 1, "node-3": 2}
 //
 // Returns an error if:
 // - The resulting merged clock would exceed MaxNodes
@@ -177,8 +179,8 @@ func (vc *VectorClock) Merge(other *VectorClock) error {
 // Compare determines the causal relationship between two VectorClocks.
 // It returns:
 //   - -1: if this VectorClock happened-before the other (this ≺ other)
-//   -  1: if this VectorClock happened-after the other (this ≻ other)  
-//   -  0: if they are concurrent or identical (this || other)
+//   - 1: if this VectorClock happened-after the other (this ≻ other)
+//   - 0: if they are concurrent or identical (this || other)
 //
 // The comparison follows the standard vector clock partial ordering:
 // - A ≺ B if A[i] ≤ B[i] for all i, and A[j] < B[j] for at least one j
@@ -209,13 +211,12 @@ func (vc *VectorClock) Compare(other synckit.Version) int {
 		allNodes[nodeID] = true
 	}
 
-
 	thisHappenedBefore := false
 	otherHappenedBefore := false
-	
+
 	for nodeID := range allNodes {
-		thisClock := vc.clocks[nodeID]  // Defaults to 0 if not present
-		otherClock := otherVC.clocks[nodeID]  // Defaults to 0 if not present
+		thisClock := vc.clocks[nodeID]       // Defaults to 0 if not present
+		otherClock := otherVC.clocks[nodeID] // Defaults to 0 if not present
 
 		if thisClock < otherClock {
 			thisHappenedBefore = true

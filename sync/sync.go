@@ -1,13 +1,13 @@
 // Package sync provides a generic event-driven synchronization system
 // for distributed applications. It supports offline-first architectures
 // with conflict resolution and pluggable storage backends.
-package synckit
+package sync
 
 import (
 	"context"
 	"time"
 
-	"github.com/c0deZ3R0/go-sync-kit-agent2/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 )
 
 // Event represents
@@ -115,11 +115,11 @@ type RetryConfig struct {
 
 // SyncOptions configures the synchronization behavior
 type SyncOptions struct {
-    // LastCursorLoader loads the last saved cursor for cursor-based syncs
-    LastCursorLoader func() cursor.Cursor
+	// LastCursorLoader loads the last saved cursor for cursor-based syncs
+	LastCursorLoader func() cursor.Cursor
 
-    // CursorSaver saves the latest cursor after a successful sync
-    CursorSaver func(cursor.Cursor) error
+	// CursorSaver saves the latest cursor after a successful sync
+	CursorSaver func(cursor.Cursor) error
 	// PushOnly indicates this client should only push events, not pull
 	PushOnly bool
 

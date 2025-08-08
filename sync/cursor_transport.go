@@ -3,7 +3,7 @@ package sync
 import (
 	"context"
 
-	"github.com/c0deZ3R0/go-sync-kit-agent2/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 )
 
 // CursorTransport extends Transport with cursor-based capabilities.

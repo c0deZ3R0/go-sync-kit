@@ -21,7 +21,7 @@ type Cursor interface {
 // Codec for marshaling/unmarshaling cursors to a stable wire form.
 type Codec interface {
 	Kind() string
-	Marshal(c Cursor) (json.RawMessage, error)   // returns the Data part only
+	Marshal(c Cursor) (json.RawMessage, error)      // returns the Data part only
 	Unmarshal(data json.RawMessage) (Cursor, error) // parse Data into a Cursor
 }
 

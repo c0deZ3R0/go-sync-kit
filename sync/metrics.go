@@ -23,4 +23,4 @@ type NoOpMetricsCollector struct{}
 func (*NoOpMetricsCollector) RecordSyncDuration(op string, d time.Duration) {}
 func (*NoOpMetricsCollector) RecordSyncEvents(pushed, pulled int)           {}
 func (*NoOpMetricsCollector) RecordConflicts(count int)                     {}
-func (*NoOpMetricsCollector) RecordSyncErrors(op, reason string)           {}
+func (*NoOpMetricsCollector) RecordSyncErrors(op, reason string)            {}

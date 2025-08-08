@@ -330,9 +330,9 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 
 	// Check for conflicts if we have a conflict resolver
 	if sm.options.ConflictResolver != nil {
-	// Create a timeout context for database operations
-	dbCtx, cancel := sm.withTimeout(ctx)
-	defer cancel()
+		// Create a timeout context for database operations
+		dbCtx, cancel := sm.withTimeout(ctx)
+		defer cancel()
 
 		// Load local events that might conflict
 		localEvents, err := sm.store.Load(dbCtx, localVersion)
