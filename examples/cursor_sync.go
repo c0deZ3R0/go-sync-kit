@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
 )
 
@@ -79,16 +79,16 @@ func CursorBasedSync() {
 			return ioutil.WriteFile("last_cursor.json", data, 0644)
 		},
 		// Configure other options as needed
-		SyncInterval:       time.Second * 30,
-		EnableValidation:   true,
-		EnableCompression:  true,
+		SyncInterval:      time.Second * 30,
+		EnableValidation:  true,
+		EnableCompression: true,
 		Timeout:           time.Second * 10,
 	}
 
 	// Create HTTP transport with cursor support
 	// Note: We'll need to implement our own transport
 	//t := http.NewTransport("http://localhost:8080", nil)
-	
+
 	// For now, let's use a mock transport that simulates a server
 	tm := NewMockTransport()
 	t, _ := tm.(*MockTransport)

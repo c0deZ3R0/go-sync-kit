@@ -43,9 +43,12 @@ func NewMockVersion(t time.Time) *MockVersion {
 
 func (v *MockVersion) Compare(other sync_pkg.Version) int {
 	if other == nil {
-		return 1
+		return 1 // non-nil is greater than nil
 	}
-	otherV := other.(*MockVersion)
+	otherV, ok := other.(*MockVersion)
+	if !ok {
+		return 0 // incomparable across different version types
+	}
 	if v.timestamp.Equal(otherV.timestamp) {
 		return 0
 	}

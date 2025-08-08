@@ -1,10 +1,106 @@
 package cursor
 
 import (
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"math/bits"
 	"strings"
+	"sync"
 	"testing"
 )
+
+func TestConcurrentRegistryAccess(t *testing.T) {
+	// Reset registry for test
+	registryMu.Lock()
+	registry = map[string]Codec{}
+	registryMu.Unlock()
+
+	const (
+		numWorkers = 10
+		numOps     = 100
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers * 2) // Workers for both Register and Lookup
+
+	// Launch workers to Register codecs
+	for i := 0; i < numWorkers; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < numOps; j++ {
+				kind := fmt.Sprintf("test-codec-%d-%d", id, j)
+				Register(ConcurrentTestCodec{ID: kind})
+			}
+		}(i)
+	}
+
+	// Launch workers to Lookup codecs
+	for i := 0; i < numWorkers; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < numOps; j++ {
+				kind := fmt.Sprintf("test-codec-%d-%d", id, j)
+				_, _ = Lookup(kind) // Ignore result, just test concurrency
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify final state
+	registryMu.RLock()
+	registrySize := len(registry)
+	registryMu.RUnlock()
+
+	// Each worker registers numOps unique codecs
+	expectedSize := numWorkers * numOps
+	if registrySize != expectedSize {
+		t.Errorf("Registry size = %d; want %d", registrySize, expectedSize)
+	}
+}
+
+func TestEncodeUvarint(t *testing.T) {
+	tests := []struct {
+		name  string
+		input uint64
+	}{
+		{"zero", 0},
+		{"small", 42},
+		{"medium", 1234567},
+		{"large", 1<<63 - 1},
+		{"max", ^uint64(0)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded := EncodeUvarint(tt.input)
+
+			// Check encoded result is non-empty
+			if len(encoded) == 0 {
+				t.Error("Encoded result is empty")
+			}
+
+			// Verify we can decode it back correctly
+			decoded, n := binary.Uvarint(encoded)
+			if n <= 0 {
+				t.Error("Failed to decode uvarint")
+			}
+			if decoded != tt.input {
+				t.Errorf("Decoded value = %d; want %d", decoded, tt.input)
+			}
+
+			// Verify encoded length matches expected for value
+			expectedLen := (bits.Len64(tt.input) + 6) / 7
+			if tt.input == 0 {
+				expectedLen = 1
+			}
+			if len(encoded) != expectedLen {
+				t.Errorf("Encoded length = %d; want %d", len(encoded), expectedLen)
+			}
+		})
+	}
+}
 
 func TestIntegerCursor(t *testing.T) {
 	InitDefaultCodecs()

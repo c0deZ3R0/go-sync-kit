@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -100,9 +101,14 @@ func (IntegerCursor) Kind() string { return KindInteger }
 
 // Compare implements synckit.Version
 func (ic IntegerCursor) Compare(other synckit.Version) int {
+	// Handle nil case first
+	if other == nil {
+		return 1 // non-nil is greater than nil
+	}
+	// Handle type mismatch
 	oc, ok := other.(IntegerCursor)
 	if !ok {
-		return 0 // incomparable
+		return 0 // incomparable across different version types
 	}
 	if ic.Seq < oc.Seq {
 		return -1
@@ -151,6 +157,39 @@ type VectorCursor struct {
 
 func (VectorCursor) Kind() string { return KindVector }
 
+// Compare implements synckit.Version
+func (vc VectorCursor) Compare(other synckit.Version) int {
+	// Handle nil case first
+	if other == nil {
+		return 1 // non-nil is greater than nil
+	}
+
+	// Handle type mismatch
+	oc, ok := other.(VectorCursor)
+	if !ok {
+		return 0 // incomparable across different version types
+	}
+
+	// Convert both vectors to JSON for comparison
+	vcJSON, _ := json.Marshal(vc.Counters)
+	ocJSON, _ := json.Marshal(oc.Counters)
+
+	// Compare byte-by-byte
+	return bytes.Compare(vcJSON, ocJSON)
+}
+
+// String implements synckit.Version
+func (vc VectorCursor) String() string {
+	data, _ := json.Marshal(vc.Counters)
+	return string(data)
+}
+
+// IsZero implements synckit.Version
+func (vc VectorCursor) IsZero() bool {
+	// Nil map or empty map is considered zero
+	return vc.Counters == nil || len(vc.Counters) == 0
+}
+
 type vectorCodec struct{}
 
 func (vectorCodec) Kind() string { return KindVector }
@@ -182,4 +221,19 @@ func EncodeUvarint(u uint64) []byte {
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, u)
 	return buf[:n]
+}
+
+// ConcurrentTestCodec is a test-only codec for concurrent registry tests
+type ConcurrentTestCodec struct {
+	ID string
+}
+
+func (c ConcurrentTestCodec) Kind() string { return c.ID }
+
+func (ConcurrentTestCodec) Marshal(c Cursor) (json.RawMessage, error) {
+	return nil, nil
+}
+
+func (ConcurrentTestCodec) Unmarshal(data json.RawMessage) (Cursor, error) {
+	return nil, nil
 }
