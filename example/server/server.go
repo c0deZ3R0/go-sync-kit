@@ -58,7 +58,7 @@ func RunServer(ctx context.Context) error {
 
 	// Sync handler
 	logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-	syncHandler := transport.NewSyncHandler(store, logger)
+	syncHandler := httptransport.NewSyncHandler(store, logger, nil, nil)
 	mux.Handle("/sync/", syncHandler) // Note the trailing slash
 
 	// Metrics endpoint

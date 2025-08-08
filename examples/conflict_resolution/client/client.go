@@ -253,12 +253,12 @@ func New(config Config) (*Client, error) {
 		return nil, fmt.Errorf("failed to create SQLite store: %w", err)
 	}
 
-	// Create HTTP transport
+		// Create HTTP transport
 	transport := httptransport.NewTransport(
 		config.ServerURL+"/sync",
 		&http.Client{Timeout: 10 * time.Second},
 		nil,
-	)
+		nil)
 
 	// Create sync options
 	opts := &synckit.SyncOptions{

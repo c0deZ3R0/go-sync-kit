@@ -41,7 +41,7 @@ func RunClient(ctx context.Context) error {
 	metricsCollector := metrics.NewHTTPMetricsCollector()
 
 	// Create HTTP transport
-	clientTransport := transport.NewTransport("http://localhost:8080/sync", nil)
+	clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
 	// Configure sync with metrics
 	syncOptions := &synckit.SyncOptions{

@@ -123,8 +123,8 @@ func main() {
 
     // Set up HTTP server with SyncHandler
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-// Use default version parser (store.ParseVersion)
-handler := transport.NewSyncHandler(store, logger, nil)
+    // Use default version parser (store.ParseVersion)
+    handler := httptransport.NewSyncHandler(store, logger, nil, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
 	
     go func() {
@@ -134,7 +134,7 @@ handler := transport.NewSyncHandler(store, logger, nil)
     }()
 
     // Set up HTTP Client with HTTPTransport
-    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+    clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
 
     // Configure Sync Options
     syncOptions := &synckit.SyncOptions{
@@ -515,7 +515,7 @@ Go Sync Kit includes a production-ready HTTP transport implementation that provi
 import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP transport client
-clientTransport := httptransport.NewTransport("http://localhost:8080", nil)
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
 
 // Use with SyncManager
 syncManager := synckit.NewSyncManager(store, clientTransport, options)
@@ -528,7 +528,7 @@ import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 // Create HTTP sync handler
 logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := httptransport.NewSyncHandler(store, logger, nil)
+handler := httptransport.NewSyncHandler(store, logger, nil, nil)
 
 // Start HTTP server
 server := &http.Server{Addr: ":8080", Handler: handler}
@@ -571,10 +571,10 @@ customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 }
 
 // Use custom parser in client transport
-clientTransport := httptransport.NewTransport("http://localhost:8080", nil, customParser)
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil, customParser, nil)
 
 // Use same parser in server handler for consistent version parsing
-handler := httptransport.NewSyncHandler(store, logger, customParser)
+handler := httptransport.NewSyncHandler(store, logger, customParser, nil)
 ```
 
 If no parser is provided, the transport falls back to using the store's `ParseVersion` method:
@@ -603,10 +603,10 @@ func main() {
     }
     defer store.Close()
 
-    // 2. Start HTTP server
+// 2. Start HTTP server
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-// Use default version parser (store.ParseVersion)
-handler := transport.NewSyncHandler(store, logger, nil)
+    // Use default version parser (store.ParseVersion)
+    handler := httptransport.NewSyncHandler(store, logger, nil, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
     
     go func() {
@@ -620,7 +620,7 @@ handler := transport.NewSyncHandler(store, logger, nil)
     time.Sleep(100 * time.Millisecond)
 
     // 3. Create HTTP client transport
-    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+    clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
 
     // 4. Configure sync options
     syncOptions := &synckit.SyncOptions{
