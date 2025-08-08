@@ -8,8 +8,8 @@ import (
 	std_sync "sync"
 	"time"
 
-	"github.com/c0deZ3R0/go-sync-kit-agent2/cursor"
-	sync_pkg "github.com/c0deZ3R0/go-sync-kit-agent2/sync"
+"github.com/c0deZ3R0/go-sync-kit/cursor"
+	sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
 )
 
 // MockTransport implements both Transport and CursorTransport interfaces

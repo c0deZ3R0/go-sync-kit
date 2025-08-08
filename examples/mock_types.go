@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	sync_pkg "github.com/c0deZ3R0/go-sync-kit-agent2/sync"
+sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
 )
 
 // MockEvent implements the Event interface for testing
