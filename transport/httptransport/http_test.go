@@ -1,21 +1,27 @@
 package httptransport
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
-	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
 // MockEvent implements the synckit.Event interface for testing
@@ -33,24 +39,75 @@ func (m *MockEvent) AggregateID() string                      { return m.aggrega
 func (m *MockEvent) Data() interface{}                        { return m.data }
 func (m *MockEvent) Metadata() map[string]interface{}         { return m.metadata }
 
-func setupTestStore(t *testing.T) (*sqlite.SQLiteEventStore, func()) {
-	tempFile, err := os.CreateTemp("", "test_http_*.sqlite")
+// MockEventStore implements a simple in-memory event store for testing
+type MockEventStore struct {
+	events []synckit.EventWithVersion
+	mux    sync.RWMutex
+}
+
+func NewMockEventStore() *MockEventStore {
+	return &MockEventStore{}
+}
+
+func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version synckit.Version) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	m.events = append(m.events, synckit.EventWithVersion{Event: event, Version: version})
+	return nil
+}
+
+func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	var result []synckit.EventWithVersion
+	for _, ev := range m.events {
+		if ev.Version.Compare(since) > 0 {
+			result = append(result, ev)
+		}
+	}
+	return result, nil
+}
+
+func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	var result []synckit.EventWithVersion
+	for _, ev := range m.events {
+		if ev.Event.AggregateID() == aggregateID && ev.Version.Compare(since) > 0 {
+			result = append(result, ev)
+		}
+	}
+	return result, nil
+}
+
+func (m *MockEventStore) LatestVersion(ctx context.Context) (synckit.Version, error) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	if len(m.events) == 0 {
+		return cursor.IntegerCursor{Seq: 0}, nil
+	}
+	return m.events[len(m.events)-1].Version, nil
+}
+
+func (m *MockEventStore) ParseVersion(ctx context.Context, s string) (synckit.Version, error) {
+	seq, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+		return nil, err
 	}
-	tempFile.Close()
+	return cursor.IntegerCursor{Seq: seq}, nil
+}
 
-	store, err := sqlite.NewWithDataSource(tempFile.Name())
-	if err != nil {
-		os.Remove(tempFile.Name())
-		t.Fatalf("Failed to create store: %v", err)
-	}
+func (m *MockEventStore) Close() error {
+	return nil
+}
 
-	cleanup := func() {
-		store.Close()
-		os.Remove(tempFile.Name())
-	}
-
+func setupTestStore(t *testing.T) (*MockEventStore, func()) {
+	store := NewMockEventStore()
+	cleanup := func() {}
 	return store, cleanup
 }
 
@@ -83,7 +140,103 @@ func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
 	}
 }
 
-func TestHTTPTransport_Push_Success(t *testing.T) {
+func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
+	// Create a large event payload that exceeds the size limit
+	longString := strings.Repeat("x", 10*1024*1024+1) // 10MB + 1 byte
+	events := []synckit.EventWithVersion{
+		{
+			Event: &SimpleEvent{
+				IDValue:          "1",
+				TypeValue:        "test",
+				AggregateIDValue: "agg1",
+				DataValue:        longString,
+			},
+		},
+	}
+
+	// Create server with default options (10MB limit)
+	handler := NewSyncHandler(
+		NewMockEventStore(),
+		log.New(os.Stderr, "[test] ", log.LstdFlags),
+		nil,
+		DefaultServerOptions(),
+	)
+
+	// Create test server
+	s := httptest.NewServer(handler)
+	defer s.Close()
+
+	// Create client
+	transport := NewTransport(s.URL, nil, nil, DefaultClientOptions())
+
+	// Try to push the large event
+	err := transport.Push(context.Background(), events)
+
+	// Should get a 413 Request Entity Too Large error
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "413")
+}
+
+func TestHTTPTransport_Compression(t *testing.T) {
+	// Create a payload that should trigger compression
+	longString := strings.Repeat("test data ", 1000) // ~9KB
+	events := []synckit.EventWithVersion{
+		{
+			Event: &SimpleEvent{
+				IDValue:          "1",
+				TypeValue:        "test",
+				AggregateIDValue: "agg1",
+				DataValue:        longString,
+			},
+		},
+	}
+
+	// Create handler with compression enabled
+	handler := NewSyncHandler(
+		NewMockEventStore(),
+		log.New(os.Stderr, "[test] ", log.LstdFlags),
+		nil,
+		&ServerOptions{
+			MaxRequestSize:       10 * 1024 * 1024,
+			CompressionEnabled:   true,
+			CompressionThreshold: 1024, // 1KB
+		},
+	)
+
+	// Create test server
+	s := httptest.NewServer(handler)
+	defer s.Close()
+
+	// Create client with compression enabled
+	transport := NewTransport(s.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+
+	// Store events first
+	err := transport.Push(context.Background(), events)
+	require.NoError(t, err)
+
+	// Pull events
+	fetched, err := transport.Pull(context.Background(), cursor.IntegerCursor{Seq: 0})
+
+	// Should succeed and get the same data back
+	require.NoError(t, err)
+	assert.Equal(t, len(events), len(fetched))
+	assert.Equal(t, events[0].Event.(*SimpleEvent).DataValue, fetched[0].Event.(*SimpleEvent).DataValue)
+}
+
+func testHelperRespondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
+	response, err := json.Marshal(payload)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "failed to marshal response"}`)) 
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(response)
+}
+
+func TestHTTPTransport_Push(t *testing.T) {
 	// Create a test server that returns 200 OK
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
