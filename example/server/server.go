@@ -12,7 +12,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/example/dashboard"
 	"github.com/c0deZ3R0/go-sync-kit/example/metrics"
-	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 	transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
 )
 

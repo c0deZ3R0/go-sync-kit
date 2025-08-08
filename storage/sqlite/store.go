@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"io"
 	"log"
-"strconv"
+	"strconv"
 	"strings"
-	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
-stdSync "sync"
+	stdSync "sync"
 	"time"
 
-	// Import the go-sync-kit interfaces. Use relative import.
-	sync "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 
 	// Go SQLite driver
 	_ "github.com/mattn/go-sqlite3"
@@ -24,64 +24,27 @@ stdSync "sync"
 
 // Custom errors for better error handling
 var (
-	ErrIncompatibleVersion = errors.New("incompatible version type: expected IntegerVersion")
+	ErrIncompatibleVersion = errors.New("incompatible version type: expected cursor.IntegerCursor")
 	ErrEventNotFound       = errors.New("event not found")
 	ErrStoreClosed         = errors.New("store is closed")
 )
 
-// --- Concrete Version Implementation ---
-
-// IntegerVersion implements the sync.Version interface using a simple integer.
-type IntegerVersion int64
-
-// Compile-time check to ensure IntegerVersion satisfies the Version interface
-var _ sync.Version = IntegerVersion(0)
-
-// Compare compares this version with another.
-// Returns -1 if this version is less than other, 1 if greater, and 0 if equal.
-func (v IntegerVersion) Compare(other sync.Version) int {
-	ov, ok := other.(IntegerVersion)
-	if !ok {
-		// Cannot compare with a different version type, treat as less.
-		return -1
-	}
-	if v < ov {
-		return -1
-	}
-	if v > ov {
-		return 1
-	}
-	return 0
-}
-
-// String returns the string representation of the version.
-func (v IntegerVersion) String() string {
-	return strconv.FormatInt(int64(v), 10)
-}
-
-// IsZero checks if the version is the zero value.
-func (v IntegerVersion) IsZero() bool {
-	return v == 0
-}
-
-// ParseVersion parses a version string into an IntegerVersion.
+// ParseVersion parses a version string into a cursor.IntegerCursor.
 // This is useful for HTTP transport and other external integrations.
-func ParseVersion(s string) (IntegerVersion, error) {
+func ParseVersion(s string) (cursor.IntegerCursor, error) {
 	if s == "" || s == "0" {
-		return IntegerVersion(0), nil
+		return cursor.IntegerCursor{Seq: 0}, nil
 	}
-	
+
 	val, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		return IntegerVersion(0), fmt.Errorf("invalid version string '%s': %w", s, err)
+		return cursor.IntegerCursor{}, fmt.Errorf("invalid version string '%s': %w", s, err)
 	}
-	
-	return IntegerVersion(val), nil
+
+	return cursor.IntegerCursor{Seq: uint64(val)}, nil
 }
 
-// --- Concrete Event Implementation for Storage/Retrieval ---
-
-// StoredEvent is a concrete implementation of sync.Event used for retrieving
+// StoredEvent is a concrete implementation of synckit.Event used for retrieving
 // events from the database. It holds data and metadata as raw JSON.
 type StoredEvent struct {
 	id          string
@@ -105,8 +68,6 @@ func (e *StoredEvent) Metadata() map[string]interface{} {
 	_ = json.Unmarshal(e.metadata, &m)
 	return m
 }
-
-// --- Configuration ---
 
 // Config holds configuration options for the SQLiteEventStore.
 type Config struct {
@@ -176,8 +137,6 @@ func DefaultConfig(dataSourceName string) *Config {
 	return config
 }
 
-// --- SQLite EventStore Implementation ---
-
 // SQLiteEventStore implements the sync.EventStore interface for SQLite.
 type SQLiteEventStore struct {
 	db        *sql.DB
@@ -188,7 +147,7 @@ type SQLiteEventStore struct {
 }
 
 // Compile-time check to ensure SQLiteEventStore satisfies the EventStore interface
-var _ sync.EventStore = (*SQLiteEventStore)(nil)
+var _ synckit.EventStore = (*SQLiteEventStore)(nil)
 
 // New creates a new SQLiteEventStore from a Config.
 // If config is nil, DefaultConfig will be used with an empty DataSourceName.
@@ -217,7 +176,7 @@ func New(config *Config) (*SQLiteEventStore, error) {
 	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
-	config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d", 
+	config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d",
 		config.MaxOpenConns, config.MaxIdleConns)
 
 	if err := db.Ping(); err != nil {
@@ -239,7 +198,6 @@ func New(config *Config) (*SQLiteEventStore, error) {
 	config.Logger.Printf("[SQLite EventStore] Successfully initialized with table: %s", config.TableName)
 	return store, nil
 }
-
 
 // setupSchema creates the 'events' table if it doesn't exist.
 func (s *SQLiteEventStore) setupSchema() error {
@@ -264,20 +222,20 @@ func (s *SQLiteEventStore) setupSchema() error {
 // Store saves an event to the SQLite database.
 // Note: This implementation ignores the 'version' parameter and relies on
 // SQLite's AUTOINCREMENT to assign a new, sequential version.
-func (s *SQLiteEventStore) Store(ctx context.Context, event sync.Event, version sync.Version) error {
-    // Check for context cancellation at start
-    select {
-    case <-ctx.Done():
-        return ctx.Err()
-    default:
-    }
-    
-    // Check context deadline
-    if deadline, ok := ctx.Deadline(); ok {
-        if time.Until(deadline) < time.Second {
-            return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
-        }
-    }
+func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, version synckit.Version) error {
+	// Check for context cancellation at start
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Check context deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < time.Second {
+			return fmt.Errorf("context deadline too close: %v remaining", time.Until(deadline))
+		}
+	}
 
 	s.mu.RLock()
 	if s.closed {
@@ -321,7 +279,7 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event sync.Event, version 
 }
 
 // Load retrieves all events since a given version.
-func (s *SQLiteEventStore) Load(ctx context.Context, since sync.Version) ([]sync.EventWithVersion, error) {
+func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -329,13 +287,13 @@ func (s *SQLiteEventStore) Load(ctx context.Context, since sync.Version) ([]sync
 	}
 	s.mu.RUnlock()
 
-	sinceVersion, ok := since.(IntegerVersion)
+	sinceCursor, ok := since.(cursor.IntegerCursor)
 	if !ok && !since.IsZero() {
 		return nil, ErrIncompatibleVersion
 	}
 
 	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ? ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, int64(sinceVersion))
+	rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events: %w", err))
 	}
@@ -345,7 +303,7 @@ func (s *SQLiteEventStore) Load(ctx context.Context, since sync.Version) ([]sync
 }
 
 // LoadByAggregate retrieves events for a specific aggregate since a given version.
-func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since sync.Version) ([]sync.EventWithVersion, error) {
+func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -353,13 +311,13 @@ func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID stri
 	}
 	s.mu.RUnlock()
 
-	sinceVersion, ok := since.(IntegerVersion)
+	sinceCursor, ok := since.(cursor.IntegerCursor)
 	if !ok && !since.IsZero() {
 		return nil, ErrIncompatibleVersion
 	}
 
 	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ? ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceVersion))
+	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events by aggregate: %w", err))
 	}
@@ -369,7 +327,7 @@ func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID stri
 }
 
 // LatestVersion returns the highest version number in the store.
-func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (sync.Version, error) {
+func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (synckit.Version, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -385,25 +343,25 @@ func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (sync.Version, err
 	}
 
 	if !maxVersion.Valid {
-		return IntegerVersion(0), nil // No events in store
+		return cursor.IntegerCursor{Seq: 0}, nil // No events in store
 	}
 
-	return IntegerVersion(maxVersion.Int64), nil
+	return cursor.IntegerCursor{Seq: uint64(maxVersion.Int64)}, nil
 }
 
-// ParseVersion converts a string representation into an IntegerVersion.
+// ParseVersion converts a string representation into a cursor.IntegerCursor.
 // This allows external integrations to handle SQLite's integer versioning gracefully.
-func (s *SQLiteEventStore) ParseVersion(ctx context.Context, versionStr string) (sync.Version, error) {
+func (s *SQLiteEventStore) ParseVersion(ctx context.Context, versionStr string) (synckit.Version, error) {
 	if versionStr == "" || versionStr == "0" {
-		return IntegerVersion(0), nil
+		return cursor.IntegerCursor{Seq: 0}, nil
 	}
-	
+
 	val, err := strconv.ParseInt(versionStr, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid integer version string '%s': %w", versionStr, err)
 	}
-	
-	return IntegerVersion(val), nil
+
+	return cursor.IntegerCursor{Seq: uint64(val)}, nil
 }
 
 // Close closes the database connection.
@@ -420,7 +378,7 @@ func (s *SQLiteEventStore) Close() error {
 }
 
 // StoreBatch stores multiple events in a single transaction for better performance.
-func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []sync.EventWithVersion) error {
+func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []synckit.EventWithVersion) error {
 	// Check context deadline
 	if deadline, ok := ctx.Deadline(); ok {
 		if time.Until(deadline) < time.Second {
@@ -451,7 +409,7 @@ func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []sync.EventWi
 	}()
 
 	// Prepare statement for batch inserts
-	stmt, err := tx.PrepareContext(ctx, 
+	stmt, err := tx.PrepareContext(ctx,
 		`INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare batch statement: %w", err)
@@ -470,11 +428,11 @@ func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []sync.EventWi
 			return fmt.Errorf("failed to marshal event metadata: %w", err)
 		}
 
-		_, err = stmt.ExecContext(ctx, 
-			ev.Event.ID(), 
-			ev.Event.AggregateID(), 
-			ev.Event.Type(), 
-			string(dataJSON), 
+		_, err = stmt.ExecContext(ctx,
+			ev.Event.ID(),
+			ev.Event.AggregateID(),
+			ev.Event.Type(),
+			string(dataJSON),
 			string(metadataJSON))
 		if err != nil {
 			return fmt.Errorf("failed to insert event: %w", err)
@@ -502,8 +460,8 @@ func (s *SQLiteEventStore) Stats() sql.DBStats {
 }
 
 // scanEvents is a helper to scan sql.Rows into a slice of EventWithVersion.
-func (s *SQLiteEventStore) scanEvents(rows *sql.Rows) ([]sync.EventWithVersion, error) {
-	var events []sync.EventWithVersion
+func (s *SQLiteEventStore) scanEvents(rows *sql.Rows) ([]synckit.EventWithVersion, error) {
+	var events []synckit.EventWithVersion
 	for rows.Next() {
 		var version int64
 		var data, metadata sql.NullString
@@ -520,9 +478,9 @@ func (s *SQLiteEventStore) scanEvents(rows *sql.Rows) ([]sync.EventWithVersion, 
 			evt.metadata = []byte(metadata.String)
 		}
 
-		events = append(events, sync.EventWithVersion{
+		events = append(events, synckit.EventWithVersion{
 			Event:   evt,
-			Version: IntegerVersion(version),
+			Version: cursor.IntegerCursor{Seq: uint64(version)},
 		})
 	}
 

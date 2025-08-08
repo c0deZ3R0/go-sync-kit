@@ -1,7 +1,7 @@
 // Package sync provides a generic event-driven synchronization system
 // for distributed applications. It supports offline-first architectures
 // with conflict resolution and pluggable storage backends.
-package sync
+package synckit
 
 import (
 	"context"

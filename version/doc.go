@@ -1,4 +1,4 @@
-// Package version provides various version implementations for the go-sync-kit library.
+// Package version provides various version implementations for the synckit library.
 //
 // This package contains implementations of the sync.Version interface, which is used
 // to track causality and ordering of events in distributed systems.

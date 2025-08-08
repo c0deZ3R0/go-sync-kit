@@ -1,4 +1,4 @@
-package http
+package httptransport
 
 import (
 	"bytes"
@@ -13,11 +13,12 @@ import (
 	"testing"
 	"time"
 
-	sync "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
-// MockEvent implements the sync.Event interface for testing
+// MockEvent implements the synckit.Event interface for testing
 type MockEvent struct {
 	id          string
 	eventType   string
@@ -54,8 +55,8 @@ func setupTestStore(t *testing.T) (*sqlite.SQLiteEventStore, func()) {
 }
 
 func TestHTTPTransport_NewTransport(t *testing.T) {
-	// Test with default client
-	transport := NewTransport("http://example.com", nil)
+// Test with default client
+	transport := NewTransport("http://example.com", nil, nil)
 	if transport.client != http.DefaultClient {
 		t.Error("Expected default client when nil is provided")
 	}
@@ -64,18 +65,18 @@ func TestHTTPTransport_NewTransport(t *testing.T) {
 	}
 
 	// Test with custom client
-	customClient := &http.Client{Timeout: 5 * time.Second}
-	transport = NewTransport("http://custom.com", customClient)
+customClient := &http.Client{Timeout: 5 * time.Second}
+	transport = NewTransport("http://custom.com", customClient, nil)
 	if transport.client != customClient {
 		t.Error("Expected custom client to be used")
 	}
 }
 
 func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	ctx := context.Background()
-	err := transport.Push(ctx, []sync.EventWithVersion{})
+	err := transport.Push(ctx, []synckit.EventWithVersion{})
 	
 	if err != nil {
 		t.Errorf("Expected no error for empty events, got: %v", err)
@@ -108,9 +109,9 @@ func TestHTTPTransport_Push_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -118,7 +119,7 @@ func TestHTTPTransport_Push_Success(t *testing.T) {
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -138,12 +139,12 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{id: "test-1"},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -159,7 +160,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 }
 
 func TestHTTPTransport_Pull_Success(t *testing.T) {
-	expectedEvents := []sync.EventWithVersion{
+	expectedEvents := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -167,7 +168,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -206,10 +207,10 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	ctx := context.Background()
-	events, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -221,10 +222,10 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 }
 
 func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	ctx := context.Background()
-	err := transport.Subscribe(ctx, func([]sync.EventWithVersion) error { return nil })
+	err := transport.Subscribe(ctx, func([]synckit.EventWithVersion) error { return nil })
 	
 	if err == nil {
 		t.Error("Expected error for unimplemented Subscribe method")
@@ -235,7 +236,7 @@ func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 }
 
 func TestHTTPTransport_Close(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	err := transport.Close()
 	
@@ -266,7 +267,7 @@ func TestSyncHandler_HandlePush_Success(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	handler := NewSyncHandler(store, logger)
 	
-	events := []sync.EventWithVersion{
+events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "test-1",
@@ -274,7 +275,7 @@ func TestSyncHandler_HandlePush_Success(t *testing.T) {
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
@@ -361,7 +362,7 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 		aggregateID: "agg-1",
 		data:        "test data",
 	}
-	store.Store(ctx, event, sqlite.IntegerVersion(0))
+	store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	handler := NewSyncHandler(store, logger)
@@ -463,10 +464,10 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	defer server.Close()
 	
 	// Set up the client
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	// Create test events
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "e2e-test-1",
@@ -475,7 +476,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 				data:        map[string]string{"key": "value"},
 				metadata:    map[string]interface{}{"source": "test"},
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 		{
 			Event: &MockEvent{
@@ -484,7 +485,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 				aggregateID: "e2e-agg-1",
 				data:        map[string]string{"key2": "value2"},
 			},
-			Version: sqlite.IntegerVersion(2),
+			Version: cursor.IntegerCursor{Seq: 2},
 		},
 	}
 	
@@ -497,7 +498,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	}
 	
 	// Test Pull
-	pulledEvents, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	pulledEvents, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to pull events: %v", err)
 	}
@@ -522,9 +523,9 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 	}))
 	defer server.Close()
 	
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
-	events := []sync.EventWithVersion{
+	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "bench-test-1",
@@ -532,13 +533,13 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 				aggregateID: "bench-agg-1",
 				data:        "benchmark data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
 	ctx := context.Background()
-	
 	b.ResetTimer()
+	
 	for i := 0; i < b.N; i++ {
 		events[0].Event.(*MockEvent).id = fmt.Sprintf("bench-test-%d", i)
 		err := transport.Push(ctx, events)
@@ -550,7 +551,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 
 func BenchmarkHTTPTransport_Pull(b *testing.B) {
 	// Set up a test server that returns events
-	events := []sync.EventWithVersion{
+events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
 				id:          "bench-test-1",
@@ -558,7 +559,7 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 				aggregateID: "bench-agg-1",
 				data:        "benchmark data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
@@ -569,12 +570,12 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 	}))
 	defer server.Close()
 	
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	ctx := context.Background()
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+		_, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Pull failed: %v", err)
 		}
