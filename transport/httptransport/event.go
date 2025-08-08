@@ -1,4 +1,4 @@
-package http
+package httptransport
 
 // SimpleEvent is a basic implementation of sync.Event
 type SimpleEvent struct {
