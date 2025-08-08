@@ -35,6 +35,80 @@ type Config struct {
 	SyncPeriod time.Duration
 }
 
+// initializeState loads the initial state from the store
+func (c *Client) initializeState(ctx context.Context) error {
+	// Get the latest version
+	latestVersion, err := c.store.LatestVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest version: %w", err)
+	}
+
+	// Load all events
+	events, err := c.store.Load(ctx, latestVersion)
+	if err != nil {
+		return fmt.Errorf("failed to load events: %w", err)
+	}
+
+	// Apply events to local state
+	for _, ev := range events {
+		if err := c.applyEvent(ev.Event); err != nil {
+			c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
+		}
+	}
+
+	return nil
+}
+
+// applyEvent updates the local cache based on an event
+func (c *Client) applyEvent(event synckit.Event) error {
+	counterEvent, ok := event.(*CounterEvent)
+	if !ok {
+		return fmt.Errorf("invalid event type: %T", event)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	switch counterEvent.Type() {
+	case EventTypeCounterCreated:
+		if _, exists := c.counters[counterEvent.counterID]; exists {
+			return fmt.Errorf("counter %s already exists", counterEvent.counterID)
+		}
+		c.counters[counterEvent.counterID] = counterEvent.value
+
+	case EventTypeCounterIncremented:
+		if _, exists := c.counters[counterEvent.counterID]; !exists {
+			return fmt.Errorf("counter %s does not exist", counterEvent.counterID)
+		}
+		c.counters[counterEvent.counterID] += counterEvent.value
+
+	case EventTypeCounterDecremented:
+		if _, exists := c.counters[counterEvent.counterID]; !exists {
+			return fmt.Errorf("counter %s does not exist", counterEvent.counterID)
+		}
+		c.counters[counterEvent.counterID] -= counterEvent.value
+
+	case EventTypeCounterReset:
+		c.counters[counterEvent.counterID] = counterEvent.value
+	}
+
+	return nil
+}
+
+// handleSyncResults processes events received during sync
+func (c *Client) handleSyncResults(result *synckit.SyncResult) {
+	if result == nil {
+		return
+	}
+
+	// If any events were pulled, reload state
+	if result.EventsPulled > 0 {
+		if err := c.initializeState(context.Background()); err != nil {
+			c.logger.Printf("Failed to reload state after sync: %v", err)
+		}
+	}
+}
+
 // New creates a new counter client
 func New(config Config) (*Client, error) {
 	if config.Logger == nil {
@@ -80,14 +154,26 @@ func New(config Config) (*Client, error) {
 	// Create sync manager
 	manager := synckit.NewSyncManager(store, transport, opts)
 
-	return &Client{
+	// Create client
+	client := &Client{
 		id:        config.ID,
 		store:     store,
 		transport: transport,
 		manager:   manager,
 		logger:    config.Logger,
 		counters:  make(map[string]int),
-	}, nil
+	}
+
+	// Initialize state from store
+	if err := client.initializeState(context.Background()); err != nil {
+		store.Close()
+		return nil, fmt.Errorf("failed to initialize state: %w", err)
+	}
+
+	// Subscribe to sync results
+	manager.Subscribe(client.handleSyncResults)
+
+	return client, nil
 }
 
 // CreateCounter creates a new counter
