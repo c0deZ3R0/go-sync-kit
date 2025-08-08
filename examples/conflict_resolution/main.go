@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+
+	"github.com/c0deZ3R0/go-sync-kit/examples/conflict_resolution/server"
 )
 
 func main() {
@@ -41,8 +44,24 @@ func main() {
 }
 
 func runServer(ctx context.Context, port int, logger *log.Logger) {
-	logger.Printf("Starting server on port %d...", port)
-	// TODO: Implement server
+	// Create server config
+	config := server.Config{
+		Port:   port,
+		DBPath: filepath.Join("data", "server.db"),
+		Logger: logger,
+		UseWAL: true,
+	}
+
+	// Create and start server
+	srv, err := server.New(config)
+	if err != nil {
+		logger.Fatalf("Failed to create server: %v", err)
+	}
+
+	// Start server and wait for shutdown
+	if err := srv.Start(ctx); err != nil {
+		logger.Fatalf("Server error: %v", err)
+	}
 }
 
 func runClient(ctx context.Context, clientID string, port int, logger *log.Logger) {
