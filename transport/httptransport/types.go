@@ -1,9 +1,10 @@
-package http
+package httptransport
 
 import (
     "encoding/json"
+    "strconv"
 
-    sync "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/synckit"
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
@@ -21,7 +22,7 @@ type JSONEventWithVersion struct {
     Version string    `json:"version"`
 }
 
-func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
+func toJSONEventWithVersion(ev synckit.EventWithVersion) JSONEventWithVersion {
     jsonEvent := JSONEvent{
         ID:          ev.Event.ID(),
         Type:        ev.Event.Type(),
@@ -42,7 +43,7 @@ func toJSONEventWithVersion(ev sync.EventWithVersion) JSONEventWithVersion {
     }
 }
 
-func fromJSONEventWithVersion(je JSONEventWithVersion) sync.EventWithVersion {
+func fromJSONEventWithVersion(je JSONEventWithVersion) synckit.EventWithVersion {
     ev := &SimpleEvent{
         IDValue:          je.Event.ID,
         TypeValue:        je.Event.Type,
@@ -57,7 +58,7 @@ func fromJSONEventWithVersion(je JSONEventWithVersion) sync.EventWithVersion {
         version = sqlite.IntegerVersion(v)
     }
 
-    return sync.EventWithVersion{
+    return synckit.EventWithVersion{
         Event:   ev,
         Version: version,
     }
