@@ -1,11 +1,11 @@
-package http
+package httptransport
 
 import (
     "encoding/json"
     "net/http"
 
     "github.com/c0deZ3R0/go-sync-kit/cursor"
-    sync "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/synckit"
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
@@ -32,7 +32,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
     }
 
     // Integer mode first
-    since := sync.Version(sqlite.IntegerVersion(0))
+    since := synckit.Version(sqlite.IntegerVersion(0))
     if req.Since != nil {
         c, err := cursor.UnmarshalWire(req.Since)
         if err != nil {
