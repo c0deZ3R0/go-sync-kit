@@ -55,8 +55,8 @@ func setupTestStore(t *testing.T) (*sqlite.SQLiteEventStore, func()) {
 }
 
 func TestHTTPTransport_NewTransport(t *testing.T) {
-	// Test with default client
-	transport := NewTransport("http://example.com", nil)
+// Test with default client
+	transport := NewTransport("http://example.com", nil, nil)
 	if transport.client != http.DefaultClient {
 		t.Error("Expected default client when nil is provided")
 	}
@@ -65,15 +65,15 @@ func TestHTTPTransport_NewTransport(t *testing.T) {
 	}
 
 	// Test with custom client
-	customClient := &http.Client{Timeout: 5 * time.Second}
-	transport = NewTransport("http://custom.com", customClient)
+customClient := &http.Client{Timeout: 5 * time.Second}
+	transport = NewTransport("http://custom.com", customClient, nil)
 	if transport.client != customClient {
 		t.Error("Expected custom client to be used")
 	}
 }
 
 func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	ctx := context.Background()
 	err := transport.Push(ctx, []synckit.EventWithVersion{})
@@ -109,7 +109,7 @@ func TestHTTPTransport_Push_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -139,7 +139,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -207,7 +207,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	ctx := context.Background()
 	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
@@ -222,7 +222,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 }
 
 func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	ctx := context.Background()
 	err := transport.Subscribe(ctx, func([]synckit.EventWithVersion) error { return nil })
@@ -236,7 +236,7 @@ func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 }
 
 func TestHTTPTransport_Close(t *testing.T) {
-	transport := NewTransport("http://example.com", nil)
+	transport := NewTransport("http://example.com", nil, nil)
 	
 	err := transport.Close()
 	
@@ -464,7 +464,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	defer server.Close()
 	
 	// Set up the client
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	// Create test events
 	events := []synckit.EventWithVersion{
@@ -523,7 +523,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 	}))
 	defer server.Close()
 	
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -570,7 +570,7 @@ events := []synckit.EventWithVersion{
 	}))
 	defer server.Close()
 	
-	transport := NewTransport(server.URL, nil)
+transport := NewTransport(server.URL, nil, nil)
 	ctx := context.Background()
 	
 	b.ResetTimer()
