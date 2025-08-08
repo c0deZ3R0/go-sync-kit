@@ -1,19 +1,19 @@
-package http
+package httptransport
 
 import (
     "encoding/json"
     "net/http"
 
-    sync "github.com/c0deZ3R0/go-sync-kit"
+    "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // SyncHandler handles HTTP sync requests
 type SyncHandler struct {
-    store sync.EventStore
+    store synckit.EventStore
 }
 
 // NewHandler creates a new sync HTTP handler
-func NewHandler(store sync.EventStore) *SyncHandler {
+func NewHandler(store synckit.EventStore) *SyncHandler {
     return &SyncHandler{store: store}
 }
 
