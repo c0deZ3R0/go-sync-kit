@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
@@ -230,6 +229,15 @@ func NewSyncHandler(store synckit.EventStore, logger *log.Logger, parser Version
 	}
 }
 
+// Helper function for common response handling
+func (h *SyncHandler) respond(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
+	respondWithJSON(w, r, code, payload, h.options)
+}
+
+func (h *SyncHandler) respondErr(w http.ResponseWriter, r *http.Request, code int, message string) {
+	respondWithError(w, r, code, message, h.options)
+}
+
 // ServeHTTP routes requests to the appropriate handler (/push or /pull).
 func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Strip the /sync prefix if present
@@ -245,22 +253,23 @@ func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handlePull(w, r)
 	case "/latest-version":
 		h.handleLatestVersion(w, r)
+	case "/pull-cursor":
+		h.handlePullCursor(w, r, NewCursorOptions())
 	default:
-		http.NotFound(w, r)
+		respondWithError(w, r, http.StatusNotFound, "not found", h.options)
 	}
 }
 
 func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
+		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	// Check Content-Length if available
 	if r.ContentLength > h.options.MaxRequestSize {
-		respondWithError(w, r, http.StatusRequestEntityTooLarge, 
-			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize),
-			h.options)
+		h.respondErr(w, r, http.StatusRequestEntityTooLarge, 
+			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize))
 		return
 	}
 
@@ -270,10 +279,10 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(limitedReader).Decode(&jsonEvents); err != nil {
 		if err == io.EOF {
-			respondWithError(w, r, http.StatusBadRequest, "empty request body", h.options)
+			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		respondWithError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error(), h.options)
+		h.respondErr(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
 
@@ -295,29 +304,29 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
-	respondWithJSON(w, r, http.StatusOK, map[string]string{"status": "ok"}, h.options)
+	h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
+	h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
+		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	version, err := h.store.LatestVersion(r.Context())
 	if err != nil {
 		h.logger.Printf("Error getting latest version: %v", err)
-		respondWithError(w, r, http.StatusInternalServerError, "could not get latest version", h.options)
+		h.respondErr(w, r, http.StatusInternalServerError, "could not get latest version")
 		return
 	}
 
-	respondWithJSON(w, r, http.StatusOK, version.String(), h.options)
+	h.respond(w, r, http.StatusOK, version.String())
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
+		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -330,14 +339,14 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	// This decouples the transport from specific version implementations
 	version, err := h.versionParser(r.Context(), sinceStr)
 	if err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error(), h.options)
+		h.respondErr(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return
 	}
 
 	events, err := h.store.Load(r.Context(), version)
 	if err != nil {
 		h.logger.Printf("Error loading events from store: %v", err)
-		respondWithError(w, r, http.StatusInternalServerError, "could not load events", h.options)
+		h.respondErr(w, r, http.StatusInternalServerError, "could not load events")
 		return
 	}
 
@@ -348,6 +357,6 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Printf("Pulled %d events since version %s", len(events), sinceStr)
-	respondWithJSON(w, r, http.StatusOK, jsonEvents, h.options)
+	h.respond(w, r, http.StatusOK, jsonEvents)
 }
 

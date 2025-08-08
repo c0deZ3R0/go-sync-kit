@@ -1,10 +1,12 @@
 package httptransport
 
 import (
+    "compress/gzip"
     "context"
     "encoding/json"
     "fmt"
     "net/http"
+    "strings"
 
     "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
@@ -129,8 +131,8 @@ func fromJSONEventWithVersion(ctx context.Context, parser VersionParser, jev JSO
 }
 
 // Helper functions for HTTP responses
-func respondWithError(w http.ResponseWriter, code int, message string) {
-    respondWithJSON(w, code, map[string]string{"error": message})
+func respondWithError(w http.ResponseWriter, r *http.Request, code int, message string, options *ServerOptions) {
+    respondWithJSON(w, r, code, map[string]string{"error": message}, options)
 }
 
 func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}, options *ServerOptions) {
