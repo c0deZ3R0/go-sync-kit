@@ -2,17 +2,20 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 )
 
 // Client represents a counter client that can work offline and sync with server
@@ -37,34 +40,101 @@ type Config struct {
 
 // initializeState loads the initial state from the store
 func (c *Client) initializeState(ctx context.Context) error {
-	// Get the latest version
-	latestVersion, err := c.store.LatestVersion(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get latest version: %w", err)
-	}
 
-	// Load all events
-	events, err := c.store.Load(ctx, latestVersion)
+// Load all events by passing nil version to get everything
+since := cursor.IntegerCursor{Seq: 0}
+events, err := c.store.Load(ctx, since)
 	if err != nil {
 		return fmt.Errorf("failed to load events: %w", err)
 	}
 
-	// Apply events to local state
-	for _, ev := range events {
-		if err := c.applyEvent(ev.Event); err != nil {
-			c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
-		}
+	c.logger.Printf("Loaded %d events from store", len(events))
+
+// Sort events by timestamp
+sort.Slice(events, func(i, j int) bool {
+	ei, ok := events[i].Event.(*CounterEvent)
+	if !ok {
+		return false
 	}
+	ej, ok := events[j].Event.(*CounterEvent)
+	if !ok {
+		return true
+	}
+	return ei.timestamp.Before(ej.timestamp)
+})
+
+// Apply events to local state
+for _, ev := range events {
+	if err := c.applyEvent(ev.Event); err != nil {
+		c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
+	}
+}
+
+c.logger.Printf("State reloaded with %d events", len(events))
 
 	return nil
 }
 
 // applyEvent updates the local cache based on an event
 func (c *Client) applyEvent(event synckit.Event) error {
-	counterEvent, ok := event.(*CounterEvent)
+	storedEvent, ok := event.(*sqlite.StoredEvent)
 	if !ok {
-		return fmt.Errorf("invalid event type: %T", event)
+		counterEvent, ok := event.(*CounterEvent)
+		if !ok {
+			return fmt.Errorf("invalid event type: %T", event)
+		}
+		return c.applyCounterEvent(counterEvent)
 	}
+
+	// Parse the event from stored data
+	data := storedEvent.Data()
+	
+	// Handle JSON RawMessage
+	if rawJSON, ok := data.(json.RawMessage); ok {
+		var eventData struct {
+			Value     int       `json:"value"`
+			Timestamp time.Time `json:"timestamp"`
+			ClientID  string    `json:"clientId"`
+		}
+		if err := json.Unmarshal(rawJSON, &eventData); err != nil {
+			return fmt.Errorf("failed to decode event data: %w", err)
+		}
+		
+		counterEvent := &CounterEvent{
+			id:        storedEvent.ID(),
+			eventType: storedEvent.Type(),
+			counterID: storedEvent.AggregateID(),
+			value:     eventData.Value,
+			timestamp: eventData.Timestamp,
+			clientID:  eventData.ClientID,
+			metadata:  storedEvent.Metadata(),
+		}
+		return c.applyCounterEvent(counterEvent)
+	}
+
+	// Handle map[string]interface{}
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		value, _ := dataMap["value"].(float64)
+		timestampStr, _ := dataMap["timestamp"].(string)
+		timestamp, _ := time.Parse(time.RFC3339Nano, timestampStr)
+		clientID, _ := dataMap["clientId"].(string)
+
+		counterEvent := &CounterEvent{
+			id:        storedEvent.ID(),
+			eventType: storedEvent.Type(),
+			counterID: storedEvent.AggregateID(),
+			value:     int(value),
+			timestamp: timestamp,
+			clientID:  clientID,
+			metadata:  storedEvent.Metadata(),
+		}
+		return c.applyCounterEvent(counterEvent)
+	}
+
+	return fmt.Errorf("unsupported event data type: %T", data)
+}
+
+func (c *Client) applyCounterEvent(counterEvent *CounterEvent) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -101,10 +171,61 @@ func (c *Client) handleSyncResults(result *synckit.SyncResult) {
 		return
 	}
 
-	// If any events were pulled, reload state
-	if result.EventsPulled > 0 {
-		if err := c.initializeState(context.Background()); err != nil {
-			c.logger.Printf("Failed to reload state after sync: %v", err)
+	// Log sync result details
+	c.logger.Printf("Sync completed: pushed %d, pulled %d, conflicts %d",
+		result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
+
+	// If we pushed or pulled events, or resolved conflicts, reload state
+	if result.EventsPushed > 0 || result.EventsPulled > 0 || result.ConflictsResolved > 0 {
+		c.logger.Printf("Reloading state due to %d pushed, %d pulled events and %d resolved conflicts",
+			result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
+		
+		// Reset counters map and reload all events
+		c.mu.Lock()
+		c.counters = make(map[string]int)
+		c.mu.Unlock()
+
+		// Reload complete state
+		ctx := context.Background()
+		since := cursor.IntegerCursor{Seq: 0}
+		events, err := c.store.Load(ctx, since)
+		if err != nil {
+			c.logger.Printf("Failed to load events: %v", err)
+			return
+		}
+
+		c.logger.Printf("Reloading state with %d events from store", len(events))
+
+		sort.Slice(events, func(i, j int) bool {
+			ei, oki := events[i].Event.(*CounterEvent)
+			ej, okj := events[j].Event.(*CounterEvent)
+			// If either event is not a CounterEvent, maintain stable order
+			if !oki || !okj {
+				return i < j
+			}
+			// First compare by client ID
+			if ei.clientID != ej.clientID {
+				return ei.clientID < ej.clientID
+			}
+			// If same client, compare by timestamp
+			return ei.timestamp.Before(ej.timestamp)
+		})
+
+// Apply events in sorted order
+		for _, ev := range events {
+			if counterEvent, ok := ev.Event.(*CounterEvent); ok {
+				c.logger.Printf("Applying event: id=%s type=%s value=%d clientId=%s",
+					counterEvent.id, counterEvent.eventType, counterEvent.value, counterEvent.clientID)
+			}
+			if err := c.applyEvent(ev.Event); err != nil {
+				c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
+			}
+		}
+
+		// Log final state
+		c.logger.Printf("Final state after applying %d events:", len(events))
+		for id, value := range c.counters {
+			c.logger.Printf("  Counter %s = %d", id, value)
 		}
 	}
 }

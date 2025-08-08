@@ -23,31 +23,17 @@ type CounterEvent struct {
 	metadata    map[string]interface{}
 }
 
-// ID returns the event's unique identifier
-func (e *CounterEvent) ID() string {
-	return e.id
-}
-
-// Type returns the event type
-func (e *CounterEvent) Type() string {
-	return e.eventType
-}
-
-// AggregateID returns the counter ID this event belongs to
-func (e *CounterEvent) AggregateID() string {
-	return e.counterID
-}
-
-// Data returns the event payload
+// Required Event interface methods
+func (e *CounterEvent) ID() string { return e.id }
+func (e *CounterEvent) Type() string { return e.eventType }
+func (e *CounterEvent) Time() time.Time { return e.timestamp }
+func (e *CounterEvent) AggregateID() string { return e.counterID }
+func (e *CounterEvent) Metadata() map[string]interface{} { return e.metadata }
 func (e *CounterEvent) Data() interface{} {
 	return map[string]interface{}{
 		"value":     e.value,
+		"clientId":  e.clientID,
 		"timestamp": e.timestamp,
-		"clientID":  e.clientID,
 	}
 }
 
-// Metadata returns additional event metadata
-func (e *CounterEvent) Metadata() map[string]interface{} {
-	return e.metadata
-}
