@@ -229,7 +229,9 @@ func main() {
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-Latest version: **v0.6.0** - Introduces a comprehensive example with real-time dashboard demonstrating Go Sync Kit's core features.
+[![Latest Release](https://img.shields.io/github/v/release/c0deZ3R0/go-sync-kit?include_prereleases&label=latest)](https://github.com/c0deZ3R0/go-sync-kit/releases)
+
+Latest version: **v0.7.0** - [What's new in v0.7.0](CHANGELOG.md#v070) - Adds BadgerDB storage, HTTP transport hardening, and improved documentation.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
@@ -551,6 +553,35 @@ The HTTP transport provides two RESTful endpoints:
 - **Configurable HTTP client** for custom timeouts, TLS, etc.
 - **Batch processing** for efficient sync operations
 - **Flexible version parsing** with custom version parser support
+- **I/O hardening** with configurable limits and timeouts
+
+#### I/O Hardening
+
+Both client and server support configurable I/O limits and timeouts:
+
+```go
+// Server-side hardening options
+serverOpts := &httptransport.ServerOptions{
+    MaxRequestSize:  10 * 1024 * 1024, // 10MB max request size
+    EnableGzip:      true,             // Enable compression
+    RequestTimeout:  30 * time.Second,  // Request timeout
+    ShutdownTimeout: 10 * time.Second,  // Graceful shutdown timeout
+}
+
+handler := httptransport.NewSyncHandler(store, logger, nil, serverOpts)
+
+// Client-side hardening options
+clientOpts := &httptransport.ClientOptions{
+    MaxResponseSize:    10 * 1024 * 1024, // 10MB max response size
+    EnableCompression:  true,             // Enable compression
+    RequestTimeout:     30 * time.Second,  // Request timeout
+    RetryMax:          3,                 // Max retries
+    RetryWaitMin:      1 * time.Second,   // Min retry wait
+    RetryWaitMax:      30 * time.Second,  // Max retry wait
+}
+
+client := httptransport.NewTransport("http://localhost:8080", nil, nil, clientOpts)
+```
 
 #### Version Parsing
 
