@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-synckit "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
@@ -118,7 +119,7 @@ func TestHTTPTransport_Push_Success(t *testing.T) {
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -143,7 +144,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{id: "test-1"},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -167,7 +168,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -209,7 +210,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 	transport := NewTransport(server.URL, nil)
 	
 	ctx := context.Background()
-	events, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -274,7 +275,7 @@ events := []synckit.EventWithVersion{
 				aggregateID: "agg-1",
 				data:        "test data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
@@ -361,7 +362,7 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 		aggregateID: "agg-1",
 		data:        "test data",
 	}
-	store.Store(ctx, event, sqlite.IntegerVersion(0))
+	store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	handler := NewSyncHandler(store, logger)
@@ -475,7 +476,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 				data:        map[string]string{"key": "value"},
 				metadata:    map[string]interface{}{"source": "test"},
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 		{
 			Event: &MockEvent{
@@ -484,7 +485,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 				aggregateID: "e2e-agg-1",
 				data:        map[string]string{"key2": "value2"},
 			},
-			Version: sqlite.IntegerVersion(2),
+			Version: cursor.IntegerCursor{Seq: 2},
 		},
 	}
 	
@@ -497,7 +498,7 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	}
 	
 	// Test Pull
-	pulledEvents, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+	pulledEvents, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to pull events: %v", err)
 	}
@@ -532,7 +533,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 				aggregateID: "bench-agg-1",
 				data:        "benchmark data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
@@ -558,7 +559,7 @@ events := []synckit.EventWithVersion{
 				aggregateID: "bench-agg-1",
 				data:        "benchmark data",
 			},
-			Version: sqlite.IntegerVersion(1),
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 	
@@ -574,7 +575,7 @@ events := []synckit.EventWithVersion{
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := transport.Pull(ctx, sqlite.IntegerVersion(0))
+		_, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Pull failed: %v", err)
 		}

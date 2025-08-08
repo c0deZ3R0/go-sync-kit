@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 func TestStoreContextCancellation(t *testing.T) {
@@ -27,7 +28,7 @@ func TestStoreContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Immediately cancel the context
 
-	err := store.Store(ctx, event, IntegerVersion(1))
+	err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
 	if err == nil {
 		t.Fatal("expected error on cancelled context")
 	}
@@ -74,9 +75,9 @@ func setupTestDB(t *testing.T) (*SQLiteEventStore, func()) {
 }
 
 func TestIntegerVersion(t *testing.T) {
-	v1 := IntegerVersion(1)
-	v2 := IntegerVersion(2)
-	v3 := IntegerVersion(1)
+	v1 := cursor.IntegerCursor{Seq: 1}
+	v2 := cursor.IntegerCursor{Seq: 2}
+	v3 := cursor.IntegerCursor{Seq: 1}
 
 	// Test Compare
 	if v1.Compare(v2) != -1 {
@@ -95,7 +96,7 @@ func TestIntegerVersion(t *testing.T) {
 	}
 
 	// Test IsZero
-	zero := IntegerVersion(0)
+	zero := cursor.IntegerCursor{Seq: 0}
 	if !zero.IsZero() {
 		t.Error("Expected zero version to be zero")
 	}
@@ -118,7 +119,7 @@ func TestSQLiteEventStore_Store(t *testing.T) {
 		metadata:    map[string]interface{}{"source": "test"},
 	}
 
-	version := IntegerVersion(1)
+	version := cursor.IntegerCursor{Seq: 1}
 
 	err := store.Store(ctx, event, version)
 	if err != nil {
@@ -131,7 +132,7 @@ func TestSQLiteEventStore_Store(t *testing.T) {
 		t.Fatalf("Failed to get latest version: %v", err)
 	}
 
-	if latest.Compare(IntegerVersion(1)) != 0 {
+	if latest.Compare(cursor.IntegerCursor{Seq: 1}) != 0 {
 		t.Errorf("Expected latest version to be 1, got %s", latest.String())
 	}
 }
@@ -165,14 +166,14 @@ func TestSQLiteEventStore_Load(t *testing.T) {
 	}
 
 	for _, event := range events {
-		err := store.Store(ctx, event, IntegerVersion(0))
+		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			t.Fatalf("Failed to store event %s: %v", event.ID(), err)
 		}
 	}
 
 	// Load all events
-	allEvents, err := store.Load(ctx, IntegerVersion(0))
+	allEvents, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to load events: %v", err)
 	}
@@ -182,7 +183,7 @@ func TestSQLiteEventStore_Load(t *testing.T) {
 	}
 
 	// Load events since version 1
-	recentEvents, err := store.Load(ctx, IntegerVersion(1))
+	recentEvents, err := store.Load(ctx, cursor.IntegerCursor{Seq: 1})
 	if err != nil {
 		t.Fatalf("Failed to load recent events: %v", err)
 	}
@@ -221,14 +222,14 @@ func TestSQLiteEventStore_LoadByAggregate(t *testing.T) {
 	}
 
 	for _, event := range events {
-		err := store.Store(ctx, event, IntegerVersion(0))
+		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			t.Fatalf("Failed to store event %s: %v", event.ID(), err)
 		}
 	}
 
 	// Load events for agg-1
-	agg1Events, err := store.LoadByAggregate(ctx, "agg-1", IntegerVersion(0))
+	agg1Events, err := store.LoadByAggregate(ctx, "agg-1", cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to load events for agg-1: %v", err)
 	}
@@ -238,7 +239,7 @@ func TestSQLiteEventStore_LoadByAggregate(t *testing.T) {
 	}
 
 	// Load events for agg-2
-	agg2Events, err := store.LoadByAggregate(ctx, "agg-2", IntegerVersion(0))
+	agg2Events, err := store.LoadByAggregate(ctx, "agg-2", cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to load events for agg-2: %v", err)
 	}
@@ -279,7 +280,7 @@ func TestSQLiteEventStore_LatestVersion(t *testing.T) {
 		data:        "data",
 	}
 
-	err = store.Store(ctx, event, IntegerVersion(0))
+	err = store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to store event: %v", err)
 	}
@@ -290,7 +291,7 @@ func TestSQLiteEventStore_LatestVersion(t *testing.T) {
 		t.Fatalf("Failed to get latest version: %v", err)
 	}
 
-	if latest.Compare(IntegerVersion(1)) != 0 {
+	if latest.Compare(cursor.IntegerCursor{Seq: 1}) != 0 {
 		t.Errorf("Expected latest version to be 1, got %s", latest.String())
 	}
 }
@@ -429,8 +430,8 @@ func TestParseVersion(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for valid version string, got: %v", err)
 	}
-	if version != IntegerVersion(42) {
-		t.Errorf("Expected version 42, got %d", version)
+	if version != (cursor.IntegerCursor{Seq: 42}) {
+		t.Errorf("Expected version 42, got %v", version)
 	}
 
 	// Test zero version
@@ -438,8 +439,8 @@ func TestParseVersion(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for zero version, got: %v", err)
 	}
-	if version != IntegerVersion(0) {
-		t.Errorf("Expected version 0, got %d", version)
+	if version != (cursor.IntegerCursor{Seq: 0}) {
+		t.Errorf("Expected version 0, got %v", version)
 	}
 
 	// Test empty string
@@ -447,11 +448,11 @@ func TestParseVersion(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for empty string, got: %v", err)
 	}
-	if version != IntegerVersion(0) {
-		t.Errorf("Expected version 0 for empty string, got %d", version)
+	if version != (cursor.IntegerCursor{Seq: 0}) {
+		t.Errorf("Expected version 0 for empty string, got %v", version)
 	}
 
-	// Test invalid version string
+	// Test invalid string
 	_, err = ParseVersion("invalid")
 	if err == nil {
 		t.Error("Expected error for invalid version string")
@@ -465,8 +466,8 @@ func TestParseVersion(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for negative version, got: %v", err)
 	}
-	if version != IntegerVersion(-1) {
-		t.Errorf("Expected version -1, got %d", version)
+if version != (cursor.IntegerCursor{Seq: 0xFFFFFFFFFFFFFFFF}) {
+		t.Errorf("Expected version -1, got %v", version)
 	}
 }
 
@@ -504,11 +505,11 @@ func TestSQLiteEventStore_WALMode(t *testing.T) {
 		data:        "wal-test-data",
 	}
 
-	if err := store.Store(ctx, event, IntegerVersion(1)); err != nil {
+	if err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 1}); err != nil {
 		t.Fatalf("Failed to store event in WAL mode: %v", err)
 	}
 
-	events, err := store.Load(ctx, IntegerVersion(0))
+	events, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to load events in WAL mode: %v", err)
 	}
@@ -533,7 +534,7 @@ func BenchmarkSQLiteEventStore_Store(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		event.id = fmt.Sprintf("bench-event-%d", i)
-		err := store.Store(ctx, event, IntegerVersion(0))
+		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Failed to store event: %v", err)
 		}
@@ -554,12 +555,12 @@ func BenchmarkSQLiteEventStore_Load(b *testing.B) {
 			aggregateID: "bench-agg",
 			data:        fmt.Sprintf("data-%d", i),
 		}
-		store.Store(ctx, event, IntegerVersion(0))
+		store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := store.Load(ctx, IntegerVersion(0))
+		_, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Failed to load events: %v", err)
 		}

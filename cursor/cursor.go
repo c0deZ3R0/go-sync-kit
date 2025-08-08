@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 const (
@@ -69,6 +71,31 @@ type IntegerCursor struct {
 }
 
 func (IntegerCursor) Kind() string { return KindInteger }
+
+// Compare implements synckit.Version
+func (ic IntegerCursor) Compare(other synckit.Version) int {
+	oc, ok := other.(IntegerCursor)
+	if !ok {
+		return 0 // incomparable
+	}
+	if ic.Seq < oc.Seq {
+		return -1
+	}
+	if ic.Seq > oc.Seq {
+		return 1
+	}
+	return 0
+}
+
+// String implements synckit.Version
+func (ic IntegerCursor) String() string {
+	return fmt.Sprintf("%d", ic.Seq)
+}
+
+// IsZero implements synckit.Version
+func (ic IntegerCursor) IsZero() bool {
+	return ic.Seq == 0
+}
 
 type integerCodec struct{}
 

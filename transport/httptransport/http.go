@@ -9,10 +9,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
-	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite" // Used for client-side version parsing
 )
 
 // --- HTTP Transport Client ---
@@ -97,12 +98,12 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 
 	events := make([]synckit.EventWithVersion, len(jsonEvents))
 	for i, jev := range jsonEvents {
-		// For client-side decoding, we use SQLite's ParseVersion directly
-		// since the HTTP transport client doesn't have access to an EventStore
-		version, err := sqlite.ParseVersion(jev.Version)
+		// Parse version as an integer
+		vInt, err := strconv.ParseInt(jev.Version, 10, 64)
 		if err != nil {
 			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
 		}
+		version := cursor.IntegerCursor{Seq: uint64(vInt)}
 
 		event := &SimpleEvent{
 			IDValue:          jev.Event.ID,
@@ -145,10 +146,11 @@ func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
 	}
 
-	version, err := sqlite.ParseVersion(versionStr)
+	vInt, err := strconv.ParseInt(versionStr, 10, 64)
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
 	}
+	version := cursor.IntegerCursor{Seq: uint64(vInt)}
 
 	return version, nil
 }

@@ -11,7 +11,6 @@ import (
 
     "github.com/c0deZ3R0/go-sync-kit/cursor"
     "github.com/c0deZ3R0/go-sync-kit/synckit"
-    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
 // PullWithCursor POSTs /pull-cursor and returns events + the next cursor.
@@ -66,7 +65,7 @@ func (t *HTTPTransport) PullWithCursor(ctx context.Context, since cursor.Cursor,
             DataValue:        jev.Event.Data,
             MetadataValue:    jev.Event.Metadata,
         }
-        events[i] = synckit.EventWithVersion{Event: ev, Version: sqlite.IntegerVersion(vInt)}
+        events[i] = synckit.EventWithVersion{Event: ev, Version: cursor.IntegerCursor{Seq: uint64(vInt)}}
     }
 
     var next cursor.Cursor

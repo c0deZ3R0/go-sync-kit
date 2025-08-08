@@ -5,10 +5,8 @@ import (
     "encoding/json"
     "fmt"
     "net/http"
-    "strconv"
 
     "github.com/c0deZ3R0/go-sync-kit/synckit"
-    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 )
 
 // JSONEvent is a JSON-serializable representation of an Event
