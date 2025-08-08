@@ -1,4 +1,16 @@
+# Kill any existing processes using our ports
+Write-Host "Cleaning up ports..." -ForegroundColor Yellow
+$ports = @(8080, 8081, 8082)
+foreach ($port in $ports) {
+    $process = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
+    if ($process) {
+        Stop-Process -Id $process -Force
+        Write-Host "Killed process using port $port" -ForegroundColor Gray
+    }
+}
+
 # Clear any existing data
+Write-Host "Cleaning up database files..." -ForegroundColor Yellow
 Remove-Item -Path "data\*.db" -Force -ErrorAction SilentlyContinue
 
 # Function to start a new terminal with a command
@@ -11,17 +23,25 @@ function Start-DemoComponent {
     Start-Process pwsh -ArgumentList "-NoExit", "-Command", "Write-Host 'Starting $Title...' -ForegroundColor Green; $Command"
 }
 
+Write-Host "`nStarting components..." -ForegroundColor Cyan
+
 # Start server
+Write-Host "Starting server..." -ForegroundColor Yellow
 Start-DemoComponent -Title "Server" -Command "go run main.go -mode server -port 8080"
 
-# Wait a moment for server to initialize
-Start-Sleep -Seconds 2
+# Wait for server to initialize
+Write-Host "Waiting for server to initialize..." -ForegroundColor Gray
+Start-Sleep -Seconds 3
 
 # Start client1
+Write-Host "Starting client 1..." -ForegroundColor Yellow
 Start-DemoComponent -Title "Client 1" -Command "go run main.go -mode client -id client1 -port 8081"
+Start-Sleep -Seconds 2
 
 # Start client2
+Write-Host "Starting client 2..." -ForegroundColor Yellow
 Start-DemoComponent -Title "Client 2" -Command "go run main.go -mode client -id client2 -port 8082"
+Start-Sleep -Seconds 2
 
 # Show available test commands
 Write-Host "`nTest Commands:" -ForegroundColor Cyan
