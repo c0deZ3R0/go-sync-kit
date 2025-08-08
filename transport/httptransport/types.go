@@ -9,6 +9,43 @@ import (
     "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// ServerOptions configures the HTTP transport server behavior
+type ServerOptions struct {
+    // MaxRequestSize is the maximum allowed size of incoming request bodies in bytes
+    // If 0, defaults to 10MB
+    MaxRequestSize int64
+
+    // CompressionEnabled enables gzip/deflate compression for responses
+    // Responses larger than CompressionThreshold will be compressed
+    CompressionEnabled bool
+
+    // CompressionThreshold is the minimum size in bytes before responses are compressed
+    // If CompressionEnabled is true and 0, defaults to 1KB
+    CompressionThreshold int64
+}
+
+// DefaultServerOptions returns the default server options
+func DefaultServerOptions() *ServerOptions {
+    return &ServerOptions{
+        MaxRequestSize:       10 * 1024 * 1024, // 10MB
+        CompressionEnabled:   true,
+        CompressionThreshold: 1024, // 1KB
+    }
+}
+
+// ClientOptions configures the HTTP transport client behavior
+type ClientOptions struct {
+    // CompressionEnabled enables sending Accept-Encoding header for gzip/deflate
+    CompressionEnabled bool
+}
+
+// DefaultClientOptions returns the default client options
+func DefaultClientOptions() *ClientOptions {
+    return &ClientOptions{
+        CompressionEnabled: true,
+    }
+}
+
 // JSONEvent is a JSON-serializable representation of an Event
 type JSONEvent struct {
     ID          string                 `json:"id"`
@@ -96,7 +133,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
     respondWithJSON(w, code, map[string]string{"error": message})
 }
 
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}, options *ServerOptions) {
     response, err := json.Marshal(payload)
     if err != nil {
         // Fallback if payload marshaling fails
@@ -104,7 +141,29 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
         w.Write([]byte(`{"error": "failed to marshal response"}`)) 
         return
     }
+
+    // Check if compression should be used
+    useCompression := false
+    if options != nil && options.CompressionEnabled && 
+       len(response) >= int(options.CompressionThreshold) {
+        // Check if client accepts gzip
+        acceptEncoding := r.Header.Get("Accept-Encoding")
+        if strings.Contains(acceptEncoding, "gzip") {
+            useCompression = true
+        }
+    }
+
     w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(code)
-    w.Write(response)
+    
+    if useCompression {
+        w.Header().Set("Content-Encoding", "gzip")
+        w.WriteHeader(code)
+        
+        gz := gzip.NewWriter(w)
+        defer gz.Close()
+        gz.Write(response)
+    } else {
+        w.WriteHeader(code)
+        w.Write(response)
+    }
 }
