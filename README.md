@@ -123,7 +123,8 @@ func main() {
 
     // Set up HTTP server with SyncHandler
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-    handler := transport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := transport.NewSyncHandler(store, logger, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
 	
     go func() {
@@ -526,7 +527,8 @@ import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP sync handler
 logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-handler := httptransport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := httptransport.NewSyncHandler(store, logger, nil)
 
 // Start HTTP server
 server := &http.Server{Addr: ":8080", Handler: handler}
@@ -548,6 +550,34 @@ The HTTP transport provides two RESTful endpoints:
 - **Storage-agnostic** server implementation
 - **Configurable HTTP client** for custom timeouts, TLS, etc.
 - **Batch processing** for efficient sync operations
+- **Flexible version parsing** with custom version parser support
+
+#### Version Parsing
+
+Both client and server support custom version parsing through an injectable `VersionParser` function:
+
+```go
+// Define a custom parser that requires a 'v' prefix
+customParser := func(ctx context.Context, s string) (synckit.Version, error) {
+    if !strings.HasPrefix(s, "v") {
+        return nil, fmt.Errorf("version must start with 'v'")
+    }
+    // Strip 'v' prefix and parse as integer
+    seq, err := strconv.ParseUint(s[1:], 10, 64)
+    if err != nil {
+        return nil, fmt.Errorf("invalid version number: %w", err)
+    }
+    return cursor.IntegerCursor{Seq: seq}, nil
+}
+
+// Use custom parser in client transport
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil, customParser)
+
+// Use same parser in server handler for consistent version parsing
+handler := httptransport.NewSyncHandler(store, logger, customParser)
+```
+
+If no parser is provided, the transport falls back to using the store's `ParseVersion` method:
 
 #### Complete Client/Server Example
 ```go
@@ -575,7 +605,8 @@ func main() {
 
     // 2. Start HTTP server
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-    handler := transport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := transport.NewSyncHandler(store, logger, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
     
     go func() {

@@ -70,9 +70,9 @@ func fromJSONEvent(je JSONEvent) synckit.Event {
 }
 
 // fromJSONEventWithVersion converts JSONEventWithVersion back to synckit.EventWithVersion
-// It uses the provided EventStore to parse the version string, making it version-implementation agnostic
-func fromJSONEventWithVersion(ctx context.Context, store synckit.EventStore, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {
-    version, err := store.ParseVersion(ctx, jev.Version)
+// It uses the SyncHandler's version parser to parse the version string
+func fromJSONEventWithVersion(ctx context.Context, parser VersionParser, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {
+    version, err := parser(ctx, jev.Version)
     if err != nil {
         return synckit.EventWithVersion{}, fmt.Errorf("invalid version: %w", err)
     }
