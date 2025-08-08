@@ -123,7 +123,8 @@ func main() {
 
     // Set up HTTP server with SyncHandler
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-    handler := transport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := transport.NewSyncHandler(store, logger, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
 	
     go func() {
@@ -526,7 +527,8 @@ import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP sync handler
 logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-handler := httptransport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := httptransport.NewSyncHandler(store, logger, nil)
 
 // Start HTTP server
 server := &http.Server{Addr: ":8080", Handler: handler}
@@ -575,7 +577,8 @@ func main() {
 
     // 2. Start HTTP server
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-    handler := transport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := transport.NewSyncHandler(store, logger, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
     
     go func() {

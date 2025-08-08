@@ -245,12 +245,62 @@ func TestHTTPTransport_Close(t *testing.T) {
 	}
 }
 
-func TestSyncHandler_NewSyncHandler(t *testing.T) {
+func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+	// Test with default parser
+	handler := NewSyncHandler(store, logger, nil)
+	
+	if handler.store != store {
+		t.Error("Expected store to be set correctly")
+	}
+	if handler.logger != logger {
+		t.Error("Expected logger to be set correctly")
+	}
+	if handler.versionParser == nil {
+		t.Error("Expected default version parser to be set")
+	}
+}
+
+func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
+		return cursor.IntegerCursor{Seq: 42}, nil
+	}
+	
+	// Test with custom parser
+	handler := NewSyncHandler(store, logger, customParser)
+	
+	if handler.store != store {
+		t.Error("Expected store to be set correctly")
+	}
+	if handler.logger != logger {
+		t.Error("Expected logger to be set correctly")
+	}
+	if handler.versionParser == nil {
+		t.Error("Expected custom version parser to be set")
+	}
+	
+	// Test that custom parser is used
+	version, err := handler.versionParser(context.Background(), "any")
+	if err != nil {
+		t.Errorf("Expected no error from custom parser, got: %v", err)
+	}
+	if v, ok := version.(cursor.IntegerCursor); !ok || v.Seq != 42 {
+		t.Errorf("Expected version to be IntegerCursor{42}, got: %v", version)
+	}
+}
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
@@ -265,7 +315,8 @@ func TestSyncHandler_HandlePush_Success(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 events := []synckit.EventWithVersion{
 		{
@@ -320,7 +371,8 @@ func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	req := httptest.NewRequest(http.MethodGet, "/push", nil)
 	w := httptest.NewRecorder()
@@ -337,7 +389,8 @@ func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -365,7 +418,8 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 	store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
 	w := httptest.NewRecorder()
@@ -391,7 +445,8 @@ func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	req := httptest.NewRequest(http.MethodPost, "/pull", nil)
 	w := httptest.NewRecorder()
@@ -408,7 +463,8 @@ func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
 	w := httptest.NewRecorder()
@@ -425,7 +481,8 @@ func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	
 	// Test /push route
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
@@ -459,7 +516,8 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	defer cleanup()
 	
 	logger := log.New(os.Stdout, "[E2E] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+handler := NewSyncHandler(store, logger, nil)
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	

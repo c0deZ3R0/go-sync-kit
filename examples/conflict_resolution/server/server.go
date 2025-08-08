@@ -53,7 +53,8 @@ func New(config Config) (*Server, error) {
 	}
 
 	// Create HTTP handler
-	handler := httptransport.NewSyncHandler(store, config.Logger)
+// Use default version parser (store.ParseVersion)
+handler := httptransport.NewSyncHandler(store, config.Logger, nil)
 
 	// Create HTTP server
 	httpServer := &http.Server{

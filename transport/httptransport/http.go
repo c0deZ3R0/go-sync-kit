@@ -183,16 +183,22 @@ func (t *HTTPTransport) Close() error {
 
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
-	store  synckit.EventStore
-	logger *log.Logger
+	store         synckit.EventStore
+	logger        *log.Logger
+	versionParser VersionParser // NEW: Version parser function injected from client
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
-// It requires an EventStore to interact with the database.
-func NewSyncHandler(store synckit.EventStore, logger *log.Logger) *SyncHandler {
+// It requires an EventStore to interact with the database and optionally accepts a VersionParser.
+func NewSyncHandler(store synckit.EventStore, logger *log.Logger, parser VersionParser) *SyncHandler {
+	if parser == nil {
+		// Default to using store's ParseVersion method if no parser provided
+		parser = store.ParseVersion
+	}
 	return &SyncHandler{
-		store:  store,
-		logger: logger,
+		store:         store,
+		logger:        logger,
+		versionParser: parser,
 	}
 }
 
@@ -277,9 +283,9 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 		sinceStr = "0"
 	}
 
-	// Use the EventStore's ParseVersion method to handle version parsing
+	// Use the injected version parser to handle version parsing
 	// This decouples the transport from specific version implementations
-	version, err := h.store.ParseVersion(r.Context(), sinceStr)
+	version, err := h.versionParser(r.Context(), sinceStr)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return

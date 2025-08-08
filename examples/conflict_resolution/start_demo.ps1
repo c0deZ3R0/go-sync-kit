@@ -27,7 +27,7 @@ Write-Host "`nStarting components..." -ForegroundColor Cyan
 
 # Start server
 Write-Host "Starting server..." -ForegroundColor Yellow
-Start-DemoComponent -Title "Server" -Command "go run main.go -mode server -port 8080"
+Start-DemoComponent -Title "Server" -Command "go run main.go -mode server -port 8080 2>&1 | Tee-Object -FilePath .\logs\server.log"
 
 # Wait for server to initialize
 Write-Host "Waiting for server to initialize..." -ForegroundColor Gray
@@ -35,12 +35,12 @@ Start-Sleep -Seconds 3
 
 # Start client1
 Write-Host "Starting client 1..." -ForegroundColor Yellow
-Start-DemoComponent -Title "Client 1" -Command "go run main.go -mode client -id client1 -port 8081"
+Start-DemoComponent -Title "Client 1" -Command "go run main.go -mode client -id client1 -port 8081 2>&1 | Tee-Object -FilePath .\logs\client1.log"
 Start-Sleep -Seconds 2
 
 # Start client2
 Write-Host "Starting client 2..." -ForegroundColor Yellow
-Start-DemoComponent -Title "Client 2" -Command "go run main.go -mode client -id client2 -port 8082"
+Start-DemoComponent -Title "Client 2" -Command "go run main.go -mode client -id client2 -port 8082 2>&1 | Tee-Object -FilePath .\logs\client2.log"
 Start-Sleep -Seconds 2
 
 # Show available test commands

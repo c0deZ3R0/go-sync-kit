@@ -84,7 +84,8 @@ func runServer(ctx context.Context, port int, logger *log.Logger) {
 	})
 
 	// Add sync handler
-	syncHandler := httptransport.NewSyncHandler(store, logger)
+// Use default version parser (store.ParseVersion)
+syncHandler := httptransport.NewSyncHandler(store, logger, nil)
 	mux.Handle("/sync/", http.StripPrefix("/sync", syncHandler))
 
 	// Log available endpoints
