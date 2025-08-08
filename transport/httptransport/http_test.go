@@ -1,7 +1,6 @@
 package httptransport
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
