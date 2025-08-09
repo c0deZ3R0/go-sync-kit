@@ -81,17 +81,26 @@ func startClient(id, serverURL string, port int) {
 	// Control API
 	mux := http.NewServeMux()
 	mux.HandleFunc("/counters", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(c.ListCounters())
 	})
 	mux.HandleFunc("/counter/", func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/counter/"), "/")
-		if len(parts) == 0 || parts[0] == "" { w.WriteHeader(http.StatusBadRequest); return }
+		if len(parts) == 0 || parts[0] == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		id := parts[0]
 		switch r.Method {
 		case http.MethodGet:
 			val, err := c.GetCounter(id)
-			if err != nil { http.Error(w, err.Error(), http.StatusNotFound); return }
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]int{"value": val})
 		case http.MethodPost:
 			// No direct POST on /counter/{id}; use specific endpoints
@@ -101,26 +110,60 @@ func startClient(id, serverURL string, port int) {
 		}
 	})
 	mux.HandleFunc("/counter/create", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-		var req struct{ ID string `json:"id"` }
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
-		if err := c.CreateCounterSync(req.ID); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := c.CreateCounterSync(req.ID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/counter/increment", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-		var req struct{ ID string `json:"id"`; Value int `json:"value"` }
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
-		if req.Value == 0 { req.Value = 1 }
-		if err := c.IncrementCounter(context.Background(), req.ID, req.Value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID    string `json:"id"`
+			Value int    `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if req.Value == 0 {
+			req.Value = 1
+		}
+		if err := c.IncrementCounter(context.Background(), req.ID, req.Value); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/sync", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-		if err := c.Sync(context.Background()); err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if err := c.Sync(context.Background()); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK); _, _ = w.Write([]byte("OK")) })
+	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Client control API listening on %s", addr)
@@ -134,26 +177,55 @@ func runDemo() {
 	// Create and start orchestrator
 	orch := NewTestOrchestrator()
 	fmt.Println("Starting server...")
-	if err := orch.StartServer(); err != nil { log.Fatalf("Failed to start server: %v", err) }
+	if err := orch.StartServer(); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 	fmt.Println("Adding clients...")
-	if err := orch.AddClient("client1"); err != nil { log.Fatalf("Failed to add client1: %v", err) }
-	if err := orch.AddClient("client2"); err != nil { log.Fatalf("Failed to add client2: %v", err) }
+	if err := orch.AddClient("client1"); err != nil {
+		log.Fatalf("Failed to add client1: %v", err)
+	}
+	if err := orch.AddClient("client2"); err != nil {
+		log.Fatalf("Failed to add client2: %v", err)
+	}
 	fmt.Println("\nCreating counter1 from client1...")
-	if err := orch.ExecuteCommand("client1", "c", "counter1"); err != nil { log.Printf("Error: %v", err) }
-	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	if err := orch.ExecuteCommand("client1", "c", "counter1"); err != nil {
+		log.Printf("Error: %v", err)
+	}
+	time.Sleep(time.Second)
+	orch.SyncAll()
+	fmt.Println("Current counter values:")
+	printCounterValues(orch, "counter1")
 	fmt.Println("\nIncrementing counter1 from client1...")
-	if err := orch.ExecuteCommand("client1", "i", "counter1"); err != nil { log.Printf("Error: %v", err) }
-	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	if err := orch.ExecuteCommand("client1", "i", "counter1"); err != nil {
+		log.Printf("Error: %v", err)
+	}
+	time.Sleep(time.Second)
+	orch.SyncAll()
+	fmt.Println("Current counter values:")
+	printCounterValues(orch, "counter1")
 	fmt.Println("\nIncrementing counter1 from client2...")
-	if err := orch.ExecuteCommand("client2", "i", "counter1"); err != nil { log.Printf("Error: %v", err) }
-	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	if err := orch.ExecuteCommand("client2", "i", "counter1"); err != nil {
+		log.Printf("Error: %v", err)
+	}
+	time.Sleep(time.Second)
+	orch.SyncAll()
+	fmt.Println("Current counter values:")
+	printCounterValues(orch, "counter1")
 	fmt.Println("\nStopping all components...")
 	orch.Stop()
 }
 
 func printCounterValues(orch *TestOrchestrator, counterID string) {
 	val1, err := orch.GetCounter("client1", counterID)
-	if err != nil { fmt.Printf("Client1 counter error: %v\n", err) } else { fmt.Printf("Client1 counter value: %d\n", val1) }
+	if err != nil {
+		fmt.Printf("Client1 counter error: %v\n", err)
+	} else {
+		fmt.Printf("Client1 counter value: %d\n", val1)
+	}
 	val2, err := orch.GetCounter("client2", counterID)
-	if err != nil { fmt.Printf("Client2 counter error: %v\n", err) } else { fmt.Printf("Client2 counter value: %d\n", val2) }
+	if err != nil {
+		fmt.Printf("Client2 counter error: %v\n", err)
+	} else {
+		fmt.Printf("Client2 counter value: %d\n", val2)
+	}
 }

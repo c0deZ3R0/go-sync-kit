@@ -70,7 +70,7 @@ func (e *StoredEvent) Metadata() map[string]interface{} {
 }
 
 // Config holds configuration options for the SQLiteEventStore.
-// 
+//
 // Production-ready defaults are applied by DefaultConfig() including:
 //   - WAL mode enabled for better concurrency
 //   - Connection pool with 25 max open, 5 max idle connections
@@ -136,7 +136,7 @@ func NewWithDataSource(dataSourceName string) (*SQLiteEventStore, error) {
 }
 
 // DefaultConfig returns a Config with production-ready defaults for SQLite.
-// 
+//
 // Default settings include:
 //   - WAL mode enabled for better concurrency
 //   - Connection pool: 25 max open, 5 max idle connections

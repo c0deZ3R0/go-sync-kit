@@ -9,10 +9,10 @@ import (
 
 // Event types
 const (
-	EventTypeCounterCreated    = "counter_created"
+	EventTypeCounterCreated     = "counter_created"
 	EventTypeCounterIncremented = "counter_incremented"
 	EventTypeCounterDecremented = "counter_decremented"
-	EventTypeCounterReset      = "counter_reset"
+	EventTypeCounterReset       = "counter_reset"
 )
 
 // CounterEvent represents a counter operation event
@@ -81,13 +81,13 @@ func (e *CounterEvent) SetVersion(v *version.VectorClock) {
 // MarshalJSON implements json.Marshaler
 func (e *CounterEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"id":         e.id,
-		"type":       e.eventType,
-		"counterId":  e.counterID,
-		"value":      e.value,
-		"timestamp":  e.timestamp,
-		"clientId":   e.clientID,
-		"metadata":   e.metadata,
+		"id":        e.id,
+		"type":      e.eventType,
+		"counterId": e.counterID,
+		"value":     e.value,
+		"timestamp": e.timestamp,
+		"clientId":  e.clientID,
+		"metadata":  e.metadata,
 	})
 }
 
@@ -102,7 +102,7 @@ func (e *CounterEvent) UnmarshalJSON(data []byte) error {
 	e.eventType = m["type"].(string)
 	e.counterID = m["counterId"].(string)
 	e.value = int(m["value"].(float64))
-	
+
 	if ts, ok := m["timestamp"].(string); ok {
 		timestamp, err := time.Parse(time.RFC3339Nano, ts)
 		if err != nil {
@@ -112,7 +112,7 @@ func (e *CounterEvent) UnmarshalJSON(data []byte) error {
 	}
 
 	e.clientID = m["clientId"].(string)
-	
+
 	if v, ok := m["version"].(map[string]interface{}); ok {
 		// Convert map values to uint64
 		clocks := make(map[string]uint64)

@@ -10,9 +10,9 @@ import (
 type ErrorCode string
 
 const (
-	ErrCodeNetworkFailure   ErrorCode = "NETWORK_FAILURE"
-	ErrCodeStorageFailure   ErrorCode = "STORAGE_FAILURE"
-	ErrCodeConflictFailure  ErrorCode = "CONFLICT_FAILURE"
+	ErrCodeNetworkFailure    ErrorCode = "NETWORK_FAILURE"
+	ErrCodeStorageFailure    ErrorCode = "STORAGE_FAILURE"
+	ErrCodeConflictFailure   ErrorCode = "CONFLICT_FAILURE"
 	ErrCodeValidationFailure ErrorCode = "VALIDATION_FAILURE"
 )
 
@@ -20,14 +20,14 @@ const (
 type Kind string
 
 const (
-	KindInvalid       Kind = "INVALID"          // Invalid input or request
-	KindNotFound      Kind = "NOT_FOUND"        // Resource not found
-	KindPermission    Kind = "PERMISSION"       // Permission denied
-	KindInternal      Kind = "INTERNAL"         // Internal server error
-	KindTimeout       Kind = "TIMEOUT"          // Operation timeout
-	KindUnavailable   Kind = "UNAVAILABLE"      // Service unavailable
-	KindConflict      Kind = "CONFLICT"         // Resource conflict
-	KindTooLarge      Kind = "TOO_LARGE"        // Request too large
+	KindInvalid          Kind = "INVALID"            // Invalid input or request
+	KindNotFound         Kind = "NOT_FOUND"          // Resource not found
+	KindPermission       Kind = "PERMISSION"         // Permission denied
+	KindInternal         Kind = "INTERNAL"           // Internal server error
+	KindTimeout          Kind = "TIMEOUT"            // Operation timeout
+	KindUnavailable      Kind = "UNAVAILABLE"        // Service unavailable
+	KindConflict         Kind = "CONFLICT"           // Resource conflict
+	KindTooLarge         Kind = "TOO_LARGE"          // Request too large
 	KindMethodNotAllowed Kind = "METHOD_NOT_ALLOWED" // HTTP method not allowed
 )
 
@@ -76,11 +76,11 @@ func (e *SyncError) Error() string {
 	} else {
 		msg = fmt.Sprintf("%s operation failed", e.Op)
 	}
-	
+
 	if e.Code != "" {
 		msg += fmt.Sprintf(" [%s]", e.Code)
 	}
-	
+
 	return msg + fmt.Sprintf(": %v", e.Err)
 }
 

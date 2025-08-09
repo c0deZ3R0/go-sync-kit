@@ -37,7 +37,7 @@ type ServerOptions struct {
 }
 
 // DefaultServerOptions returns the default server options with validated settings.
-// 
+//
 // Defaults:
 //   - MaxRequestSize: 10 MiB (10,485,760 bytes) - compressed request body limit
 //   - MaxDecompressedSize: 20 MiB (20,971,520 bytes) - decompressed request body limit
@@ -53,10 +53,10 @@ type ServerOptions struct {
 func DefaultServerOptions() *ServerOptions {
 	const (
 		defaultMaxRequestSize       = 10 * 1024 * 1024 // 10 MiB
-		defaultMaxDecompressedSize  = 20 * 1024 * 1024 // 20 MiB  
+		defaultMaxDecompressedSize  = 20 * 1024 * 1024 // 20 MiB
 		defaultCompressionThreshold = 1024             // 1 KiB
 	)
-	
+
 	opts := &ServerOptions{
 		MaxRequestSize:       defaultMaxRequestSize,
 		MaxDecompressedSize:  defaultMaxDecompressedSize,
@@ -65,12 +65,12 @@ func DefaultServerOptions() *ServerOptions {
 		RequestTimeout:       30 * time.Second,
 		ShutdownTimeout:      10 * time.Second,
 	}
-	
+
 	// Validate the default configuration
 	if err := opts.Validate(); err != nil {
 		panic(fmt.Sprintf("invalid default server options: %v", err))
 	}
-	
+
 	return opts
 }
 
@@ -80,7 +80,7 @@ func (opts *ServerOptions) Validate() error {
 	if opts == nil {
 		return fmt.Errorf("nil server options")
 	}
-	
+
 	// Validate size limits
 	if opts.MaxRequestSize <= 0 {
 		return fmt.Errorf("MaxRequestSize must be positive, got %d", opts.MaxRequestSize)
@@ -88,20 +88,20 @@ func (opts *ServerOptions) Validate() error {
 	if opts.MaxDecompressedSize <= 0 {
 		return fmt.Errorf("MaxDecompressedSize must be positive, got %d", opts.MaxDecompressedSize)
 	}
-	
+
 	// Critical validation: MaxDecompressedSize must be >= MaxRequestSize
 	// This ensures that any compressed request can be safely decompressed without
 	// exceeding the decompression limit, preventing zip-bomb vulnerabilities.
 	if opts.MaxDecompressedSize < opts.MaxRequestSize {
-		return fmt.Errorf("MaxDecompressedSize (%d) must be >= MaxRequestSize (%d) to prevent zip-bomb attacks", 
+		return fmt.Errorf("MaxDecompressedSize (%d) must be >= MaxRequestSize (%d) to prevent zip-bomb attacks",
 			opts.MaxDecompressedSize, opts.MaxRequestSize)
 	}
-	
+
 	// Validate compression settings
 	if opts.CompressionEnabled && opts.CompressionThreshold < 0 {
 		return fmt.Errorf("CompressionThreshold cannot be negative when compression is enabled, got %d", opts.CompressionThreshold)
 	}
-	
+
 	// Validate timeouts
 	if opts.RequestTimeout < 0 {
 		return fmt.Errorf("RequestTimeout cannot be negative, got %v", opts.RequestTimeout)
@@ -109,7 +109,7 @@ func (opts *ServerOptions) Validate() error {
 	if opts.ShutdownTimeout < 0 {
 		return fmt.Errorf("ShutdownTimeout cannot be negative, got %v", opts.ShutdownTimeout)
 	}
-	
+
 	return nil
 }
 
@@ -155,10 +155,10 @@ func DefaultClientOptions() *ClientOptions {
 		CompressionEnabled:          true,
 		MaxResponseSize:             10 * 1024 * 1024, // 10MB
 		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
-		RequestTimeout:              30 * time.Second,  // 30s
-		RetryMax:                    3,                 // 3 retries
-		RetryWaitMin:                1 * time.Second,   // 1s
-		RetryWaitMax:                30 * time.Second,  // 30s
+		RequestTimeout:              30 * time.Second, // 30s
+		RetryMax:                    3,                // 3 retries
+		RetryWaitMin:                1 * time.Second,  // 1s
+		RetryWaitMax:                30 * time.Second, // 30s
 	}
 }
 
@@ -205,10 +205,10 @@ func toJSONEvent(event synckit.Event) JSONEvent {
 
 // toJSONEventWithVersion converts synckit.EventWithVersion to JSONEventWithVersion
 func toJSONEventWithVersion(ev synckit.EventWithVersion) JSONEventWithVersion {
-    var version string
-    if ev.Version != nil {
-        version = ev.Version.String()
-    }
+	var version string
+	if ev.Version != nil {
+		version = ev.Version.String()
+	}
 	return JSONEventWithVersion{
 		Event:   toJSONEvent(ev.Event),
 		Version: version,
@@ -247,4 +247,3 @@ func fromJSONEventWithVersion(ctx context.Context, parser VersionParser, jev JSO
 		Version: version,
 	}, nil
 }
-

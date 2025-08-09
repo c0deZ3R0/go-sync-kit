@@ -100,12 +100,12 @@ issues:
         - goconst
     
     # Exclude specific issues
-    - text: "Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked"
+    - text: 'Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked'
       linters:
         - errcheck
     
     # Exclude shadow checking for err variables (common Go pattern)
-    - text: "shadow: declaration of \"err\" shadows declaration"
+    - text: 'shadow: declaration of "err" shadows declaration'
       linters:
         - govet
     

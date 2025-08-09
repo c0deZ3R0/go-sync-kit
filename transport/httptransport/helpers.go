@@ -19,20 +19,20 @@ func validateContentType(w http.ResponseWriter, r *http.Request, options *Server
 
 	// Get Content-Type header
 	contentType := r.Header.Get("Content-Type")
-	
+
 	// If no Content-Type is provided, we'll be lenient and allow it
 	// (some clients might not set it)
 	if contentType == "" {
 		return true
 	}
-	
+
 	// Check if Content-Type starts with "application/json"
 	// This allows for charset parameters like "application/json; charset=utf-8"
 	if !strings.HasPrefix(contentType, "application/json") {
 		respondWithError(w, r, http.StatusUnsupportedMediaType, "unsupported media type", options)
 		return false
 	}
-	
+
 	return true
 }
 
@@ -41,12 +41,12 @@ func negotiateCompression(r *http.Request, options *ServerOptions, responseSize 
 	if options == nil || !options.CompressionEnabled {
 		return false
 	}
-	
+
 	// Only compress responses above the threshold
 	if responseSize < int(options.CompressionThreshold) {
 		return false
 	}
-	
+
 	// Check if client accepts gzip compression
 	acceptEncoding := r.Header.Get("Accept-Encoding")
 	return strings.Contains(strings.ToLower(acceptEncoding), "gzip")
@@ -64,12 +64,12 @@ func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload i
 	useCompression := negotiateCompression(r, options, len(response))
 
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	if useCompression {
 		w.Header().Set("Vary", "Accept-Encoding")
 		w.Header().Set("Content-Encoding", "gzip")
 		w.WriteHeader(code)
-		
+
 		gz := gzip.NewWriter(w)
 		defer gz.Close()
 		gz.Write(response)

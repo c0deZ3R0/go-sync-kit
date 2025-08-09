@@ -14,18 +14,18 @@ import (
 // Request/response for PullWithCursor
 type PullRequest struct {
 	Since *cursor.WireCursor `json:"since,omitempty"`
-	Limit int               `json:"limit,omitempty"`
+	Limit int                `json:"limit,omitempty"`
 }
 
 type EventEnvelope struct {
-	ID            string                 `json:"id"`
-	Type          string                 `json:"type"`
-	AggregateID   string                 `json:"aggregate_id"`
-	Data          map[string]any         `json:"data,omitempty"`
-	Metadata      map[string]any         `json:"metadata,omitempty"`
-	OriginNode    string                 `json:"origin_node,omitempty"`
-	OriginCounter uint64                 `json:"origin_counter,omitempty"`
-	Seq           uint64                 `json:"seq,omitempty"`
+	ID            string         `json:"id"`
+	Type          string         `json:"type"`
+	AggregateID   string         `json:"aggregate_id"`
+	Data          map[string]any `json:"data,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	OriginNode    string         `json:"origin_node,omitempty"`
+	OriginCounter uint64         `json:"origin_counter,omitempty"`
+	Seq           uint64         `json:"seq,omitempty"`
 }
 
 type PullResponse struct {
@@ -124,13 +124,13 @@ func (s *Server) HandlePullWithCursor(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
-	
+
 	events, next, err := s.store.PullWithCursor(r.Context(), since, limit)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	
+
 	var nextWire *cursor.WireCursor
 	if next != nil {
 		if wcur, err := cursor.MarshalWire(next); err == nil {

@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // --- HTTP Transport Client ---
@@ -34,11 +34,11 @@ type HTTPTransport struct {
 // newHTTPClient creates a custom HTTP client based on ClientOptions.
 func newHTTPClient(opts *ClientOptions) *http.Client {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
-	
+
 	// If DisableAutoDecompression is true, disable Go's automatic decompression
 	// so we can enforce both compressed and decompressed size limits
 	tr.DisableCompression = opts != nil && opts.DisableAutoDecompression
-	
+
 	return &http.Client{Transport: tr}
 }
 
@@ -48,18 +48,18 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 	if options == nil {
 		options = DefaultClientOptions()
 	}
-	
+
 	// Validate client options
 	if err := ValidateClientOptions(options); err != nil {
 		// For backward compatibility, we'll just use default options if validation fails
 		// In a future version, we might want to panic or return an error
 		options = DefaultClientOptions()
 	}
-	
+
 	if client == nil {
 		client = newHTTPClient(options)
 	}
-	
+
 	if parser == nil {
 		// default to integer parser for backward compatibility
 		parser = func(ctx context.Context, s string) (synckit.Version, error) {
@@ -67,13 +67,13 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 			if err != nil {
 				return nil, err
 			}
-		if v == 0 {
-			return nil, fmt.Errorf("invalid version: zero is not a valid version")
-		}
-		return cursor.IntegerCursor{Seq: uint64(v)}, nil
+			if v == 0 {
+				return nil, fmt.Errorf("invalid version: zero is not a valid version")
+			}
+			return cursor.IntegerCursor{Seq: uint64(v)}, nil
 		}
 	}
-	
+
 	return &HTTPTransport{
 		client:        client,
 		baseURL:       baseURL,
@@ -110,7 +110,7 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 	// Prepare the request body (with optional compression)
 	var requestBody io.Reader = bytes.NewBuffer(data)
 	contentEncoding := ""
-	
+
 	// Compress request body if enabled and data is large enough
 	if t.options.CompressionEnabled && len(data) >= 1024 { // 1KB threshold for request compression
 		var compressed bytes.Buffer
@@ -129,10 +129,10 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 	if err != nil {
 		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
-	
+
 	// Set standard headers
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Set compression headers
 	if contentEncoding != "" {
 		req.Header.Set("Content-Encoding", contentEncoding)
@@ -170,7 +170,7 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
-	
+
 	// Set Accept-Encoding header if compression is enabled
 	if t.options.CompressionEnabled {
 		if t.options.DisableAutoDecompression {
@@ -211,11 +211,11 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 
 	events := make([]synckit.EventWithVersion, len(jsonEvents))
 	for i, jev := range jsonEvents {
-	// Use version parser to decode version
-	version, err := t.versionParser(ctx, jev.Version)
-	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
-	}
+		// Use version parser to decode version
+		version, err := t.versionParser(ctx, jev.Version)
+		if err != nil {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
+		}
 
 		event := &SimpleEvent{
 			IDValue:          jev.Event.ID,
@@ -374,7 +374,7 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			fmt.Errorf("request body too large: %d bytes exceeds maximum of %d bytes", r.ContentLength, h.options.MaxRequestSize),
 		)
 		h.logger.Printf("error: %v", e)
-		h.respondErr(w, r, http.StatusRequestEntityTooLarge, 
+		h.respondErr(w, r, http.StatusRequestEntityTooLarge,
 			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize))
 		return
 	}
@@ -547,4 +547,3 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("Pulled %d events since version %s", len(events), sinceStr)
 	h.respond(w, r, http.StatusOK, jsonEvents)
 }
-

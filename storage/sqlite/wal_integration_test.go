@@ -26,7 +26,7 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 		// Create store with default config (should enable WAL)
 		config := DefaultConfig(dbPath)
 		require.True(t, config.EnableWAL, "WAL should be enabled by default")
-		
+
 		store, err := New(config)
 		require.NoError(t, err)
 		defer store.Close()
@@ -53,16 +53,16 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 	t.Run("WAL_ConnectionPoolDefaults", func(t *testing.T) {
 		// Test that connection pool defaults are production-ready
 		config := DefaultConfig(dbPath + "_pool")
-		
+
 		assert.Equal(t, 25, config.MaxOpenConns, "MaxOpenConns should default to 25")
 		assert.Equal(t, 5, config.MaxIdleConns, "MaxIdleConns should default to 5")
 		assert.Equal(t, time.Hour, config.ConnMaxLifetime, "ConnMaxLifetime should default to 1 hour")
 		assert.Equal(t, 5*time.Minute, config.ConnMaxIdleTime, "ConnMaxIdleTime should default to 5 minutes")
-		
+
 		store, err := New(config)
 		require.NoError(t, err)
 		defer store.Close()
-		
+
 		// Verify connection pool statistics are available
 		stats := store.Stats()
 		// DBStats doesn't expose MaxOpenConns directly, but we can verify it's working by checking OpenConnections
@@ -93,7 +93,7 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 						aggregateID: "concurrent-agg",
 						data:        map[string]interface{}{"goroutine": goroutineID, "event": j},
 					}
-					
+
 					err := store.Store(ctx, event, cursor.IntegerCursor{Seq: uint64(goroutineID*eventsPerGoroutine + j)})
 					if err != nil {
 						done <- err
@@ -113,7 +113,7 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 		// Verify all events were stored
 		events, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 		require.NoError(t, err)
-		assert.Equal(t, numGoroutines*eventsPerGoroutine, len(events), 
+		assert.Equal(t, numGoroutines*eventsPerGoroutine, len(events),
 			"Should have stored all events from concurrent writes")
 	})
 
@@ -124,26 +124,26 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 			EnableWAL:      true,
 		}
 		config.setDefaults()
-		
-		assert.True(t, strings.Contains(config.DataSourceName, "?_journal_mode=WAL"), 
+
+		assert.True(t, strings.Contains(config.DataSourceName, "?_journal_mode=WAL"),
 			"DataSourceName should contain WAL journal mode parameter")
-		
+
 		store, err := New(config)
 		require.NoError(t, err)
 		defer store.Close()
-		
+
 		// Verify store is functional with explicit WAL parameter
 		event := &MockEvent{
 			id:          "test-journal-mode",
-			eventType:   "JournalModeTest", 
+			eventType:   "JournalModeTest",
 			aggregateID: "journal-agg",
 			data:        "journal mode test data",
 		}
-		
+
 		ctx := context.Background()
 		err = store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
 		require.NoError(t, err)
-		
+
 		// Verify event can be retrieved
 		events, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 		require.NoError(t, err)
@@ -158,14 +158,14 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 			EnableWAL:      false, // Explicitly disable WAL
 		}
 		config.setDefaults()
-		
-		assert.False(t, strings.Contains(config.DataSourceName, "_journal_mode=WAL"), 
+
+		assert.False(t, strings.Contains(config.DataSourceName, "_journal_mode=WAL"),
 			"DataSourceName should not contain WAL when disabled")
-		
+
 		store, err := New(config)
 		require.NoError(t, err)
 		defer store.Close()
-		
+
 		// Store should still work without WAL
 		event := &MockEvent{
 			id:          "test-no-wal",
@@ -173,7 +173,7 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 			aggregateID: "no-wal-agg",
 			data:        "no WAL test data",
 		}
-		
+
 		ctx := context.Background()
 		err = store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
 		require.NoError(t, err)
@@ -187,15 +187,15 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 		defer store.Close()
 
 		ctx := context.Background()
-		
+
 		// Simulate a batch of events like in a production scenario
 		events := make([]synckit.EventWithVersion, 100)
 		for i := 0; i < 100; i++ {
 			events[i] = synckit.EventWithVersion{
 				Event: &MockEvent{
-					id:          string(rune('a' + i%26)) + "-prod-" + string(rune('0' + i%10)),
+					id:          string(rune('a'+i%26)) + "-prod-" + string(rune('0'+i%10)),
 					eventType:   "ProductionEvent",
-					aggregateID: "prod-agg-" + string(rune('1' + i%5)),
+					aggregateID: "prod-agg-" + string(rune('1'+i%5)),
 					data: map[string]interface{}{
 						"timestamp": time.Now().Unix(),
 						"batch_id":  i / 10,
@@ -219,7 +219,7 @@ func TestSQLiteEventStore_WAL(t *testing.T) {
 		aggEvents, err := store.LoadByAggregate(ctx, "prod-agg-1", cursor.IntegerCursor{Seq: 0})
 		require.NoError(t, err)
 		assert.Greater(t, len(aggEvents), 0, "Should find events for specific aggregate")
-		
+
 		// Verify latest version tracking
 		latestVersion, err := store.LatestVersion(ctx)
 		require.NoError(t, err)

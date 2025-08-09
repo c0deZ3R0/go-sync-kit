@@ -225,11 +225,11 @@ func TestErrorConstructors(t *testing.T) {
 func TestErrorsAs(t *testing.T) {
 	var syncErr *SyncError
 	err := fmt.Errorf("wrapped: %w", New(OpSync, fmt.Errorf("inner")))
-	
+
 	if !errors.As(err, &syncErr) {
 		t.Error("errors.As() failed to detect SyncError")
 	}
-	
+
 	if syncErr.Op != OpSync {
 		t.Errorf("errors.As() Op = %v, want %v", syncErr.Op, OpSync)
 	}
