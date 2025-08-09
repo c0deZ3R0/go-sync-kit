@@ -1,5 +1,7 @@
 # Go Sync Kit Examples
 
+> **🚧 Work in Progress**: These examples are actively being updated to match the latest Go Sync Kit API changes. Some examples may not compile or function correctly until updates are complete. Contributions and feedback are welcome!
+
 This directory contains various examples demonstrating different features and use cases of Go Sync Kit.
 
 ## Examples
@@ -40,6 +42,14 @@ Collection of utility functions and examples for testing and development:
 - Cursor synchronization examples
 - Test utilities and helpers
 
+## Current Status
+
+| Example | Status | Notes |
+|---------|--------|---------|
+| **conflict-resolution** | ✅ **Working** | Fully functional with latest API |
+| **basic** | ⚠️ **Needs Updates** | Legacy API calls need updating |
+| **utils** | ✅ **Working** | Testing utilities ready for use |
+
 ## Getting Started
 
 Each example contains its own README.md with specific instructions. Generally:
@@ -76,6 +86,13 @@ These examples serve as building blocks for more complex applications. You can c
 
 ## Contributing
 
+**Help Wanted!** Since these examples are work in progress, contributions are especially welcome. Ways to help:
+
+- 🔧 **Fix API Compatibility**: Update examples to use the latest Go Sync Kit APIs
+- 📝 **Improve Documentation**: Enhance READMEs with better examples and explanations
+- ✨ **Add New Examples**: Create examples showcasing specific use cases or patterns
+- 🚨 **Report Issues**: File issues for examples that don't work as expected
+
 When adding new examples:
 
 1. Create a new directory under `examples/`
@@ -83,6 +100,7 @@ When adding new examples:
 3. Add Go modules (`go.mod`, `go.sum`)
 4. Include test files and scripts
 5. Update this main README.md
+6. Test with the latest Go Sync Kit version
 
 ## Support
 
