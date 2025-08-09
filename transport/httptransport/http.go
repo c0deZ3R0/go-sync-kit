@@ -31,12 +31,35 @@ type HTTPTransport struct {
 	options       *ClientOptions
 }
 
+// newHTTPClient creates a custom HTTP client based on ClientOptions.
+func newHTTPClient(opts *ClientOptions) *http.Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	
+	// If DisableAutoDecompression is true, disable Go's automatic decompression
+	// so we can enforce both compressed and decompressed size limits
+	tr.DisableCompression = opts != nil && opts.DisableAutoDecompression
+	
+	return &http.Client{Transport: tr}
+}
+
 // NewTransport creates a new HTTPTransport client.
-// If a custom http.Client is not provided, http.DefaultClient will be used.
+// If a custom http.Client is not provided, one will be created based on the options.
 func NewTransport(baseURL string, client *http.Client, parser VersionParser, options *ClientOptions) *HTTPTransport {
-	if client == nil {
-		client = http.DefaultClient
+	if options == nil {
+		options = DefaultClientOptions()
 	}
+	
+	// Validate client options
+	if err := ValidateClientOptions(options); err != nil {
+		// For backward compatibility, we'll just use default options if validation fails
+		// In a future version, we might want to panic or return an error
+		options = DefaultClientOptions()
+	}
+	
+	if client == nil {
+		client = newHTTPClient(options)
+	}
+	
 	if parser == nil {
 		// default to integer parser for backward compatibility
 		parser = func(ctx context.Context, s string) (synckit.Version, error) {
@@ -50,9 +73,7 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 		return cursor.IntegerCursor{Seq: uint64(v)}, nil
 		}
 	}
-	if options == nil {
-		options = DefaultClientOptions()
-	}
+	
 	return &HTTPTransport{
 		client:        client,
 		baseURL:       baseURL,
@@ -116,9 +137,16 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 	if contentEncoding != "" {
 		req.Header.Set("Content-Encoding", contentEncoding)
 	}
+	// If DisableAutoDecompression is true and compression is enabled,
+	// explicitly set Accept-Encoding since auto-decompression is disabled
 	if t.options.CompressionEnabled {
-		// Accept compressed responses
-		req.Header.Set("Accept-Encoding", "gzip, deflate")
+		if t.options.DisableAutoDecompression {
+			// Explicitly request gzip when auto-decompression is disabled
+			req.Header.Set("Accept-Encoding", "gzip")
+		} else {
+			// Normal case: let Go handle Accept-Encoding automatically
+			req.Header.Set("Accept-Encoding", "gzip, deflate")
+		}
 	}
 
 	resp, err := t.client.Do(req)
@@ -145,7 +173,13 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 	
 	// Set Accept-Encoding header if compression is enabled
 	if t.options.CompressionEnabled {
-		req.Header.Set("Accept-Encoding", "gzip, deflate")
+		if t.options.DisableAutoDecompression {
+			// Explicitly request gzip when auto-decompression is disabled
+			req.Header.Set("Accept-Encoding", "gzip")
+		} else {
+			// Normal case: let Go handle Accept-Encoding automatically
+			req.Header.Set("Accept-Encoding", "gzip, deflate")
+		}
 	}
 
 	resp, err := t.client.Do(req)

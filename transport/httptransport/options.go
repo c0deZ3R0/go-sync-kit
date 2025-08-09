@@ -1,6 +1,7 @@
 package httptransport
 
 import (
+    "fmt"
     "time"
 )
 
@@ -59,6 +60,13 @@ func WithClientCompression(enabled bool) ClientOption {
     }
 }
 
+// WithDisableAutoDecompression disables Go's automatic response decompression
+func WithDisableAutoDecompression(disabled bool) ClientOption {
+    return func(opts *ClientOptions) {
+        opts.DisableAutoDecompression = disabled
+    }
+}
+
 // WithMaxResponseSize sets the maximum allowed size of response bodies
 func WithMaxResponseSize(size int64) ClientOption {
     return func(opts *ClientOptions) {
@@ -113,4 +121,80 @@ func applyClientOptions(opts ...ClientOption) *ClientOptions {
     }
     
     return options
+}
+
+// ValidateServerOptions validates server options configuration
+func ValidateServerOptions(opts *ServerOptions) error {
+	if opts == nil {
+		return nil
+	}
+	
+	if opts.MaxRequestSize <= 0 {
+		return fmt.Errorf("MaxRequestSize must be > 0")
+	}
+	
+	if opts.MaxDecompressedSize <= 0 {
+		return fmt.Errorf("MaxDecompressedSize must be > 0")
+	}
+	
+	if opts.MaxDecompressedSize < opts.MaxRequestSize {
+		return fmt.Errorf("MaxDecompressedSize must be >= MaxRequestSize to handle uncompressed requests")
+	}
+	
+	if opts.CompressionThreshold < 0 {
+		return fmt.Errorf("CompressionThreshold must be >= 0")
+	}
+	
+	if opts.RequestTimeout < 0 {
+		return fmt.Errorf("RequestTimeout must be >= 0")
+	}
+	
+	if opts.ShutdownTimeout < 0 {
+		return fmt.Errorf("ShutdownTimeout must be >= 0")
+	}
+	
+	return nil
+}
+
+// ValidateClientOptions validates client options configuration
+func ValidateClientOptions(opts *ClientOptions) error {
+	if opts == nil {
+		return nil
+	}
+	
+	if opts.MaxResponseSize <= 0 {
+		return fmt.Errorf("MaxResponseSize must be > 0")
+	}
+	
+	if opts.MaxDecompressedResponseSize <= 0 {
+		return fmt.Errorf("MaxDecompressedResponseSize must be > 0")
+	}
+	
+	// Only enforce this relationship when DisableAutoDecompression is true
+	// because that's when we can observe compressed bytes
+	if opts.DisableAutoDecompression && opts.MaxDecompressedResponseSize < opts.MaxResponseSize {
+		return fmt.Errorf("MaxDecompressedResponseSize must be >= MaxResponseSize when DisableAutoDecompression is true")
+	}
+	
+	if opts.RequestTimeout < 0 {
+		return fmt.Errorf("RequestTimeout must be >= 0")
+	}
+	
+	if opts.RetryMax < 0 {
+		return fmt.Errorf("RetryMax must be >= 0")
+	}
+	
+	if opts.RetryWaitMin < 0 {
+		return fmt.Errorf("RetryWaitMin must be >= 0")
+	}
+	
+	if opts.RetryWaitMax < 0 {
+		return fmt.Errorf("RetryWaitMax must be >= 0")
+	}
+	
+	if opts.RetryWaitMax > 0 && opts.RetryWaitMin > opts.RetryWaitMax {
+		return fmt.Errorf("RetryWaitMin must be <= RetryWaitMax")
+	}
+	
+	return nil
 }

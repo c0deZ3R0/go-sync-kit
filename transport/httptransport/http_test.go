@@ -327,8 +327,8 @@ func setupTestStore(t *testing.T) (*MockEventStore, func()) {
 func TestHTTPTransport_NewTransport(t *testing.T) {
 	// Test with default client
 	transport := NewTransport("http://example.com", nil, nil, DefaultClientOptions())
-	if transport.client != http.DefaultClient {
-		t.Error("Expected default client when nil is provided")
+	if transport.client == nil {
+		t.Error("Expected a client to be created when nil is provided")
 	}
 	if transport.baseURL != "http://example.com" {
 		t.Errorf("Expected baseURL 'http://example.com', got '%s'", transport.baseURL)

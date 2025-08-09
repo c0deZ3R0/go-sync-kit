@@ -118,6 +118,11 @@ type ClientOptions struct {
 	// CompressionEnabled enables sending Accept-Encoding header for gzip/deflate
 	CompressionEnabled bool
 
+	// DisableAutoDecompression disables Go's automatic response decompression
+	// When true, the client can enforce both compressed and decompressed size limits
+	// When false (default), Go auto-decompresses responses transparently
+	DisableAutoDecompression bool
+
 	// MaxResponseSize is the maximum allowed size of response bodies in bytes (compressed)
 	// If 0, defaults to 10MB
 	MaxResponseSize int64
