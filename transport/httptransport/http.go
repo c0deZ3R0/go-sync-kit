@@ -269,23 +269,22 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check Content-Length if available
-	if r.ContentLength > h.options.MaxRequestSize {
-		h.respondErr(w, r, http.StatusRequestEntityTooLarge, 
-			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize))
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
+	if err != nil {
+		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
 	}
-
-	// Wrap body in a LimitReader to prevent memory exhaustion
-	limitedReader := io.LimitReader(r.Body, h.options.MaxRequestSize)
+	defer cleanup()
 
 	var jsonEvents []JSONEventWithVersion
-	if err := json.NewDecoder(limitedReader).Decode(&jsonEvents); err != nil {
+	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
 		if err == io.EOF {
 			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		h.respondErr(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
 	}
 

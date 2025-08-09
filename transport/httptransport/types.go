@@ -10,9 +10,14 @@ import (
 
 // ServerOptions configures the HTTP transport server behavior
 type ServerOptions struct {
-	// MaxRequestSize is the maximum allowed size of incoming request bodies in bytes
+	// MaxRequestSize is the maximum allowed size of incoming request bodies in bytes (compressed)
 	// If 0, defaults to 10MB
 	MaxRequestSize int64
+
+	// MaxDecompressedSize is the maximum allowed size of decompressed request bodies in bytes
+	// This prevents zip-bomb attacks when handling gzip-compressed requests
+	// If 0, defaults to 20MB
+	MaxDecompressedSize int64
 
 	// CompressionEnabled enables gzip/deflate compression for responses
 	// Responses larger than CompressionThreshold will be compressed
@@ -35,6 +40,7 @@ type ServerOptions struct {
 func DefaultServerOptions() *ServerOptions {
 	return &ServerOptions{
 		MaxRequestSize:       10 * 1024 * 1024, // 10MB
+		MaxDecompressedSize:  20 * 1024 * 1024, // 20MB
 		CompressionEnabled:   true,
 		CompressionThreshold: 1024,            // 1KB
 		RequestTimeout:       30 * time.Second, // 30s

@@ -2,11 +2,9 @@ package httptransport
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 )
@@ -47,31 +45,22 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
 	}
 
-	// Check Content-Length if available
-	if r.ContentLength > 0 && r.ContentLength > options.MaxRequestSize {
-		log.Printf("Request too large, length: %d", r.ContentLength)
-		h.respondErr(w, r, http.StatusRequestEntityTooLarge,
-			fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize))
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, cleanup, err := createSafeRequestReader(w, r, options.ServerOptions)
+	if err != nil {
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
 		return
 	}
-	if r.ContentLength < 0 {
-		h.respondErr(w, r, http.StatusBadRequest, "invalid Content-Length")
-		return
-	}
-
-	// Wrap body in a LimitReader to prevent memory exhaustion
-	r.Body = http.MaxBytesReader(w, r.Body, options.MaxRequestSize)
+	defer cleanup()
 
 	var req PullCursorRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var mbe *http.MaxBytesError
-		if errors.As(err, &mbe) || strings.Contains(err.Error(), "http: request body too large") {
-			h.respondErr(w, r, http.StatusRequestEntityTooLarge,
-				fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize))
+	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
+		if err == io.EOF {
+			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		// For other decode errors, treat as bad request
-		h.respondErr(w, r, http.StatusBadRequest, "bad request: "+err.Error())
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
 		return
 	}
 
