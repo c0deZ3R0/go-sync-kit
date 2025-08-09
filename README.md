@@ -55,7 +55,7 @@ go get github.com/c0deZ3R0/go-sync-kit
 
 Go Sync Kit includes a complete basic example that demonstrates core functionality with a real-time web dashboard. This example serves as a foundation for more complex implementations.
 
-![Example Dashboard](example/dashboard.png)
+![Example Dashboard](examples/basic/dashboard.png)
 
 ### Running the Example
 
@@ -65,7 +65,7 @@ git clone https://github.com/c0deZ3R0/go-sync-kit
 cd go-sync-kit
 
 # Run the example
-cd example
+cd examples/basic
 go run .
 
 # Open the dashboard
@@ -79,7 +79,7 @@ The example includes:
 - Metrics collection and display
 - Basic conflict resolution
 
-See the [example README](example/README.md) for more details about the implementation and how to extend it.
+See the [example README](examples/basic/README.md) for more details about the implementation and how to extend it.
 
 ## Quick Start
 
@@ -123,8 +123,8 @@ func main() {
 
     // Set up HTTP server with SyncHandler
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-// Use default version parser (store.ParseVersion)
-handler := transport.NewSyncHandler(store, logger, nil)
+    // Use default version parser (store.ParseVersion)
+    handler := httptransport.NewSyncHandler(store, logger, nil, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
 	
     go func() {
@@ -134,7 +134,7 @@ handler := transport.NewSyncHandler(store, logger, nil)
     }()
 
     // Set up HTTP Client with HTTPTransport
-    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+    clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
 
     // Configure Sync Options
     syncOptions := &synckit.SyncOptions{
@@ -229,7 +229,7 @@ func main() {
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-Latest version: **v0.6.0** - Introduces a comprehensive example with real-time dashboard demonstrating Go Sync Kit's core features.
+Latest version: **v0.7.1** - [What's new in v0.7.1](CHANGELOG.md#v071) - Adds HTTP I/O hardening, server version parser, and improved documentation.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
@@ -515,7 +515,7 @@ Go Sync Kit includes a production-ready HTTP transport implementation that provi
 import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP transport client
-clientTransport := httptransport.NewTransport("http://localhost:8080", nil)
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
 
 // Use with SyncManager
 syncManager := synckit.NewSyncManager(store, clientTransport, options)
@@ -528,7 +528,7 @@ import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 // Create HTTP sync handler
 logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := httptransport.NewSyncHandler(store, logger, nil)
+handler := httptransport.NewSyncHandler(store, logger, nil, nil)
 
 // Start HTTP server
 server := &http.Server{Addr: ":8080", Handler: handler}
@@ -571,10 +571,10 @@ customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 }
 
 // Use custom parser in client transport
-clientTransport := httptransport.NewTransport("http://localhost:8080", nil, customParser)
+clientTransport := httptransport.NewTransport("http://localhost:8080", nil, customParser, nil)
 
 // Use same parser in server handler for consistent version parsing
-handler := httptransport.NewSyncHandler(store, logger, customParser)
+handler := httptransport.NewSyncHandler(store, logger, customParser, nil)
 ```
 
 If no parser is provided, the transport falls back to using the store's `ParseVersion` method:
