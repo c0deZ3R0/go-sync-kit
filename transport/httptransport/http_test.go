@@ -313,7 +313,7 @@ func TestSyncHandler_CompressedRequests(t *testing.T) {
 
 		handler.handlePush(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "invalid request body")
+		assert.Contains(t, w.Body.String(), "invalid gzip data: gzip: invalid header")
 	})
 }
 
@@ -1178,7 +1178,7 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 
 		// Should get 400 Bad Request
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "invalid request body")
+		assert.Contains(t, w.Body.String(), "invalid gzip data: gzip: invalid header")
 	})
 }
 
@@ -1238,7 +1238,7 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 
 		// Should return exactly 413, not 400 or other error codes
 		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code, "Should return exactly 413 for decompressed size overflow")
-		assert.Contains(t, w.Body.String(), "request entity too large")
+		assert.Contains(t, w.Body.String(), "decompressed data exceeds maximum size limit")
 	})
 
 	t.Run("DecompressedSizeOverflow_NoGzip_Returns413", func(t *testing.T) {

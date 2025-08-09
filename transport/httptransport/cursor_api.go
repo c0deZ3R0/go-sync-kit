@@ -2,7 +2,6 @@ package httptransport
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
