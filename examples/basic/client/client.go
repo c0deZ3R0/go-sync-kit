@@ -5,10 +5,10 @@ import (
 	"log"
 	"time"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit"
-	"github.com/c0deZ3R0/go-sync-kit/example/metrics"
-"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
-	transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
+	"github.com/c0deZ3R0/go-sync-kit/examples/basic/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 )
 
 // LastWriteWinsResolver implements a simple conflict resolution strategy
@@ -41,7 +41,7 @@ func RunClient(ctx context.Context) error {
 	metricsCollector := metrics.NewHTTPMetricsCollector()
 
 	// Create HTTP transport
-	clientTransport := transport.NewTransport("http://localhost:8080/sync", nil)
+	clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
 	// Configure sync with metrics
 	syncOptions := &synckit.SyncOptions{
