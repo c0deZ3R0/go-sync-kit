@@ -229,7 +229,7 @@ func main() {
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-Latest version: **v0.7.1** - [What's new in v0.7.1](CHANGELOG.md#v071) - Adds HTTP I/O hardening, server version parser, and improved documentation.
+Latest version: **v0.9.0** - [What's new in v0.9.0](CHANGELOG.md#v090) - Production-ready SQLite defaults with WAL mode, HTTP compression support, enhanced security, and comprehensive integration testing.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
@@ -469,21 +469,47 @@ func (vm *CustomVersionManager) Clone() VersionManager {
 
 ## Storage Implementations
 
-### SQLite Example
+### SQLite Implementation (Production-Ready)
+
+The built-in SQLite implementation comes with production-ready defaults optimized for performance and reliability:
+
 ```go
-type SQLiteEventStore struct {
-    db *sql.DB
-}
+import "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 
-func (s *SQLiteEventStore) Store(ctx context.Context, event Event, version Version) error {
-    query := `INSERT INTO events (id, type, aggregate_id, data, version) VALUES (?, ?, ?, ?, ?)`
-    _, err := s.db.ExecContext(ctx, query, event.ID(), event.Type(), 
-        event.AggregateID(), event.Data(), version.String())
-    return err
-}
-
-// Implement other EventStore methods...
+// Basic usage with production defaults
+store, err := sqlite.New(&sqlite.Config{
+    DataSourceName: "file:events.db",
+    // WAL mode is enabled by default for better concurrency
+    // Connection pool defaults: max open 25, max idle 5
+    // Connection lifetimes: 1 hour max, 5 minutes max idle
+})
 ```
+
+**Production Features:**
+- **WAL Mode**: Enabled by default for better read/write concurrency
+- **Connection Pool**: Sensible defaults (max open: 25, max idle: 5)
+- **Connection Management**: Automatic connection lifetime management
+- **Table Schema**: Optimized event storage with proper indexing
+- **Thread Safety**: Full concurrent access support
+
+**Custom Configuration:**
+```go
+config := &sqlite.Config{
+    DataSourceName:      "file:production.db",
+    EnableWAL:           true,  // Default: true
+    MaxOpenConns:        50,    // Default: 25
+    MaxIdleConns:        10,    // Default: 5
+    ConnMaxLifetime:     2 * time.Hour,     // Default: 1 hour
+    ConnMaxIdleTime:     10 * time.Minute,  // Default: 5 minutes
+    TableName:           "my_events",       // Default: "events"
+    Logger:              myLogger,          // Default: discard
+}
+
+store, err := sqlite.New(config)
+```
+
+**Integration Tests:**
+The SQLite implementation includes comprehensive integration tests covering WAL behavior, concurrent writes, and production scenarios.
 
 ### BadgerDB Example
 ```go
@@ -551,6 +577,10 @@ The HTTP transport provides two RESTful endpoints:
 - **Configurable HTTP client** for custom timeouts, TLS, etc.
 - **Batch processing** for efficient sync operations
 - **Flexible version parsing** with custom version parser support
+- **Compression support** - Automatic gzip compression for large payloads
+- **Security hardening** - Protection against zip bombs and size-based attacks
+- **Content validation** - Strict Content-Type validation and error mapping
+- **Configurable limits** - Request/response size limits with separate compression controls
 
 #### Version Parsing
 

@@ -2,6 +2,83 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
+## [v0.9.0] - 2025-08-09
+
+### 🎯 Major Features
+
+#### SQLite Production Defaults
+- ✨ **WAL Mode by Default**: SQLite now enables WAL mode automatically for better concurrency
+- ✨ **Connection Pool Management**: Sensible defaults (max open: 25, max idle: 5)
+- ✨ **Connection Lifetimes**: Automatic connection management (1 hour max, 5 minutes idle)
+- 📚 **Enhanced Documentation**: Comprehensive SQLite configuration guidance
+
+#### HTTP Transport Security & Compression
+- ✨ **Automatic Compression**: Gzip compression for payloads >1KB
+- 🔒 **Security Hardening**: Protection against zip bombs and decompression attacks
+- 🔒 **Size Limits**: Configurable request/response limits with separate compression controls
+- 🔒 **Content Validation**: Strict Content-Type validation and error mapping
+- ✨ **Client Compression**: Intelligent compression with size limit enforcement
+
+#### Comprehensive Testing
+- 🧪 **WAL Integration Tests**: Concurrent write scenarios and production validation
+- 🧪 **Compression Test Suite**: Size limit enforcement and attack prevention
+- 🧪 **HTTP Transport Tests**: End-to-end security and performance validation
+- 🧪 **Error Handling Tests**: Comprehensive error mapping and status code validation
+
+### 🔧 Technical Improvements
+
+#### HTTP Transport Enhancements
+- 🔄 **Consistent Error Mapping**: HTTP status codes properly mapped to error types
+- 🔄 **Server Configuration**: Enhanced ServerOptions with validation
+- 🔄 **Client Options**: New ClientOptions with compression and limit controls
+- 🔄 **Request Validation**: Improved Content-Type and size validation
+
+#### SQLite Storage Improvements
+- 🔄 **Default Configuration**: Production-ready defaults applied automatically
+- 🔄 **Connection Management**: Improved pool configuration and lifetime handling
+- 🔄 **WAL Mode**: Enabled by default with proper fallback handling
+- 🔄 **Documentation**: Clear guidance for production deployments
+
+### 🛠 Breaking Changes
+- ⚠️ **SQLite WAL Mode**: Now enabled by default (was DELETE mode)
+- ⚠️ **Connection Pools**: Now enforced by default with sensible limits
+- ⚠️ **HTTP Limits**: Size limits now enforced by default for security
+
+### 🐛 Bug Fixes
+- 🐛 **HTTP Error Messages**: Fixed test expectations for Go's standard error messages
+- 🐛 **Compression Edge Cases**: Proper handling of malformed compressed data
+- 🐛 **Connection Pool Stats**: Fixed access to correct database connection metrics
+- 🐛 **Test Race Conditions**: Resolved timing issues in integration tests
+
+### 📈 Performance
+- ⚡ **WAL Mode**: Better read/write concurrency with SQLite
+- ⚡ **Connection Pooling**: Optimized database connection usage
+- ⚡ **Compression**: Reduced network overhead for large payloads
+- ⚡ **HTTP Transport**: Improved request/response handling efficiency
+
+### 🔒 Security
+- 🔐 **Zip Bomb Protection**: Prevents decompression attacks
+- 🔐 **Size Limit Enforcement**: Configurable limits for all data transfers
+- 🔐 **Input Validation**: Enhanced validation for all HTTP inputs
+- 🔐 **Error Sanitization**: Consistent error handling without information leakage
+
+### 📚 Documentation
+- 📖 **Updated README**: Comprehensive v0.9.0 feature documentation
+- 📖 **SQLite Guide**: Production deployment recommendations
+- 📖 **HTTP Transport**: Security and compression configuration examples
+- 📖 **Integration Tests**: Examples of proper testing practices
+
+---
+
+## [v0.8.0] - 2025-08-08
+
+### Added
+- ✨ Enhanced error handling with comprehensive error mapping
+- ✨ HTTP transport improvements with better status code handling
+- ✨ Client-side compression with configurable thresholds
+
+---
+
 ## [v0.7.1] - 2025-08-08
 
 ### Added
