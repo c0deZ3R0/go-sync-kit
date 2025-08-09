@@ -2,12 +2,83 @@ package httptransport
 
 import (
     "context"
-    "encoding/json"
     "fmt"
-    "net/http"
+    "time"
 
     "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
+
+// ServerOptions configures the HTTP transport server behavior
+type ServerOptions struct {
+    // MaxRequestSize is the maximum allowed size of incoming request bodies in bytes
+    // If 0, defaults to 10MB
+    MaxRequestSize int64
+
+    // CompressionEnabled enables gzip/deflate compression for responses
+    // Responses larger than CompressionThreshold will be compressed
+    CompressionEnabled bool
+
+    // CompressionThreshold is the minimum size in bytes before responses are compressed
+    // If CompressionEnabled is true and 0, defaults to 1KB
+    CompressionThreshold int64
+
+    // RequestTimeout is the maximum duration for processing a single request
+    // If 0, defaults to 30 seconds
+    RequestTimeout time.Duration
+
+    // ShutdownTimeout is the maximum duration to wait for in-flight requests during shutdown
+    // If 0, defaults to 10 seconds
+    ShutdownTimeout time.Duration
+}
+
+// DefaultServerOptions returns the default server options
+func DefaultServerOptions() *ServerOptions {
+    return &ServerOptions{
+        MaxRequestSize:       10 * 1024 * 1024, // 10MB
+        CompressionEnabled:   true,
+        CompressionThreshold: 1024,            // 1KB
+        RequestTimeout:       30 * time.Second, // 30s
+        ShutdownTimeout:      10 * time.Second, // 10s
+    }
+}
+
+// ClientOptions configures the HTTP transport client behavior
+type ClientOptions struct {
+    // CompressionEnabled enables sending Accept-Encoding header for gzip/deflate
+    CompressionEnabled bool
+
+    // MaxResponseSize is the maximum allowed size of response bodies in bytes
+    // If 0, defaults to 10MB
+    MaxResponseSize int64
+
+    // RequestTimeout is the maximum duration for a single request including retries
+    // If 0, defaults to 30 seconds
+    RequestTimeout time.Duration
+
+    // RetryMax is the maximum number of retries for failed requests
+    // If 0, defaults to 3
+    RetryMax int
+
+    // RetryWaitMin is the minimum time to wait between retries
+    // If 0, defaults to 1 second
+    RetryWaitMin time.Duration
+
+    // RetryWaitMax is the maximum time to wait between retries
+    // If 0, defaults to 30 seconds
+    RetryWaitMax time.Duration
+}
+
+// DefaultClientOptions returns the default client options
+func DefaultClientOptions() *ClientOptions {
+    return &ClientOptions{
+        CompressionEnabled: true,
+        MaxResponseSize:    10 * 1024 * 1024, // 10MB
+        RequestTimeout:     30 * time.Second,  // 30s
+        RetryMax:          3,                 // 3 retries
+        RetryWaitMin:      1 * time.Second,   // 1s
+        RetryWaitMax:      30 * time.Second,  // 30s
+    }
+}
 
 // JSONEvent is a JSON-serializable representation of an Event
 type JSONEvent struct {
@@ -52,9 +123,13 @@ func toJSONEvent(event synckit.Event) JSONEvent {
 
 // toJSONEventWithVersion converts synckit.EventWithVersion to JSONEventWithVersion
 func toJSONEventWithVersion(ev synckit.EventWithVersion) JSONEventWithVersion {
+    var version string
+    if ev.Version != nil {
+        version = ev.Version.String()
+    }
     return JSONEventWithVersion{
         Event:   toJSONEvent(ev.Event),
-        Version: ev.Version.String(),
+        Version: version,
     }
 }
 
@@ -70,9 +145,9 @@ func fromJSONEvent(je JSONEvent) synckit.Event {
 }
 
 // fromJSONEventWithVersion converts JSONEventWithVersion back to synckit.EventWithVersion
-// It uses the provided EventStore to parse the version string, making it version-implementation agnostic
-func fromJSONEventWithVersion(ctx context.Context, store synckit.EventStore, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {
-    version, err := store.ParseVersion(ctx, jev.Version)
+// It uses the SyncHandler's version parser to parse the version string
+func fromJSONEventWithVersion(ctx context.Context, parser VersionParser, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {
+    version, err := parser(ctx, jev.Version)
     if err != nil {
         return synckit.EventWithVersion{}, fmt.Errorf("invalid version: %w", err)
     }
@@ -91,20 +166,3 @@ func fromJSONEventWithVersion(ctx context.Context, store synckit.EventStore, jev
     }, nil
 }
 
-// Helper functions for HTTP responses
-func respondWithError(w http.ResponseWriter, code int, message string) {
-    respondWithJSON(w, code, map[string]string{"error": message})
-}
-
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-    response, err := json.Marshal(payload)
-    if err != nil {
-        // Fallback if payload marshaling fails
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte(`{"error": "failed to marshal response"}`)) 
-        return
-    }
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(code)
-    w.Write(response)
-}

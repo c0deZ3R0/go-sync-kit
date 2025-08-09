@@ -45,13 +45,16 @@ func startServer(port int) {
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	go func() {
 		if err := srv.Start(ctx); err != nil {
 			log.Printf("Server stopped: %v", err)
 		}
 	}()
+
 	// Wait for interrupt
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

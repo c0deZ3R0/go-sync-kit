@@ -3,6 +3,7 @@ package httptransport
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -25,12 +26,13 @@ type VersionParser func(ctx context.Context, s string) (synckit.Version, error)
 type HTTPTransport struct {
 	client        *http.Client
 	baseURL       string // e.g., "http://remote-server.com/sync"
-	versionParser VersionParser // NEW
+	versionParser VersionParser
+	options       *ClientOptions
 }
 
 // NewTransport creates a new HTTPTransport client.
 // If a custom http.Client is not provided, http.DefaultClient will be used.
-func NewTransport(baseURL string, client *http.Client, parser VersionParser) *HTTPTransport {
+func NewTransport(baseURL string, client *http.Client, parser VersionParser, options *ClientOptions) *HTTPTransport {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -41,13 +43,20 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser) *HT
 			if err != nil {
 				return nil, err
 			}
-			return cursor.IntegerCursor{Seq: uint64(v)}, nil
+		if v == 0 {
+			return nil, fmt.Errorf("invalid version: zero is not a valid version")
 		}
+		return cursor.IntegerCursor{Seq: uint64(v)}, nil
+		}
+	}
+	if options == nil {
+		options = DefaultClientOptions()
 	}
 	return &HTTPTransport{
 		client:        client,
 		baseURL:       baseURL,
 		versionParser: parser,
+		options:       options,
 	}
 }
 
@@ -72,6 +81,11 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
+	
+	// Add compression headers if enabled
+	if t.options.CompressionEnabled {
+		req.Header.Set("Accept-Encoding", "gzip, deflate")
+	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
@@ -106,8 +120,19 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
+	// Handle compressed response if enabled
+	var reader io.Reader = resp.Body
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		gzReader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create gzip reader: %w", err))
+		}
+		defer gzReader.Close()
+		reader = gzReader
+	}
+
 	var jsonEvents []JSONEventWithVersion
-	if err := json.NewDecoder(resp.Body).Decode(&jsonEvents); err != nil {
+	if err := json.NewDecoder(reader).Decode(&jsonEvents); err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
 	}
 
@@ -183,16 +208,27 @@ func (t *HTTPTransport) Close() error {
 
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
-	store  synckit.EventStore
-	logger *log.Logger
+	store         synckit.EventStore
+	logger        *log.Logger
+	versionParser VersionParser
+	options       *ServerOptions
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
-// It requires an EventStore to interact with the database.
-func NewSyncHandler(store synckit.EventStore, logger *log.Logger) *SyncHandler {
+// It requires an EventStore to interact with the database and optionally accepts a VersionParser and ServerOptions.
+func NewSyncHandler(store synckit.EventStore, logger *log.Logger, parser VersionParser, options *ServerOptions) *SyncHandler {
+	if parser == nil {
+		// Default to using store's ParseVersion method if no parser provided
+		parser = store.ParseVersion
+	}
+	if options == nil {
+		options = DefaultServerOptions()
+	}
 	return &SyncHandler{
-		store:  store,
-		logger: logger,
+		store:         store,
+		logger:        logger,
+		versionParser: parser,
+		options:       options,
 	}
 }
 
@@ -218,18 +254,33 @@ func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
 		return
 	}
 
+	// Check Content-Length if available
+	if r.ContentLength > h.options.MaxRequestSize {
+		respondWithError(w, r, http.StatusRequestEntityTooLarge, 
+			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize),
+			h.options)
+		return
+	}
+
+	// Wrap body in a LimitReader to prevent memory exhaustion
+	limitedReader := io.LimitReader(r.Body, h.options.MaxRequestSize)
+
 	var jsonEvents []JSONEventWithVersion
-	if err := json.NewDecoder(r.Body).Decode(&jsonEvents); err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+	if err := json.NewDecoder(limitedReader).Decode(&jsonEvents); err != nil {
+		if err == io.EOF {
+			respondWithError(w, r, http.StatusBadRequest, "empty request body", h.options)
+			return
+		}
+		respondWithError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error(), h.options)
 		return
 	}
 
 	for _, jev := range jsonEvents {
-		ev, err := fromJSONEventWithVersion(r.Context(), h.store, jev)
+		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
 			h.logger.Printf("Failed to convert JSONEventWithVersion: %v", err)
 			continue
@@ -246,29 +297,29 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
-	respondWithJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
+	respondWithJSON(w, r, http.StatusOK, map[string]string{"status": "ok"}, h.options)
 }
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
 		return
 	}
 
 	version, err := h.store.LatestVersion(r.Context())
 	if err != nil {
 		h.logger.Printf("Error getting latest version: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "could not get latest version")
+		respondWithError(w, r, http.StatusInternalServerError, "could not get latest version", h.options)
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, version.String())
+	respondWithJSON(w, r, http.StatusOK, version.String(), h.options)
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
 		return
 	}
 
@@ -277,18 +328,18 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 		sinceStr = "0"
 	}
 
-	// Use the EventStore's ParseVersion method to handle version parsing
+	// Use the injected version parser to handle version parsing
 	// This decouples the transport from specific version implementations
-	version, err := h.store.ParseVersion(r.Context(), sinceStr)
+	version, err := h.versionParser(r.Context(), sinceStr)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
+		respondWithError(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error(), h.options)
 		return
 	}
 
 	events, err := h.store.Load(r.Context(), version)
 	if err != nil {
 		h.logger.Printf("Error loading events from store: %v", err)
-		respondWithError(w, http.StatusInternalServerError, "could not load events")
+		respondWithError(w, r, http.StatusInternalServerError, "could not load events", h.options)
 		return
 	}
 
@@ -299,6 +350,6 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Printf("Pulled %d events since version %s", len(events), sinceStr)
-	respondWithJSON(w, http.StatusOK, jsonEvents)
+	respondWithJSON(w, r, http.StatusOK, jsonEvents, h.options)
 }
 

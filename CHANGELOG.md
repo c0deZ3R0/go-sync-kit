@@ -2,6 +2,23 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
+## [v0.7.1] - 2025-08-08
+
+### Added
+- ✨ **HTTP I/O Hardening**: Request/response size limits, compression, timeouts
+- ✨ **Server Version Parser**: Inject custom version parsers into HTTP transport
+- 📚 **BadgerDB Documentation**: Comprehensive guide for BadgerDB storage
+- 🚧 **Conflict Resolution Demo**: New example (work in progress)
+
+### Enhanced
+- 🔒 HTTP transport security and stability
+- 📚 Transport package documentation consistency
+- 🧪 HTTP transport test coverage
+
+### Fixed
+- 🐛 Event serialization and state synchronization
+- 🐛 Client state initialization
+
 ## [v0.6.0] - 2025-08-06
 
 ### Added
