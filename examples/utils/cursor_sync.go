@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // CursorBasedSync demonstrates how to set up cursor-based synchronization
@@ -63,7 +63,7 @@ func CursorBasedSync() {
 	}
 
 	// Configure sync options with cursor support
-	opts := &sync_pkg.SyncOptions{
+	opts := &synckit.SyncOptions{
 		BatchSize: 200,
 		LastCursorLoader: func() cursor.Cursor {
 			return last
@@ -108,14 +108,14 @@ func CursorBasedSync() {
 	for _, e := range serverEvents {
 		event := NewMockEvent(e.id, e.eventType, e.aggregateID, e.data)
 		version := NewMockVersion(time.Now())
-		t.events = append(t.events, sync_pkg.EventWithVersion{
+		t.events = append(t.events, synckit.EventWithVersion{
 			Event:   event,
 			Version: version,
 		})
 	}
 
 	// Create sync manager
-	sm := sync_pkg.NewSyncManager(store, t, opts)
+	sm := synckit.NewSyncManager(store, t, opts)
 	defer sm.Close()
 
 	// Run initial sync

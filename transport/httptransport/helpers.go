@@ -9,6 +9,49 @@ import (
 	"strings"
 )
 
+// validateContentType validates that the request Content-Type is appropriate for JSON endpoints
+// Returns true if valid, false if invalid (and writes appropriate error response)
+func validateContentType(w http.ResponseWriter, r *http.Request, options *ServerOptions) bool {
+	// Only validate Content-Type for requests with a body (POST, PUT, PATCH)
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodDelete {
+		return true
+	}
+
+	// Get Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	
+	// If no Content-Type is provided, we'll be lenient and allow it
+	// (some clients might not set it)
+	if contentType == "" {
+		return true
+	}
+	
+	// Check if Content-Type starts with "application/json"
+	// This allows for charset parameters like "application/json; charset=utf-8"
+	if !strings.HasPrefix(contentType, "application/json") {
+		respondWithError(w, r, http.StatusUnsupportedMediaType, "unsupported media type", options)
+		return false
+	}
+	
+	return true
+}
+
+// negotiateCompression determines if compression should be used based on client capabilities
+func negotiateCompression(r *http.Request, options *ServerOptions, responseSize int) bool {
+	if options == nil || !options.CompressionEnabled {
+		return false
+	}
+	
+	// Only compress responses above the threshold
+	if responseSize < int(options.CompressionThreshold) {
+		return false
+	}
+	
+	// Check if client accepts gzip compression
+	acceptEncoding := r.Header.Get("Accept-Encoding")
+	return strings.Contains(strings.ToLower(acceptEncoding), "gzip")
+}
+
 // respondWithJSON responds to an HTTP request with a JSON payload
 func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}, options *ServerOptions) {
 	response, err := json.Marshal(payload)
@@ -17,16 +60,8 @@ func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload i
 		return
 	}
 
-	// Check if compression should be used
-	useCompression := false
-	if options != nil && options.CompressionEnabled && 
-	   len(response) >= int(options.CompressionThreshold) {
-		// Check if client accepts gzip
-		acceptEncoding := r.Header.Get("Accept-Encoding")
-		if strings.Contains(acceptEncoding, "gzip") {
-			useCompression = true
-		}
-	}
+	// Use the helper function to determine if compression should be used
+	useCompression := negotiateCompression(r, options, len(response))
 
 	w.Header().Set("Content-Type", "application/json")
 	
