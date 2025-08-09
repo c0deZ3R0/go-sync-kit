@@ -1,6 +1,8 @@
 package httptransport
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -804,4 +806,162 @@ transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOpti
 			b.Fatalf("Pull failed: %v", err)
 		}
 	}
+}
+
+// Test compression size limits
+func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+
+	// Create server with small limits for testing
+	opts := &ServerOptions{
+		MaxRequestSize:      1024,  // 1KB compressed limit
+		MaxDecompressedSize: 2048,  // 2KB decompressed limit
+		CompressionEnabled:  true,
+		CompressionThreshold: 100,
+	}
+	handler := NewSyncHandler(store, logger, nil, opts)
+
+	t.Run("CompressedSizeExceedsLimit", func(t *testing.T) {
+		// Let's create multiple large events that together exceed the compressed size limit
+		events := make([]JSONEventWithVersion, 50)
+		for i := 0; i < 50; i++ {
+			// Create somewhat random data for each event
+			eventData := fmt.Sprintf("Event_%d_with_random_data_%d", i, i*12345)
+			events[i] = JSONEventWithVersion{
+				Event: JSONEvent{
+					ID:          fmt.Sprintf("event-%d", i),
+					Type:        fmt.Sprintf("EventType%d", i%5),
+					AggregateID: fmt.Sprintf("aggregate-%d", i%10),
+					Data:        eventData + strings.Repeat(fmt.Sprintf("_%d", i), 50),
+					Metadata: map[string]interface{}{
+						"timestamp": fmt.Sprintf("2023-01-01T%02d:%02d:00Z", i%24, i%60),
+						"source":    fmt.Sprintf("service-%d", i%3),
+					},
+				},
+				Version: fmt.Sprintf("%d", i+1),
+			}
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size exceeds our limit
+		compressedSize := buf.Len()
+		t.Logf("Compressed size: %d bytes (should exceed %d)", compressedSize, opts.MaxRequestSize)
+		require.Greater(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should exceed limit")
+
+		// Make request with compressed data that exceeds limit
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		req.ContentLength = int64(buf.Len()) // Set the content length
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should get 413 Request Entity Too Large
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	})
+
+	t.Run("DecompressedSizeExceedsLimit", func(t *testing.T) {
+		// Create a payload that compresses well but exceeds decompressed limit
+		longString := strings.Repeat("a", 3000) // 3KB when decompressed, but compresses very well
+		events := []JSONEventWithVersion{
+			{
+				Event: JSONEvent{
+					ID:          "1",
+					Type:        "test",
+					AggregateID: "agg1",
+					Data:        longString,
+				},
+				Version: "1",
+			},
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data (should compress very well)
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size is under MaxRequestSize but decompressed exceeds MaxDecompressedSize
+		compressedSize := buf.Len()
+		t.Logf("Compressed size: %d bytes, Decompressed size: %d bytes", compressedSize, len(data))
+		require.Less(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should be under limit")
+		require.Greater(t, int64(len(data)), opts.MaxDecompressedSize, "Decompressed size should exceed limit")
+
+		// Make request
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should succeed because our implementation should handle this properly
+		// The LimitReader will stop reading at MaxDecompressedSize
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ValidCompressedRequest", func(t *testing.T) {
+		// Create a small payload that fits within both limits
+		events := []JSONEventWithVersion{
+			{
+				Event: JSONEvent{
+					ID:          "1",
+					Type:        "test",
+					AggregateID: "agg1",
+					Data:        "small data",
+				},
+				Version: "1",
+			},
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Make request
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should succeed
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidGzipPayload", func(t *testing.T) {
+		// Send invalid gzip data
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid gzip data"))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should get 400 Bad Request
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "invalid gzip payload")
+	})
 }

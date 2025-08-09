@@ -23,8 +23,15 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, err := createSafeRequestReader(w, r, h.options)
+	if err != nil {
+		respondWithError(w, r, http.StatusBadRequest, "invalid gzip payload", h.options)
+		return
+	}
+
 	var req PullCursorRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
 		respondWithError(w, r, http.StatusBadRequest, "bad request: "+err.Error(), h.options)
 		return
 	}

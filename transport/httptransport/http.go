@@ -266,11 +266,15 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wrap body in a LimitReader to prevent memory exhaustion
-	limitedReader := io.LimitReader(r.Body, h.options.MaxRequestSize)
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, err := createSafeRequestReader(w, r, h.options)
+	if err != nil {
+		respondWithError(w, r, http.StatusBadRequest, "invalid gzip payload", h.options)
+		return
+	}
 
 	var jsonEvents []JSONEventWithVersion
-	if err := json.NewDecoder(limitedReader).Decode(&jsonEvents); err != nil {
+	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
 		if err == io.EOF {
 			respondWithError(w, r, http.StatusBadRequest, "empty request body", h.options)
 			return
