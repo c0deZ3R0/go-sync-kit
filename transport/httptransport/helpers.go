@@ -197,5 +197,18 @@ func createSafeRequestReader(
 		return newMaxDecompressedReader(gz, opts.MaxDecompressedSize), cleanup, nil
 	}
 
+	// For uncompressed requests, enforce the stricter of the two limits:
+	// the request size (on-the-wire) and the decompressed size (which is the same for uncompressed data)
+	maxSize := opts.MaxRequestSize
+	if opts.MaxDecompressedSize < maxSize {
+		maxSize = opts.MaxDecompressedSize
+	}
+	// Re-create the limited reader with the stricter limit
+	if maxSize < opts.MaxRequestSize {
+		_ = limited.Close() // Close the original one
+		limited = http.MaxBytesReader(w, r.Body, maxSize)
+		cleanup = func() { _ = limited.Close() }
+	}
+
 	return limited, cleanup, nil
 }

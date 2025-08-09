@@ -36,16 +36,81 @@ type ServerOptions struct {
 	ShutdownTimeout time.Duration
 }
 
-// DefaultServerOptions returns the default server options
+// DefaultServerOptions returns the default server options with validated settings.
+// 
+// Defaults:
+//   - MaxRequestSize: 10 MiB (10,485,760 bytes) - compressed request body limit
+//   - MaxDecompressedSize: 20 MiB (20,971,520 bytes) - decompressed request body limit
+//   - CompressionEnabled: true - enables response compression
+//   - CompressionThreshold: 1 KiB (1,024 bytes) - minimum size for compression
+//   - RequestTimeout: 30s - maximum request processing time
+//   - ShutdownTimeout: 10s - graceful shutdown timeout
+//
+// The MaxDecompressedSize (20 MiB) is set higher than MaxRequestSize (10 MiB) to account
+// for worst-case JSON overhead during cursor payload validation and batch event pulls.
+// This ensures compatibility with WireCursor validation (max 64 KiB) while providing
+// comfortable headroom for large batch operations with JSON serialization overhead.
 func DefaultServerOptions() *ServerOptions {
-	return &ServerOptions{
-		MaxRequestSize:       10 * 1024 * 1024, // 10MB
-		MaxDecompressedSize:  20 * 1024 * 1024, // 20MB
+	const (
+		defaultMaxRequestSize       = 10 * 1024 * 1024 // 10 MiB
+		defaultMaxDecompressedSize  = 20 * 1024 * 1024 // 20 MiB  
+		defaultCompressionThreshold = 1024             // 1 KiB
+	)
+	
+	opts := &ServerOptions{
+		MaxRequestSize:       defaultMaxRequestSize,
+		MaxDecompressedSize:  defaultMaxDecompressedSize,
 		CompressionEnabled:   true,
-		CompressionThreshold: 1024,            // 1KB
-		RequestTimeout:       30 * time.Second, // 30s
-		ShutdownTimeout:      10 * time.Second, // 10s
+		CompressionThreshold: defaultCompressionThreshold,
+		RequestTimeout:       30 * time.Second,
+		ShutdownTimeout:      10 * time.Second,
 	}
+	
+	// Validate the default configuration
+	if err := opts.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid default server options: %v", err))
+	}
+	
+	return opts
+}
+
+// Validate checks that ServerOptions are valid and consistent.
+// Returns an error if any configuration is invalid.
+func (opts *ServerOptions) Validate() error {
+	if opts == nil {
+		return fmt.Errorf("nil server options")
+	}
+	
+	// Validate size limits
+	if opts.MaxRequestSize <= 0 {
+		return fmt.Errorf("MaxRequestSize must be positive, got %d", opts.MaxRequestSize)
+	}
+	if opts.MaxDecompressedSize <= 0 {
+		return fmt.Errorf("MaxDecompressedSize must be positive, got %d", opts.MaxDecompressedSize)
+	}
+	
+	// Critical validation: MaxDecompressedSize must be >= MaxRequestSize
+	// This ensures that any compressed request can be safely decompressed without
+	// exceeding the decompression limit, preventing zip-bomb vulnerabilities.
+	if opts.MaxDecompressedSize < opts.MaxRequestSize {
+		return fmt.Errorf("MaxDecompressedSize (%d) must be >= MaxRequestSize (%d) to prevent zip-bomb attacks", 
+			opts.MaxDecompressedSize, opts.MaxRequestSize)
+	}
+	
+	// Validate compression settings
+	if opts.CompressionEnabled && opts.CompressionThreshold < 0 {
+		return fmt.Errorf("CompressionThreshold cannot be negative when compression is enabled, got %d", opts.CompressionThreshold)
+	}
+	
+	// Validate timeouts
+	if opts.RequestTimeout < 0 {
+		return fmt.Errorf("RequestTimeout cannot be negative, got %v", opts.RequestTimeout)
+	}
+	if opts.ShutdownTimeout < 0 {
+		return fmt.Errorf("ShutdownTimeout cannot be negative, got %v", opts.ShutdownTimeout)
+	}
+	
+	return nil
 }
 
 // ClientOptions configures the HTTP transport client behavior

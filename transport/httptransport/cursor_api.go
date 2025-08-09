@@ -3,6 +3,7 @@ package httptransport
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -45,15 +46,22 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		return // validateContentType already sent the response
 	}
 
+	// Check Content-Length if available
+	if r.ContentLength > options.MaxRequestSize {
+		respondWithError(w, r, http.StatusRequestEntityTooLarge, 
+			fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize), options.ServerOptions)
+		return
+	}
+
 	// Log request details if logger is available
 	if testLogger != nil {
 		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
 	}
 
 	// Create safe reader that handles both compressed and decompressed size limits
-	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
+	safeReader, cleanup, err := createSafeRequestReader(w, r, options.ServerOptions)
 	if err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
+		respondWithError(w, r, http.StatusBadRequest, "invalid request body", options.ServerOptions)
 		return
 	}
 	defer cleanup()
@@ -61,15 +69,15 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 	var req PullCursorRequest
 	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
 		if errors.Is(err, errDecompressedTooLarge) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", options.ServerOptions)
 			return
 		}
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", options.ServerOptions)
 			return
 		}
-		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
+		respondWithError(w, r, http.StatusBadRequest, "bad request", options.ServerOptions)
 	return
 	}
 
