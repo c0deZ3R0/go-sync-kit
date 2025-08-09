@@ -40,6 +40,11 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 
+	// Validate Content-Type for JSON endpoints
+	if !validateContentType(w, r, options.ServerOptions) {
+		return // validateContentType already sent the response
+	}
+
 	// Log request details if logger is available
 	if testLogger != nil {
 		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
