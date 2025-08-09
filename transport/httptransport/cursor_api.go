@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -45,6 +46,13 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		return // validateContentType already sent the response
 	}
 
+	// Check Content-Length if available
+	if r.ContentLength > options.MaxRequestSize {
+		respondWithError(w, r, http.StatusRequestEntityTooLarge, 
+			fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize), options.ServerOptions)
+	return
+	}
+
 	// Log request details if logger is available
 	if testLogger != nil {
 		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
@@ -66,7 +74,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		}
 		// Use mapped error handling for consistent HTTP status codes
 		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
-		return
+	return
 	}
 
 	// Integer mode first

@@ -83,10 +83,6 @@ func respondWithError(w http.ResponseWriter, r *http.Request, code int, message 
 	respondWithJSON(w, r, code, map[string]string{"error": message}, options)
 }
 
-func newMaxDecompressedReader(r io.Reader, limit int64) io.Reader {
-	return &maxDecompressedReader{reader: r, limit: limit}
-}
-
 // errResponseDecompressedTooLarge is returned when decompressed response body exceeds the limit
 var errResponseDecompressedTooLarge = errors.New("response decompressed body exceeds limit")
 
@@ -141,4 +137,3 @@ func (m *maxResponseDecompressedReader) Read(p []byte) (int, error) {
 	}
 	return n, err
 }
-

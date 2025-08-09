@@ -83,7 +83,20 @@ func createSafeRequestReader(w http.ResponseWriter, r *http.Request, options *Se
 	// Check if request is gzip compressed
 	contentEncoding := r.Header.Get("Content-Encoding")
 	if contentEncoding == "" || !strings.Contains(contentEncoding, "gzip") {
-		// No compression, just return the limited reader
+		// No compression - enforce decompressed size limit (same as request size for uncompressed)
+		// Use the stricter of the two limits
+		maxSize := maxRequestSize
+		if maxDecompressedSize < maxSize {
+			maxSize = maxDecompressedSize
+		}
+		
+		// If we need a stricter limit, re-create the reader
+		if maxSize < maxRequestSize {
+			// Close the original reader and create a new one with stricter limit
+			_ = limitedReader.Close()
+			limitedReader = http.MaxBytesReader(w, r.Body, maxSize)
+		}
+		
 		return limitedReader, func() {}, nil
 	}
 	
