@@ -1,8 +1,10 @@
 # Go Sync Kit Basic Example
 
-This is the basic example that demonstrates the core features of Go Sync Kit. It provides a foundation for building more complex event synchronization systems and serves as a starting point for exploring advanced features.
+> **⚠️ Note**: This example is currently being updated to match the latest Go Sync Kit API changes. It may not compile until the updates are complete. For a working example, see the [conflict resolution example](../conflict-resolution/).
 
-This example implements a real-time event synchronization system with a live monitoring dashboard, showcasing the fundamental capabilities of Go Sync Kit including basic event synchronization, monitoring, and metrics collection.
+This is the foundational example that demonstrates the core features of Go Sync Kit. It implements a real-time notes synchronization application with a live monitoring dashboard.
+
+This example showcases the fundamental capabilities of Go Sync Kit including basic event synchronization, monitoring, and metrics collection. It serves as an excellent starting point for understanding Go Sync Kit before exploring more advanced examples like [conflict resolution](../conflict-resolution/).
 
 ![Dashboard Screenshot](dashboard.png)
 

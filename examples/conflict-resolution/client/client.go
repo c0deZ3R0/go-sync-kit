@@ -15,7 +15,7 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
-	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/version"
 )
 
 // Client represents a counter client that can work offline and sync with server
@@ -40,28 +40,13 @@ type Config struct {
 
 // initializeState loads the initial state from the store
 func (c *Client) initializeState(ctx context.Context) error {
-
-// Load all events by passing nil version to get everything
-since := cursor.IntegerCursor{Seq: 0}
-events, err := c.store.Load(ctx, since)
+	// Load all existing events (nil means from the beginning for the underlying store)
+	events, err := c.store.Load(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to load events: %w", err)
 	}
 
 	c.logger.Printf("Loaded %d events from store", len(events))
-
-// Sort events by timestamp
-sort.Slice(events, func(i, j int) bool {
-	ei, ok := events[i].Event.(*CounterEvent)
-	if !ok {
-		return false
-	}
-	ej, ok := events[j].Event.(*CounterEvent)
-	if !ok {
-		return true
-	}
-	return ei.timestamp.Before(ej.timestamp)
-})
 
 // Apply events to local state
 for _, ev := range events {
@@ -92,9 +77,10 @@ func (c *Client) applyEvent(event synckit.Event) error {
 	// Handle JSON RawMessage
 	if rawJSON, ok := data.(json.RawMessage); ok {
 		var eventData struct {
-			Value     int       `json:"value"`
-			Timestamp time.Time `json:"timestamp"`
-			ClientID  string    `json:"clientId"`
+			Value     int               `json:"value"`
+			Timestamp time.Time         `json:"timestamp"`
+			ClientID  string            `json:"clientId"`
+			Version   map[string]uint64 `json:"version"`
 		}
 		if err := json.Unmarshal(rawJSON, &eventData); err != nil {
 			return fmt.Errorf("failed to decode event data: %w", err)
@@ -107,6 +93,7 @@ func (c *Client) applyEvent(event synckit.Event) error {
 			value:     eventData.Value,
 			timestamp: eventData.Timestamp,
 			clientID:  eventData.ClientID,
+			version:   version.NewVectorClockFromMap(eventData.Version),
 			metadata:  storedEvent.Metadata(),
 		}
 		return c.applyCounterEvent(counterEvent)
@@ -118,6 +105,19 @@ func (c *Client) applyEvent(event synckit.Event) error {
 		timestampStr, _ := dataMap["timestamp"].(string)
 		timestamp, _ := time.Parse(time.RFC3339Nano, timestampStr)
 		clientID, _ := dataMap["clientId"].(string)
+		
+		// Get version from metadata if available
+		var ver *version.VectorClock
+		if versionData, ok := dataMap["version"].(map[string]interface{}); ok {
+			// Convert map values to uint64
+			clocks := make(map[string]uint64)
+			for k, v := range versionData {
+				if fv, ok := v.(float64); ok {
+					clocks[k] = uint64(fv)
+				}
+			}
+			ver = version.NewVectorClockFromMap(clocks)
+		}
 
 		counterEvent := &CounterEvent{
 			id:        storedEvent.ID(),
@@ -126,6 +126,7 @@ func (c *Client) applyEvent(event synckit.Event) error {
 			value:     int(value),
 			timestamp: timestamp,
 			clientID:  clientID,
+			version:   ver,
 			metadata:  storedEvent.Metadata(),
 		}
 		return c.applyCounterEvent(counterEvent)
@@ -187,8 +188,7 @@ func (c *Client) handleSyncResults(result *synckit.SyncResult) {
 
 		// Reload complete state
 		ctx := context.Background()
-		since := cursor.IntegerCursor{Seq: 0}
-		events, err := c.store.Load(ctx, since)
+		events, err := c.store.Load(ctx, nil)
 		if err != nil {
 			c.logger.Printf("Failed to load events: %v", err)
 			return
@@ -203,12 +203,24 @@ func (c *Client) handleSyncResults(result *synckit.SyncResult) {
 			if !oki || !okj {
 				return i < j
 			}
-			// First compare by client ID
-			if ei.clientID != ej.clientID {
-				return ei.clientID < ej.clientID
+			// Ensure creation events are applied before other operations on the same aggregate when order is ambiguous
+			if ei.counterID == ej.counterID {
+				if ei.eventType == EventTypeCounterCreated && ej.eventType != EventTypeCounterCreated {
+					return true
+				}
+				if ej.eventType == EventTypeCounterCreated && ei.eventType != EventTypeCounterCreated {
+					return false
+				}
 			}
-			// If same client, compare by timestamp
-			return ei.timestamp.Before(ej.timestamp)
+			// Compare by vector clock (causal order)
+			relation := ei.Version().Compare(ej.Version())
+			if relation == 0 {
+				// If concurrent, break tie deterministically by client ID then timestamp then ID
+				if ei.clientID != ej.clientID { return ei.clientID < ej.clientID }
+				if !ei.timestamp.Equal(ej.timestamp) { return ei.timestamp.Before(ej.timestamp) }
+				return ei.id < ej.id
+			}
+			return relation < 0
 		})
 
 // Apply events in sorted order
@@ -241,16 +253,27 @@ func New(config Config) (*Client, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	// Create SQLite store
+	// Create SQLite store with improved configuration
 	storeConfig := &sqlite.Config{
-		DataSourceName: fmt.Sprintf("file:%s", config.DBPath),
+		DataSourceName: fmt.Sprintf("file:%s?_journal_mode=WAL&_busy_timeout=5000", config.DBPath),
 		EnableWAL:     true,
 		Logger:        config.Logger,
 	}
 
-	store, err := sqlite.New(storeConfig)
+	// Create base store
+	baseStore, err := sqlite.New(storeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SQLite store: %w", err)
+	}
+
+// Create vector clock version manager
+	versionManager := version.NewVectorClockManager()
+
+	// Create versioned store
+	store, err := version.NewVersionedStore(baseStore, config.ID, versionManager)
+	if err != nil {
+		baseStore.Close()
+		return nil, fmt.Errorf("failed to create versioned store: %w", err)
 	}
 
 	// Create HTTP transport
@@ -258,18 +281,20 @@ func New(config Config) (*Client, error) {
 		config.ServerURL+"/sync",
 		&http.Client{Timeout: 10 * time.Second},
 		nil,
+		nil,
 	)
 
-	// Create sync options
+	// Create sync options with improved configuration
 	opts := &synckit.SyncOptions{
-		ConflictResolver: NewCounterConflictResolver(),
+		ConflictResolver: NewImprovedCounterConflictResolver(),
 		SyncInterval:    config.SyncPeriod,
 		RetryConfig: &synckit.RetryConfig{
-			MaxAttempts:  3,
+			MaxAttempts:  5,
 			InitialDelay: time.Second,
-			MaxDelay:     10 * time.Second,
-			Multiplier:   2.0,
+			MaxDelay:     30 * time.Second,
+			Multiplier:   1.5,
 		},
+		BatchSize:      50,
 	}
 
 	// Create sync manager
@@ -307,7 +332,7 @@ func (c *Client) CreateCounter(ctx context.Context, counterID string) error {
 		return fmt.Errorf("counter %s already exists", counterID)
 	}
 
-	// Create counter event
+// Create counter event with initial vector clock
 	event := &CounterEvent{
 		id:        fmt.Sprintf("%s-%s-%d", c.id, counterID, time.Now().UnixNano()),
 		eventType: EventTypeCounterCreated,
@@ -315,6 +340,7 @@ func (c *Client) CreateCounter(ctx context.Context, counterID string) error {
 		value:     0,
 		timestamp: time.Now(),
 		clientID:  c.id,
+		version:   version.NewVectorClock(),
 	}
 
 	// Store event
@@ -337,7 +363,7 @@ func (c *Client) IncrementCounter(ctx context.Context, counterID string, value i
 		return fmt.Errorf("counter %s does not exist", counterID)
 	}
 
-	// Create increment event
+// Create increment event with initial vector clock
 	event := &CounterEvent{
 		id:        fmt.Sprintf("%s-%s-%d", c.id, counterID, time.Now().UnixNano()),
 		eventType: EventTypeCounterIncremented,
@@ -345,6 +371,7 @@ func (c *Client) IncrementCounter(ctx context.Context, counterID string, value i
 		value:     value,
 		timestamp: time.Now(),
 		clientID:  c.id,
+		version:   version.NewVectorClock(),
 	}
 
 	// Store event
@@ -406,6 +433,65 @@ func (c *Client) Sync(ctx context.Context) error {
 
 	c.logger.Printf("Sync completed: pushed %d, pulled %d, resolved %d conflicts",
 		result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
+	return nil
+}
+
+// Start starts the client
+func (c *Client) Start() error {
+	c.logger.Printf("Starting client %s", c.id)
+	return c.StartSync(context.Background())
+}
+
+// Stop stops the client
+func (c *Client) Stop() {
+	c.logger.Printf("Stopping client %s", c.id)
+	c.StopSync()
+	c.Close()
+}
+
+// CreateCounterSync creates a new counter (test helper)
+func (c *Client) CreateCounterSync(counterID string) error {
+	return c.CreateCounter(context.Background(), counterID)
+}
+
+// IncrementCounterSync increments a counter (test helper)
+func (c *Client) IncrementCounterSync(counterID string) error {
+	return c.IncrementCounter(context.Background(), counterID, 1)
+}
+
+// DecrementCounterSync decrements a counter (test helper)
+func (c *Client) DecrementCounterSync(counterID string) error {
+	return c.IncrementCounter(context.Background(), counterID, -1)
+}
+
+// ResetCounterSync resets a counter (test helper)
+func (c *Client) ResetCounterSync(counterID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Check if counter exists
+	if _, exists := c.counters[counterID]; !exists {
+		return fmt.Errorf("counter %s does not exist", counterID)
+	}
+
+	// Create reset event
+	event := &CounterEvent{
+		id:        fmt.Sprintf("%s-%s-%d", c.id, counterID, time.Now().UnixNano()),
+		eventType: EventTypeCounterReset,
+		counterID: counterID,
+		value:     0,
+		timestamp: time.Now(),
+		clientID:  c.id,
+		version:   version.NewVectorClock(),
+	}
+
+	// Store event
+	if err := c.store.Store(context.Background(), event, nil); err != nil {
+		return fmt.Errorf("failed to store reset event: %w", err)
+	}
+
+	// Update local cache
+	c.counters[counterID] = 0
 	return nil
 }
 
