@@ -52,13 +52,21 @@ func New(config Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create SQLite store: %w", err)
 	}
 
-	// Create HTTP handler
+	// Create HTTP handler for sync
 	handler := httptransport.NewSyncHandler(store, config.Logger)
+
+	// Wrap with a mux to add /debug endpoint expected by tests
+	mux := http.NewServeMux()
+	mux.Handle("/sync", handler)
+	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
 
 	// Create HTTP server
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Port),
-		Handler: handler,
+		Handler: mux,
 	}
 
 	return &Server{

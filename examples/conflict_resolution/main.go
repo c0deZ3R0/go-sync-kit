@@ -8,254 +8,149 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/c0deZ3R0/go-sync-kit/examples/conflict_resolution/client"
-	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
-	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
+	clientpkg "github.com/c0deZ3R0/go-sync-kit/examples/conflict_resolution/client"
+	serverpkg "github.com/c0deZ3R0/go-sync-kit/examples/conflict_resolution/server"
 )
 
 func main() {
-	// Parse command line flags
-	mode := flag.String("mode", "", "Mode to run: server, client, or dashboard")
-	clientID := flag.String("id", "", "Client ID (required for client mode)")
-	port := flag.Int("port", 8080, "Port to listen on")
+	mode := flag.String("mode", "demo", "Mode: server | client | demo")
+	id := flag.String("id", "client1", "Client ID (for mode=client)")
+	port := flag.Int("port", 8080, "Port for server or client control API")
+	serverURL := flag.String("server-url", "http://localhost:8080", "Server sync URL (for mode=client)")
 	flag.Parse()
 
-	if *mode == "" {
-		fmt.Println("Mode is required. Use -mode [server|client|dashboard]")
-		os.Exit(1)
-	}
-
-	ctx := context.Background()
-	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", *mode), log.LstdFlags)
-
-	switch *mode {
+	switch strings.ToLower(*mode) {
 	case "server":
-		runServer(ctx, *port, logger)
+		startServer(*port)
 	case "client":
-		if *clientID == "" {
-			fmt.Println("Client ID is required for client mode. Use -id [client_id]")
-			os.Exit(1)
-		}
-		runClient(ctx, *clientID, *port, logger)
-	case "dashboard":
-		runDashboard(ctx, *port, logger)
+		startClient(*id, *serverURL, *port)
 	default:
-		fmt.Printf("Unknown mode: %s\n", *mode)
-		os.Exit(1)
+		runDemo()
 	}
 }
 
-func runServer(ctx context.Context, port int, logger *log.Logger) {
-	// Create database directory
-	dbPath := filepath.Join("data", "server.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		logger.Fatalf("Failed to create database directory: %v", err)
+func startServer(port int) {
+	cfg := serverpkg.Config{
+		Port:   port,
+		DBPath: "./server_data.db",
+		Logger: log.New(os.Stdout, "[Server] ", log.LstdFlags),
+		UseWAL: true,
 	}
-
-	// Create SQLite store
-	storeConfig := &sqlite.Config{
-		DataSourceName: fmt.Sprintf("file:%s", dbPath),
-		EnableWAL:     true,
-		Logger:        logger,
-	}
-
-	store, err := sqlite.New(storeConfig)
+	srv, err := serverpkg.New(cfg)
 	if err != nil {
-		logger.Fatalf("Failed to create SQLite store: %v", err)
+		log.Fatalf("Failed to create server: %v", err)
 	}
-	defer store.Close()
-
-	// Create HTTP handler with /sync prefix
-	mux := http.NewServeMux()
-
-	// Add debug handler
-	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Debug endpoint working")
-	})
-
-	// Create logging middleware
-	loggingHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Printf("%s %s", r.Method, r.URL.Path)
-		mux.ServeHTTP(w, r)
-	})
-
-	// Add sync handler
-	syncHandler := httptransport.NewSyncHandler(store, logger)
-	mux.Handle("/sync/", http.StripPrefix("/sync", syncHandler))
-
-	// Log available endpoints
-	logger.Printf("Available endpoints:\n - /debug\n - /sync/latest-version\n - /sync/push\n - /sync/pull")
-
-	// Create HTTP server
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: loggingHandler,
-	}
-
-	// Create error channel
-	errChan := make(chan error, 1)
-
-	// Start server
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		logger.Printf("Server listening on port %d", port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			errChan <- fmt.Errorf("server error: %w", err)
+		if err := srv.Start(ctx); err != nil {
+			log.Printf("Server stopped: %v", err)
 		}
 	}()
-
-	// Wait for shutdown
-	select {
-	case <-ctx.Done():
-		logger.Println("Shutting down server...")
-		if err := srv.Shutdown(context.Background()); err != nil {
-			logger.Printf("Error during shutdown: %v", err)
-		}
-	case err := <-errChan:
-		logger.Fatalf("Server error: %v", err)
-	}
+	// Wait for interrupt
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	_ = srv.Stop(context.Background())
 }
 
-func runClient(ctx context.Context, clientID string, port int, logger *log.Logger) {
-	// Create client config
-	config := client.Config{
-		ID:         clientID,
-		ServerURL:  "http://localhost:8080",
-		DBPath:     filepath.Join("data", fmt.Sprintf("client_%s.db", clientID)),
-		Logger:     logger,
-		SyncPeriod: 5 * time.Second,
-	}
-
-	// Create and start client
-	c, err := client.New(config)
+func startClient(id, serverURL string, port int) {
+	// Create client
+	c, err := clientpkg.New(clientpkg.Config{
+		ID:         id,
+		ServerURL:  serverURL,
+		DBPath:     fmt.Sprintf("./data/%s.db", id),
+		Logger:     log.New(os.Stdout, fmt.Sprintf("[Client %s] ", id), log.LstdFlags),
+		SyncPeriod: time.Second,
+	})
 	if err != nil {
-		logger.Fatalf("Failed to create client: %v", err)
+		log.Fatalf("Failed to create client: %v", err)
 	}
 	defer c.Close()
-
-	// Start automatic sync
-	if err := c.StartSync(ctx); err != nil {
-		logger.Fatalf("Failed to start sync: %v", err)
+	if err := c.Start(); err != nil {
+		log.Fatalf("Failed to start client sync: %v", err)
 	}
-
-	// Create a counter
-	if err := c.CreateCounter(ctx, "counter1"); err != nil {
-		logger.Printf("Failed to create counter: %v", err)
-	}
-
-	// Start HTTP server for client API
+	// Control API
 	mux := http.NewServeMux()
-
-	// Add counter creation endpoint
-	mux.HandleFunc("/counter/create", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req struct {
-			ID string `json:"id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if err := c.CreateCounter(r.Context(), req.ID); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	})
-
-	// Add increment endpoint
-	mux.HandleFunc("/counter/increment", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req struct {
-			ID    string `json:"id"`
-			Value int    `json:"value"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if err := c.IncrementCounter(r.Context(), req.ID, req.Value); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	})
-
-	// Add get counter endpoint
-	mux.HandleFunc("/counter/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		counterID := strings.TrimPrefix(r.URL.Path, "/counter/")
-		value, err := c.GetCounter(counterID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":    counterID,
-			"value": value,
-		})
-	})
-
-	// Add list counters endpoint
 	mux.HandleFunc("/counters", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		counters := c.ListCounters()
-		json.NewEncoder(w).Encode(counters)
+		if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+		_ = json.NewEncoder(w).Encode(c.ListCounters())
 	})
-
-	// Add manual sync endpoint
+	mux.HandleFunc("/counter/", func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/counter/"), "/")
+		if len(parts) == 0 || parts[0] == "" { w.WriteHeader(http.StatusBadRequest); return }
+		id := parts[0]
+		switch r.Method {
+		case http.MethodGet:
+			val, err := c.GetCounter(id)
+			if err != nil { http.Error(w, err.Error(), http.StatusNotFound); return }
+			_ = json.NewEncoder(w).Encode(map[string]int{"value": val})
+		case http.MethodPost:
+			// No direct POST on /counter/{id}; use specific endpoints
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/counter/create", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+		var req struct{ ID string `json:"id"` }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		if err := c.CreateCounterSync(req.ID); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/counter/increment", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+		var req struct{ ID string `json:"id"`; Value int `json:"value"` }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		if req.Value == 0 { req.Value = 1 }
+		if err := c.IncrementCounter(context.Background(), req.ID, req.Value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		w.WriteHeader(http.StatusOK)
+	})
 	mux.HandleFunc("/sync", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		if err := c.Sync(r.Context()); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+		if err := c.Sync(context.Background()); err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
+		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK); _, _ = w.Write([]byte("OK")) })
 
-	// Create HTTP server
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
-	}
-
-	// Start server
-	logger.Printf("Client API listening on port %d", port)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Fatalf("Server error: %v", err)
+	addr := fmt.Sprintf(":%d", port)
+	log.Printf("Client control API listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatalf("Client API error: %v", err)
 	}
 }
 
-func runDashboard(ctx context.Context, port int, logger *log.Logger) {
-	logger.Printf("Starting dashboard on port %d...", port)
-	// TODO: Implement dashboard
+// Existing demo harness (optional)
+func runDemo() {
+	// Create and start orchestrator
+	orch := NewTestOrchestrator()
+	fmt.Println("Starting server...")
+	if err := orch.StartServer(); err != nil { log.Fatalf("Failed to start server: %v", err) }
+	fmt.Println("Adding clients...")
+	if err := orch.AddClient("client1"); err != nil { log.Fatalf("Failed to add client1: %v", err) }
+	if err := orch.AddClient("client2"); err != nil { log.Fatalf("Failed to add client2: %v", err) }
+	fmt.Println("\nCreating counter1 from client1...")
+	if err := orch.ExecuteCommand("client1", "c", "counter1"); err != nil { log.Printf("Error: %v", err) }
+	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	fmt.Println("\nIncrementing counter1 from client1...")
+	if err := orch.ExecuteCommand("client1", "i", "counter1"); err != nil { log.Printf("Error: %v", err) }
+	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	fmt.Println("\nIncrementing counter1 from client2...")
+	if err := orch.ExecuteCommand("client2", "i", "counter1"); err != nil { log.Printf("Error: %v", err) }
+	time.Sleep(time.Second); orch.SyncAll(); fmt.Println("Current counter values:"); printCounterValues(orch, "counter1")
+	fmt.Println("\nStopping all components...")
+	orch.Stop()
+}
+
+func printCounterValues(orch *TestOrchestrator, counterID string) {
+	val1, err := orch.GetCounter("client1", counterID)
+	if err != nil { fmt.Printf("Client1 counter error: %v\n", err) } else { fmt.Printf("Client1 counter value: %d\n", val1) }
+	val2, err := orch.GetCounter("client2", counterID)
+	if err != nil { fmt.Printf("Client2 counter error: %v\n", err) } else { fmt.Printf("Client2 counter value: %d\n", val2) }
 }
