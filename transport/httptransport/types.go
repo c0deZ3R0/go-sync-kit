@@ -53,9 +53,14 @@ type ClientOptions struct {
 	// CompressionEnabled enables sending Accept-Encoding header for gzip/deflate
 	CompressionEnabled bool
 
-	// MaxResponseSize is the maximum allowed size of response bodies in bytes
+	// MaxResponseSize is the maximum allowed size of response bodies in bytes (compressed)
 	// If 0, defaults to 10MB
 	MaxResponseSize int64
+
+	// MaxDecompressedResponseSize is the maximum allowed size of decompressed response bodies in bytes
+	// This prevents zip-bomb attacks when handling gzip-compressed responses
+	// If 0, defaults to 20MB
+	MaxDecompressedResponseSize int64
 
 	// RequestTimeout is the maximum duration for a single request including retries
 	// If 0, defaults to 30 seconds
@@ -77,12 +82,13 @@ type ClientOptions struct {
 // DefaultClientOptions returns the default client options
 func DefaultClientOptions() *ClientOptions {
 	return &ClientOptions{
-		CompressionEnabled: true,
-		MaxResponseSize:    10 * 1024 * 1024, // 10MB
-		RequestTimeout:     30 * time.Second,  // 30s
-		RetryMax:          3,                 // 3 retries
-		RetryWaitMin:      1 * time.Second,   // 1s
-		RetryWaitMax:      30 * time.Second,  // 30s
+		CompressionEnabled:          true,
+		MaxResponseSize:             10 * 1024 * 1024, // 10MB
+		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
+		RequestTimeout:              30 * time.Second,  // 30s
+		RetryMax:                    3,                 // 3 retries
+		RetryWaitMin:                1 * time.Second,   // 1s
+		RetryWaitMax:                30 * time.Second,  // 30s
 	}
 }
 

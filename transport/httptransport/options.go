@@ -66,6 +66,13 @@ func WithMaxResponseSize(size int64) ClientOption {
     }
 }
 
+// WithMaxDecompressedResponseSize sets the maximum allowed size of decompressed response bodies
+func WithMaxDecompressedResponseSize(size int64) ClientOption {
+    return func(opts *ClientOptions) {
+        opts.MaxDecompressedResponseSize = size
+    }
+}
+
 // WithRetryConfig sets the retry configuration for failed requests
 func WithRetryConfig(maxAttempts int, waitMin, waitMax time.Duration) ClientOption {
     return func(opts *ClientOptions) {

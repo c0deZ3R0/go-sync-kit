@@ -4,6 +4,7 @@ import (
     "bytes"
     "context"
     "encoding/json"
+    "errors"
     "fmt"
     "io"
 	"net/http"
@@ -43,8 +44,19 @@ func (t *HTTPTransport) PullWithCursor(ctx context.Context, since cursor.Cursor,
         return nil, nil, fmt.Errorf("pull-cursor failed: %s: %s", resp.Status, string(b))
     }
 
+    // Handle compressed response and enforce size limits
+    reader, cleanup, err := createSafeResponseReader(resp, t.options)
+    if err != nil {
+        return nil, nil, fmt.Errorf("failed to create safe response reader: %w", err)
+    }
+    defer cleanup()
+
     var pr PullCursorResponse
-    if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+    if err := json.NewDecoder(reader).Decode(&pr); err != nil {
+        // Check if this is a size limit violation
+        if errors.Is(err, errResponseDecompressedTooLarge) {
+            return nil, nil, fmt.Errorf("response decompressed size exceeds limit: %w", err)
+        }
         return nil, nil, err
     }
 

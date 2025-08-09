@@ -159,19 +159,19 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
-	// Handle compressed response if enabled
-	var reader io.Reader = resp.Body
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		gzReader, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create gzip reader: %w", err))
-		}
-		defer gzReader.Close()
-		reader = gzReader
+	// Handle compressed response and enforce size limits
+	reader, cleanup, err := createSafeResponseReader(resp, t.options)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
 	}
+	defer cleanup()
 
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(reader).Decode(&jsonEvents); err != nil {
+		// Check if this is a size limit violation
+		if errors.Is(err, errResponseDecompressedTooLarge) {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+		}
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
 	}
 
@@ -219,8 +219,19 @@ func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
 	}
 
+	// Handle compressed response and enforce size limits
+	reader, cleanup, err := createSafeResponseReader(resp, t.options)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
+	}
+	defer cleanup()
+
 	var versionStr string
-	if err := json.NewDecoder(resp.Body).Decode(&versionStr); err != nil {
+	if err := json.NewDecoder(reader).Decode(&versionStr); err != nil {
+		// Check if this is a size limit violation
+		if errors.Is(err, errResponseDecompressedTooLarge) {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+		}
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
 	}
 
