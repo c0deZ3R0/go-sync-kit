@@ -176,7 +176,8 @@ func IsRetryable(err error) bool {
 //   - string: additional context message
 //
 // Example:
-//   err := E(Op("httptransport.handlePush"), Component("httptransport"), Kind(KindInvalid), underlyingErr, "decode request")
+//
+//	err := E(Op("httptransport.handlePush"), Component("httptransport"), Kind(KindInvalid), underlyingErr, "decode request")
 func E(args ...interface{}) *SyncError {
 	e := &SyncError{}
 	var contextMsgs []string

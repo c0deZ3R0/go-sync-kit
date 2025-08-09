@@ -152,5 +152,5 @@ jobs:
     
     - name: Install and run Gosec security scanner
       run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securecodewarrior/gosec/cmd/gosec@latest
         gosec -fmt text -out gosec-report.txt -stdout -verbose=text ./...

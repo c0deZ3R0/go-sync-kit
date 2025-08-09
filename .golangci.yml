@@ -6,7 +6,6 @@ run:
     - integration
 
 output:
-  format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
 
@@ -27,11 +26,7 @@ linters-settings:
   goimports:
     local-prefixes: github.com/c0deZ3R0/go-sync-kit
   
-  golint:
-    min-confidence: 0.8
-  
   govet:
-    check-shadowing: true
     enable-all: true
   
   misspell:
@@ -60,7 +55,6 @@ linters:
     - godot
     - gofmt
     - goimports
-    - golint
     - gomnd
     - gomodguard
     - goprintffuncname
