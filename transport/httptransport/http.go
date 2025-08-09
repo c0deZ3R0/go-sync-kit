@@ -356,38 +356,14 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			"create safe request reader",
 		)
 		h.logger.Printf("error: %v", e)
-		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
 	}
 	defer cleanup()
 
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
-		if errors.Is(err, errDecompressedTooLarge) {
-			e := syncErrors.E(
-				syncErrors.Op("httptransport.handlePush"),
-				syncErrors.Component("httptransport"),
-				syncErrors.KindTooLarge,
-				err,
-				"decompressed size limit exceeded",
-			)
-			h.logger.Printf("error: %v", e)
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
-			return
-		}
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			e := syncErrors.E(
-				syncErrors.Op("httptransport.handlePush"),
-				syncErrors.Component("httptransport"),
-				syncErrors.KindTooLarge,
-				err,
-				"request size limit exceeded",
-			)
-			h.logger.Printf("error: %v", e)
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
-			return
-		}
 		if err == io.EOF {
 			e := syncErrors.E(
 				syncErrors.Op("httptransport.handlePush"),
@@ -400,6 +376,7 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
+		// Log the error with structured logging
 		e := syncErrors.E(
 			syncErrors.Op("httptransport.handlePush"),
 			syncErrors.Component("httptransport"),
@@ -408,7 +385,8 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			"decode request",
 		)
 		h.logger.Printf("error: %v", e)
-		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
 	}
 

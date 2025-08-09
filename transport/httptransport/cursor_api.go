@@ -2,7 +2,7 @@ package httptransport
 
 import (
 	"encoding/json"
-	"errors"
+	"io"
 	"log"
 	"net/http"
 
@@ -51,26 +51,22 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 	}
 
 	// Create safe reader that handles both compressed and decompressed size limits
-	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
+	safeReader, cleanup, err := createSafeRequestReader(w, r, options.ServerOptions)
 	if err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
 		return
 	}
 	defer cleanup()
 
 	var req PullCursorRequest
 	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
-		if errors.Is(err, errDecompressedTooLarge) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+		if err == io.EOF {
+			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
-			return
-		}
-		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
-	return
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
+		return
 	}
 
 	// Integer mode first
