@@ -54,7 +54,7 @@ func New(config Config) (*Server, error) {
 
 	// Create HTTP handler for sync
 	// Use default version parser (store.ParseVersion)
-	handler := httptransport.NewSyncHandler(store, config.Logger, nil)
+	handler := httptransport.NewSyncHandler(store, config.Logger, nil, nil)
 
 	// Wrap with a mux to add /debug endpoint expected by tests
 	mux := http.NewServeMux()

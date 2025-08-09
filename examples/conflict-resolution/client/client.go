@@ -281,6 +281,7 @@ func New(config Config) (*Client, error) {
 		config.ServerURL+"/sync",
 		&http.Client{Timeout: 10 * time.Second},
 		nil,
+		nil,
 	)
 
 	// Create sync options with improved configuration
