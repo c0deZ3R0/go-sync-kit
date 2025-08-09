@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	std_sync "sync"
-"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MemoryEventStore is a simple in-memory implementation of EventStore
@@ -37,7 +37,7 @@ func (s *MemoryEventStore) Load(_ context.Context, since synckit.Version) ([]syn
 		return s.events, nil
 	}
 
-var result []synckit.EventWithVersion
+	var result []synckit.EventWithVersion
 	for _, ev := range s.events {
 		if ev.Version.Compare(since) > 0 {
 			result = append(result, ev)
@@ -50,7 +50,7 @@ func (s *MemoryEventStore) LoadByAggregate(_ context.Context, aggregateID string
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-var result []synckit.EventWithVersion
+	var result []synckit.EventWithVersion
 	for _, ev := range s.events {
 		if ev.Event.AggregateID() == aggregateID {
 			if since == nil || ev.Version.Compare(since) > 0 {

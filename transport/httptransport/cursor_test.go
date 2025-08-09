@@ -14,10 +14,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCursorAPI_SizeLimits(t *testing.T) {
@@ -46,7 +46,7 @@ func TestCursorAPI_SizeLimits(t *testing.T) {
 		NewMockEventStore(),
 		nil,
 		nil,
-&ServerOptions{MaxRequestSize: 1 * 1024 /* 1KB */, CompressionEnabled: false, CompressionThreshold: 0},
+		&ServerOptions{MaxRequestSize: 1 * 1024 /* 1KB */, CompressionEnabled: false, CompressionThreshold: 0},
 	)
 
 	// Create test server
@@ -99,7 +99,7 @@ func TestCursorAPI_Compression(t *testing.T) {
 		nil,
 		nil,
 		&ServerOptions{
-MaxRequestSize:       1024, // Set to 1KB to ensure limit is hit during test
+			MaxRequestSize:       1024, // Set to 1KB to ensure limit is hit during test
 			CompressionEnabled:   true,
 			CompressionThreshold: 1024, // 1KB
 		},

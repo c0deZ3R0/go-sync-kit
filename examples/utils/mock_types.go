@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MockEvent implements the Event interface for testing
@@ -26,11 +26,11 @@ func NewMockEvent(id, eventType, aggregateID string, data interface{}) *MockEven
 	}
 }
 
-func (e *MockEvent) ID() string                           { return e.id }
-func (e *MockEvent) Type() string                        { return e.eventType }
-func (e *MockEvent) AggregateID() string                 { return e.aggregateID }
-func (e *MockEvent) Data() interface{}                   { return e.data }
-func (e *MockEvent) Metadata() map[string]interface{}    { return e.metadata }
+func (e *MockEvent) ID() string                       { return e.id }
+func (e *MockEvent) Type() string                     { return e.eventType }
+func (e *MockEvent) AggregateID() string              { return e.aggregateID }
+func (e *MockEvent) Data() interface{}                { return e.data }
+func (e *MockEvent) Metadata() map[string]interface{} { return e.metadata }
 
 // MockVersion implements the Version interface for testing
 type MockVersion struct {

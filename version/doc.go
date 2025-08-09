@@ -18,7 +18,7 @@
 //
 //	// Increment when a node creates an event
 //	clock.Increment("node-1")
-//	
+//
 //	// Merge when receiving events from another node
 //	otherClock := version.NewVectorClockFromString(`{"node-2": 3}`)
 //	clock.Merge(otherClock)

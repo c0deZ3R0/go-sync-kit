@@ -8,8 +8,8 @@ import (
 	std_sync "sync"
 	"time"
 
-"github.com/c0deZ3R0/go-sync-kit/cursor"
-"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MockTransport implements both Transport and CursorTransport interfaces
@@ -25,11 +25,11 @@ func NewMockTransport() synckit.Transport {
 }
 
 func (t *MockTransport) Push(ctx context.Context, events []synckit.EventWithVersion) error {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		log.Printf("Mock transport: pushing %d events", len(events))
-		t.events = append(t.events, events...)
-		return nil
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	log.Printf("Mock transport: pushing %d events", len(events))
+	t.events = append(t.events, events...)
+	return nil
 }
 
 func (t *MockTransport) Pull(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
@@ -40,7 +40,7 @@ func (t *MockTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		return t.events, nil
 	}
 
-var result []synckit.EventWithVersion
+	var result []synckit.EventWithVersion
 	for _, ev := range t.events {
 		if ev.Version.Compare(since) > 0 {
 			result = append(result, ev)
@@ -142,7 +142,7 @@ func (c mockCursor) Kind() string {
 
 func (c mockCursor) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"type": c.Kind(),
+		"type":     c.Kind(),
 		"position": int(c),
 	})
 }

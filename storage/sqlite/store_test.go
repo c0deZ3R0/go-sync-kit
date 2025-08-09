@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 func TestStoreContextCancellation(t *testing.T) {
@@ -466,7 +466,7 @@ func TestParseVersion(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for negative version, got: %v", err)
 	}
-if version != (cursor.IntegerCursor{Seq: 0xFFFFFFFFFFFFFFFF}) {
+	if version != (cursor.IntegerCursor{Seq: 0xFFFFFFFFFFFFFFFF}) {
 		t.Errorf("Expected version -1, got %v", version)
 	}
 }

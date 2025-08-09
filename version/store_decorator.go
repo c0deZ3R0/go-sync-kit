@@ -105,7 +105,7 @@ func (vm *VectorClockManager) Clone() VersionManager {
 // Error types
 var (
 	ErrIncompatibleVersion = fmt.Errorf("incompatible version type")
-	ErrStoreClosed = fmt.Errorf("store is closed")
+	ErrStoreClosed         = fmt.Errorf("store is closed")
 )
 
 // VersionedStore is a decorator for an EventStore that manages versioning automatically.
@@ -114,8 +114,8 @@ type VersionedStore struct {
 	store          synckit.EventStore
 	nodeID         string
 	versionManager VersionManager
-	mu            syncLib.RWMutex
-	closed        bool
+	mu             syncLib.RWMutex
+	closed         bool
 }
 
 // cursorToVectorClock converts a cursor sequence to a vector clock
@@ -189,7 +189,10 @@ func (s *VersionedStore) Store(ctx context.Context, event synckit.Event, version
 	cursorVersion.Seq++
 
 	// Handle vector clock versioning
-	if ve, ok := event.(interface{ Version() *VectorClock; SetVersion(*VectorClock) }); ok {
+	if ve, ok := event.(interface {
+		Version() *VectorClock
+		SetVersion(*VectorClock)
+	}); ok {
 		// Initialize or update vector clock
 		vc := ve.Version()
 		if vc == nil {

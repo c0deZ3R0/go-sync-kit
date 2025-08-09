@@ -70,6 +70,11 @@ func (e *StoredEvent) Metadata() map[string]interface{} {
 }
 
 // Config holds configuration options for the SQLiteEventStore.
+//
+// Production-ready defaults are applied by DefaultConfig() including:
+//   - WAL mode enabled for better concurrency
+//   - Connection pool with 25 max open, 5 max idle connections
+//   - Connection lifetimes of 1 hour max, 5 minutes max idle
 type Config struct {
 	// DataSourceName is the connection string for the SQLite database.
 	// For production use, consider enabling WAL mode for better concurrency.
@@ -77,22 +82,24 @@ type Config struct {
 	DataSourceName string
 
 	// EnableWAL enables Write-Ahead Logging mode for better concurrency.
-	// This is recommended for production use.
+	// This is recommended for production use and is enabled by default.
+	// When true, automatically appends "?_journal_mode=WAL" to DataSourceName.
 	EnableWAL bool
 
 	// Logger is an optional logger for logging internal operations and errors.
-	// If nil, logging is disabled.
+	// If nil, logging is disabled by default (logs to io.Discard).
 	Logger *log.Logger
 
 	// TableName is the name of the table to store events.
 	// Defaults to "events" if empty.
 	TableName string
 
-	// Connection pool settings
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
-	ConnMaxIdleTime time.Duration
+	// Connection pool settings for production workloads.
+	// Defaults: MaxOpen=25, MaxIdle=5, Lifetime=1h, IdleTime=5m
+	MaxOpenConns    int           // Default: 25 - Maximum number of open connections
+	MaxIdleConns    int           // Default: 5  - Maximum number of idle connections
+	ConnMaxLifetime time.Duration // Default: 1h - Maximum lifetime of connections
+	ConnMaxIdleTime time.Duration // Default: 5m - Maximum idle time before closing
 }
 
 // setDefaults applies default values to the config
@@ -128,10 +135,19 @@ func NewWithDataSource(dataSourceName string) (*SQLiteEventStore, error) {
 	return New(config)
 }
 
-// DefaultConfig returns a Config with sensible defaults for SQLite
+// DefaultConfig returns a Config with production-ready defaults for SQLite.
+//
+// Default settings include:
+//   - WAL mode enabled for better concurrency
+//   - Connection pool: 25 max open, 5 max idle connections
+//   - Connection lifetime: 1 hour max, 5 minutes max idle
+//   - Table name: "events"
+//   - Logging disabled (to io.Discard)
 func DefaultConfig(dataSourceName string) *Config {
 	config := &Config{
 		DataSourceName: dataSourceName,
+		// Enable WAL mode by default for production readiness
+		EnableWAL: true,
 	}
 	config.setDefaults()
 	return config

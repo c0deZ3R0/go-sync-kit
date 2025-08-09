@@ -32,11 +32,11 @@ type MockEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (m *MockEvent) ID() string                               { return m.id }
-func (m *MockEvent) Type() string                             { return m.eventType }
-func (m *MockEvent) AggregateID() string                      { return m.aggregateID }
-func (m *MockEvent) Data() interface{}                        { return m.data }
-func (m *MockEvent) Metadata() map[string]interface{}         { return m.metadata }
+func (m *MockEvent) ID() string                       { return m.id }
+func (m *MockEvent) Type() string                     { return m.eventType }
+func (m *MockEvent) AggregateID() string              { return m.aggregateID }
+func (m *MockEvent) Data() interface{}                { return m.data }
+func (m *MockEvent) Metadata() map[string]interface{} { return m.metadata }
 
 // MockEventStore implements a simple in-memory event store for testing
 type MockEventStore struct {
@@ -59,12 +59,12 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 			seq = lastVersion.Seq + 1
 		}
 	}
-	
+
 	m.events = append(m.events, synckit.EventWithVersion{
 		Event:   event,
 		Version: cursor.IntegerCursor{Seq: seq},
 	})
-	
+
 	return nil
 }
 
@@ -211,7 +211,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 		// Check headers
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Equal(t, "gzip, deflate", r.Header.Get("Accept-Encoding"))
-		
+
 		// Check if request was compressed (the client will compress if the JSON is > 1KB)
 		contentEncoding := r.Header.Get("Content-Encoding")
 		if contentEncoding == "gzip" {
@@ -219,7 +219,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 			gzReader, err := gzip.NewReader(r.Body)
 			assert.NoError(t, err)
 			defer gzReader.Close()
-			
+
 			var events []JSONEventWithVersion
 			assert.NoError(t, json.NewDecoder(gzReader).Decode(&events))
 			assert.Greater(t, len(events), 0)
@@ -229,7 +229,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 			assert.NoError(t, json.NewDecoder(r.Body).Decode(&events))
 			assert.Greater(t, len(events), 0)
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -241,7 +241,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 		// Small payload should not be compressed
 		events := []synckit.EventWithVersion{
 			{
-				Event: &MockEvent{id: "small", eventType: "test", aggregateID: "agg1", data: "small"},
+				Event:   &MockEvent{id: "small", eventType: "test", aggregateID: "agg1", data: "small"},
 				Version: cursor.IntegerCursor{Seq: 1},
 			},
 		}
@@ -255,7 +255,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 		largeData := strings.Repeat("large data payload ", 100) // Make it big enough
 		events := []synckit.EventWithVersion{
 			{
-				Event: &MockEvent{id: "large", eventType: "test", aggregateID: "agg1", data: largeData},
+				Event:   &MockEvent{id: "large", eventType: "test", aggregateID: "agg1", data: largeData},
 				Version: cursor.IntegerCursor{Seq: 1},
 			},
 		}
@@ -317,7 +317,6 @@ func TestSyncHandler_CompressedRequests(t *testing.T) {
 	})
 }
 
-
 func setupTestStore(t *testing.T) (*MockEventStore, func()) {
 	store := NewMockEventStore()
 	cleanup := func() {}
@@ -344,10 +343,10 @@ func TestHTTPTransport_NewTransport(t *testing.T) {
 
 func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
 	transport := NewTransport("http://example.com", nil, nil, DefaultClientOptions())
-	
+
 	ctx := context.Background()
 	err := transport.Push(ctx, []synckit.EventWithVersion{})
-	
+
 	if err != nil {
 		t.Errorf("Expected no error for empty events, got: %v", err)
 	}
@@ -379,7 +378,7 @@ func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
 		log.New(os.Stderr, "[test] ", log.LstdFlags),
 		nil,
 		&ServerOptions{
-			MaxRequestSize:       1024 * 1024, // 1MB limit
+			MaxRequestSize:       1024 * 1024,     // 1MB limit
 			MaxDecompressedSize:  2 * 1024 * 1024, // 2MB decompressed limit
 			CompressionEnabled:   false,
 			CompressionThreshold: 1024,
@@ -433,8 +432,8 @@ func TestHTTPTransport_Compression(t *testing.T) {
 
 	// Create client with compression enabled and appropriate size limits
 	transport := NewTransport(s.URL, nil, nil, &ClientOptions{
-		CompressionEnabled: true,
-		MaxResponseSize: 10 * 1024 * 1024, // 10MB
+		CompressionEnabled:          true,
+		MaxResponseSize:             10 * 1024 * 1024, // 10MB
 		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
 	})
 
@@ -462,7 +461,7 @@ func testHelperRespondWithJSON(w http.ResponseWriter, r *http.Request, code int,
 	response, err := json.Marshal(payload)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "failed to marshal response"}`)) 
+		w.Write([]byte(`{"error": "failed to marshal response"}`))
 		return
 	}
 
@@ -483,7 +482,7 @@ func TestHTTPTransport_Push(t *testing.T) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
 		}
-		
+
 		// Verify request body
 		var events []JSONEventWithVersion
 		if err := json.NewDecoder(r.Body).Decode(&events); err != nil {
@@ -492,13 +491,13 @@ func TestHTTPTransport_Push(t *testing.T) {
 		if len(events) != 1 {
 			t.Errorf("Expected 1 event, got %d", len(events))
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
-	
+
 	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
@@ -513,7 +512,7 @@ func TestHTTPTransport_Push(t *testing.T) {
 
 	ctx := context.Background()
 	err := transport.Push(ctx, events)
-	
+
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -528,17 +527,17 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	defer server.Close()
 
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
-	
+
 	events := []synckit.EventWithVersion{
 		{
-			Event: &MockEvent{id: "test-1"},
+			Event:   &MockEvent{id: "test-1"},
 			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
 	ctx := context.Background()
 	err := transport.Push(ctx, events)
-	
+
 	if err == nil {
 		t.Error("Expected error for server error response")
 	}
@@ -568,12 +567,12 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 		if r.URL.Path != "/pull" {
 			t.Errorf("Expected /pull path, got %s", r.URL.Path)
 		}
-		
+
 		since := r.URL.Query().Get("since")
 		if since != "0" {
 			t.Errorf("Expected since=0, got since=%s", since)
 		}
-		
+
 		// Convert to JSON format for response
 		jsonEvents := make([]JSONEventWithVersion, len(expectedEvents))
 		for i, ev := range expectedEvents {
@@ -588,7 +587,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 				Version: ev.Version.String(),
 			}
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(jsonEvents)
@@ -596,14 +595,14 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 	defer server.Close()
 
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
-	
+
 	ctx := context.Background()
 	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
-	
+
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	
+
 	if len(events) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(events))
 	}
@@ -611,10 +610,10 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 
 func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 	transport := NewTransport("http://example.com", nil, nil, DefaultClientOptions())
-	
+
 	ctx := context.Background()
 	err := transport.Subscribe(ctx, func([]synckit.EventWithVersion) error { return nil })
-	
+
 	if err == nil {
 		t.Error("Expected error for unimplemented Subscribe method")
 	}
@@ -625,9 +624,9 @@ func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 
 func TestHTTPTransport_Close(t *testing.T) {
 	transport := NewTransport("http://example.com", nil, nil, DefaultClientOptions())
-	
+
 	err := transport.Close()
-	
+
 	if err != nil {
 		t.Errorf("Expected no error from Close, got: %v", err)
 	}
@@ -638,7 +637,7 @@ func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 	defer cleanup()
 
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-	
+
 	// Test with default parser
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 
@@ -705,16 +704,16 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-	
+
 	req := httptest.NewRequest(http.MethodGet, "/push", nil)
 	w := httptest.NewRecorder()
-	
+
 	handler.handlePush(w, req)
-	
+
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", w.Code)
 	}
@@ -723,17 +722,17 @@ func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
 func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-		
+
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	
+
 	handler.handlePush(w, req)
-	
+
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -742,7 +741,7 @@ func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
 func TestSyncHandler_HandlePull_Success(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	// First, store some events
 	ctx := context.Background()
 	event := &MockEvent{
@@ -752,25 +751,25 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 		data:        "test data",
 	}
 	store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-	
+
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
 	w := httptest.NewRecorder()
-	
+
 	handler.handlePull(w, req)
-	
+
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
-	
+
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(w.Body).Decode(&jsonEvents); err != nil {
 		t.Errorf("Failed to decode response: %v", err)
 	}
-	
+
 	if len(jsonEvents) != 1 {
 		t.Errorf("Expected 1 event, got %d", len(jsonEvents))
 	}
@@ -779,16 +778,16 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-	
+
 	req := httptest.NewRequest(http.MethodPost, "/pull", nil)
 	w := httptest.NewRecorder()
-	
+
 	handler.handlePull(w, req)
-	
+
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", w.Code)
 	}
@@ -847,16 +846,16 @@ func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
 func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-	
+
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
 	w := httptest.NewRecorder()
-	
+
 	handler.handlePull(w, req)
-	
+
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
@@ -865,11 +864,11 @@ func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
 func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
-	
+
 	// Test /push route
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
 	req.Header.Set("Content-Type", "application/json")
@@ -878,7 +877,7 @@ func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected /push to be handled, got status %d", w.Code)
 	}
-	
+
 	// Test /pull route
 	req = httptest.NewRequest(http.MethodGet, "/pull", nil)
 	w = httptest.NewRecorder()
@@ -886,7 +885,7 @@ func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected /pull to be handled, got status %d", w.Code)
 	}
-	
+
 	// Test unknown route
 	req = httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	w = httptest.NewRecorder()
@@ -900,16 +899,16 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	// Set up the server
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
-	
+
 	logger := log.New(os.Stdout, "[E2E] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	server := httptest.NewServer(handler)
 	defer server.Close()
-	
+
 	// Set up the client
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
-	
+
 	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
@@ -931,25 +930,25 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 			Version: cursor.IntegerCursor{Seq: 2},
 		},
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Test Push
 	err := transport.Push(ctx, events)
 	if err != nil {
 		t.Fatalf("Failed to push events: %v", err)
 	}
-	
+
 	// Test Pull
 	pulledEvents, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		t.Fatalf("Failed to pull events: %v", err)
 	}
-	
+
 	if len(pulledEvents) != 2 {
 		t.Errorf("Expected 2 events, got %d", len(pulledEvents))
 	}
-	
+
 	// Verify event data
 	if pulledEvents[0].Event.ID() != "e2e-test-1" {
 		t.Errorf("Expected first event ID 'e2e-test-1', got '%s'", pulledEvents[0].Event.ID())
@@ -965,9 +964,9 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
-	
+
 	events := []synckit.EventWithVersion{
 		{
 			Event: &MockEvent{
@@ -979,10 +978,10 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
-	
+
 	ctx := context.Background()
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		events[0].Event.(*MockEvent).id = fmt.Sprintf("bench-test-%d", i)
 		err := transport.Push(ctx, events)
@@ -1005,17 +1004,17 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(events)
 	}))
 	defer server.Close()
-	
+
 	transport := NewTransport(server.URL, nil, nil, DefaultClientOptions())
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
@@ -1032,9 +1031,9 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 
 	// Create server with small limits for testing
 	opts := &ServerOptions{
-		MaxRequestSize:      1024,  // 1KB compressed limit
-		MaxDecompressedSize: 2048,  // 2KB decompressed limit
-		CompressionEnabled:  true,
+		MaxRequestSize:       1024, // 1KB compressed limit
+		MaxDecompressedSize:  2048, // 2KB decompressed limit
+		CompressionEnabled:   true,
 		CompressionThreshold: 100,
 	}
 	handler := NewSyncHandler(store, logger, nil, opts)
@@ -1189,9 +1188,9 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 
 	// Create server with small limits for deterministic testing
 	opts := &ServerOptions{
-		MaxRequestSize:      5 * 1024,  // 5KB compressed limit
-		MaxDecompressedSize: 3 * 1024,  // 3KB decompressed limit (smaller for testing)
-		CompressionEnabled:  true,
+		MaxRequestSize:       5 * 1024, // 5KB compressed limit
+		MaxDecompressedSize:  3 * 1024, // 3KB decompressed limit (smaller for testing)
+		CompressionEnabled:   true,
 		CompressionThreshold: 100,
 	}
 	handler := NewSyncHandler(store, logger, nil, opts)
@@ -1273,7 +1272,7 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 
 		// Should return exactly 413, not 400 or other error codes
 		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code, "Should return exactly 413 for size overflow without gzip")
-		assert.Contains(t, w.Body.String(), "request entity too large")
+		assert.Contains(t, w.Body.String(), "http: request body too large")
 	})
 
 	t.Run("ValidSizedRequest_WithGzip_Returns200", func(t *testing.T) {

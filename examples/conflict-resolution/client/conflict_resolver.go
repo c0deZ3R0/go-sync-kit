@@ -125,7 +125,7 @@ func (r *ImprovedCounterConflictResolver) resolveCounterEvents(events []*Counter
 			counterID: concurrent[0].counterID,
 			value:     total,
 			timestamp: concurrent[0].timestamp, // Use earliest timestamp
-			clientID:  "resolver",             // Mark as resolved
+			clientID:  "resolver",              // Mark as resolved
 			version:   mergedVC,
 			metadata: map[string]interface{}{
 				"resolved_from": len(concurrent),

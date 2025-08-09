@@ -21,15 +21,15 @@ type HTTPMetricsCollector struct {
 func NewHTTPMetricsCollector() *HTTPMetricsCollector {
 	return &HTTPMetricsCollector{
 		syncDurations: map[string]*atomic.Int64{
-			"push": &atomic.Int64{},
-			"pull": &atomic.Int64{},
-			"sync": &atomic.Int64{},
-			"store": &atomic.Int64{}, // Added for server event generation
+			"push":  {},
+			"pull":  {},
+			"sync":  {},
+			"store": {}, // Added for server event generation
 		},
 		syncErrors: map[string]*atomic.Int64{
-			"network":  &atomic.Int64{},
-			"storage":  &atomic.Int64{},
-			"conflict": &atomic.Int64{},
+			"network":  {},
+			"storage":  {},
+			"conflict": {},
 		},
 	}
 }

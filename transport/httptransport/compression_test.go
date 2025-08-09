@@ -161,7 +161,7 @@ func TestCreateSafeRequestReader(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := tt.setupRequest()
 			w := httptest.NewRecorder()
-			
+
 			reader, cleanup, err := createSafeRequestReader(w, req, tt.options)
 			if cleanup != nil {
 				defer cleanup()

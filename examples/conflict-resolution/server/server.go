@@ -23,10 +23,10 @@ type Server struct {
 
 // Config holds server configuration
 type Config struct {
-	Port     int
-	DBPath   string
-	Logger   *log.Logger
-	UseWAL   bool
+	Port   int
+	DBPath string
+	Logger *log.Logger
+	UseWAL bool
 }
 
 // New creates a new server instance
@@ -43,8 +43,8 @@ func New(config Config) (*Server, error) {
 	// Create SQLite store
 	storeConfig := &sqlite.Config{
 		DataSourceName: fmt.Sprintf("file:%s", config.DBPath),
-		EnableWAL:     config.UseWAL,
-		Logger:        config.Logger,
+		EnableWAL:      config.UseWAL,
+		Logger:         config.Logger,
 	}
 
 	store, err := sqlite.New(storeConfig)
@@ -86,7 +86,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Create channels for server status
 	errChan := make(chan error, 1)
-	
+
 	// Start server in a goroutine
 	go func() {
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

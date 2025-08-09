@@ -34,8 +34,8 @@ func NewTestOrchestrator() *TestOrchestrator {
 
 // StartServer starts the counter server
 func (t *TestOrchestrator) StartServer() error {
-config := server.Config{
-		Port: 8080,
+	config := server.Config{
+		Port:   8080,
 		DBPath: "./server_data.db",
 		Logger: log.New(os.Stdout, "[Server] ", log.LstdFlags),
 		UseWAL: true,

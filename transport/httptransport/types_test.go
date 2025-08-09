@@ -185,7 +185,7 @@ func TestDefaultServerOptions_Values(t *testing.T) {
 	require.NoError(t, opts.Validate(), "Default server options should be valid")
 
 	// Test the critical relationship: MaxDecompressedSize >= MaxRequestSize
-	assert.GreaterOrEqual(t, opts.MaxDecompressedSize, opts.MaxRequestSize, 
+	assert.GreaterOrEqual(t, opts.MaxDecompressedSize, opts.MaxRequestSize,
 		"MaxDecompressedSize should be >= MaxRequestSize to prevent zip-bomb attacks")
 }
 
@@ -198,7 +198,7 @@ func TestDefaultServerOptions_DocumentedInterplay(t *testing.T) {
 
 	t.Run("MaxDecompressedSize_ComfortablyExceedsWireCursorLimit", func(t *testing.T) {
 		// MaxDecompressedSize should be much larger than WireCursor limit to handle JSON overhead
-		assert.Greater(t, opts.MaxDecompressedSize, int64(maxWireCursorSize*10), 
+		assert.Greater(t, opts.MaxDecompressedSize, int64(maxWireCursorSize*10),
 			"MaxDecompressedSize should comfortably exceed WireCursor limit (64 KiB) to handle JSON overhead in batch pulls")
 	})
 
@@ -207,7 +207,7 @@ func TestDefaultServerOptions_DocumentedInterplay(t *testing.T) {
 		// A typical batch pull might have multiple events, each with JSON overhead
 		// Our 20 MiB limit should comfortably handle this vs the 64 KiB cursor limit
 		expectedOverhead := opts.MaxDecompressedSize / maxWireCursorSize
-		assert.Greater(t, expectedOverhead, int64(100), 
+		assert.Greater(t, expectedOverhead, int64(100),
 			"MaxDecompressedSize should provide >100x headroom over WireCursor limit for JSON overhead")
 	})
 }

@@ -48,14 +48,14 @@ func (c *Client) initializeState(ctx context.Context) error {
 
 	c.logger.Printf("Loaded %d events from store", len(events))
 
-// Apply events to local state
-for _, ev := range events {
-	if err := c.applyEvent(ev.Event); err != nil {
-		c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
+	// Apply events to local state
+	for _, ev := range events {
+		if err := c.applyEvent(ev.Event); err != nil {
+			c.logger.Printf("Warning: Failed to apply event %s: %v", ev.Event.ID(), err)
+		}
 	}
-}
 
-c.logger.Printf("State reloaded with %d events", len(events))
+	c.logger.Printf("State reloaded with %d events", len(events))
 
 	return nil
 }
@@ -73,7 +73,7 @@ func (c *Client) applyEvent(event synckit.Event) error {
 
 	// Parse the event from stored data
 	data := storedEvent.Data()
-	
+
 	// Handle JSON RawMessage
 	if rawJSON, ok := data.(json.RawMessage); ok {
 		var eventData struct {
@@ -85,7 +85,7 @@ func (c *Client) applyEvent(event synckit.Event) error {
 		if err := json.Unmarshal(rawJSON, &eventData); err != nil {
 			return fmt.Errorf("failed to decode event data: %w", err)
 		}
-		
+
 		counterEvent := &CounterEvent{
 			id:        storedEvent.ID(),
 			eventType: storedEvent.Type(),
@@ -105,7 +105,7 @@ func (c *Client) applyEvent(event synckit.Event) error {
 		timestampStr, _ := dataMap["timestamp"].(string)
 		timestamp, _ := time.Parse(time.RFC3339Nano, timestampStr)
 		clientID, _ := dataMap["clientId"].(string)
-		
+
 		// Get version from metadata if available
 		var ver *version.VectorClock
 		if versionData, ok := dataMap["version"].(map[string]interface{}); ok {
@@ -180,7 +180,7 @@ func (c *Client) handleSyncResults(result *synckit.SyncResult) {
 	if result.EventsPushed > 0 || result.EventsPulled > 0 || result.ConflictsResolved > 0 {
 		c.logger.Printf("Reloading state due to %d pushed, %d pulled events and %d resolved conflicts",
 			result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
-		
+
 		// Reset counters map and reload all events
 		c.mu.Lock()
 		c.counters = make(map[string]int)
@@ -216,14 +216,18 @@ func (c *Client) handleSyncResults(result *synckit.SyncResult) {
 			relation := ei.Version().Compare(ej.Version())
 			if relation == 0 {
 				// If concurrent, break tie deterministically by client ID then timestamp then ID
-				if ei.clientID != ej.clientID { return ei.clientID < ej.clientID }
-				if !ei.timestamp.Equal(ej.timestamp) { return ei.timestamp.Before(ej.timestamp) }
+				if ei.clientID != ej.clientID {
+					return ei.clientID < ej.clientID
+				}
+				if !ei.timestamp.Equal(ej.timestamp) {
+					return ei.timestamp.Before(ej.timestamp)
+				}
 				return ei.id < ej.id
 			}
 			return relation < 0
 		})
 
-// Apply events in sorted order
+		// Apply events in sorted order
 		for _, ev := range events {
 			if counterEvent, ok := ev.Event.(*CounterEvent); ok {
 				c.logger.Printf("Applying event: id=%s type=%s value=%d clientId=%s",
@@ -256,8 +260,8 @@ func New(config Config) (*Client, error) {
 	// Create SQLite store with improved configuration
 	storeConfig := &sqlite.Config{
 		DataSourceName: fmt.Sprintf("file:%s?_journal_mode=WAL&_busy_timeout=5000", config.DBPath),
-		EnableWAL:     true,
-		Logger:        config.Logger,
+		EnableWAL:      true,
+		Logger:         config.Logger,
 	}
 
 	// Create base store
@@ -266,7 +270,7 @@ func New(config Config) (*Client, error) {
 		return nil, fmt.Errorf("failed to create SQLite store: %w", err)
 	}
 
-// Create vector clock version manager
+	// Create vector clock version manager
 	versionManager := version.NewVectorClockManager()
 
 	// Create versioned store
@@ -287,14 +291,14 @@ func New(config Config) (*Client, error) {
 	// Create sync options with improved configuration
 	opts := &synckit.SyncOptions{
 		ConflictResolver: NewImprovedCounterConflictResolver(),
-		SyncInterval:    config.SyncPeriod,
+		SyncInterval:     config.SyncPeriod,
 		RetryConfig: &synckit.RetryConfig{
 			MaxAttempts:  5,
 			InitialDelay: time.Second,
 			MaxDelay:     30 * time.Second,
 			Multiplier:   1.5,
 		},
-		BatchSize:      50,
+		BatchSize: 50,
 	}
 
 	// Create sync manager
@@ -332,7 +336,7 @@ func (c *Client) CreateCounter(ctx context.Context, counterID string) error {
 		return fmt.Errorf("counter %s already exists", counterID)
 	}
 
-// Create counter event with initial vector clock
+	// Create counter event with initial vector clock
 	event := &CounterEvent{
 		id:        fmt.Sprintf("%s-%s-%d", c.id, counterID, time.Now().UnixNano()),
 		eventType: EventTypeCounterCreated,
@@ -363,7 +367,7 @@ func (c *Client) IncrementCounter(ctx context.Context, counterID string, value i
 		return fmt.Errorf("counter %s does not exist", counterID)
 	}
 
-// Create increment event with initial vector clock
+	// Create increment event with initial vector clock
 	event := &CounterEvent{
 		id:        fmt.Sprintf("%s-%s-%d", c.id, counterID, time.Now().UnixNano()),
 		eventType: EventTypeCounterIncremented,

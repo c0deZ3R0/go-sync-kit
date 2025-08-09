@@ -22,14 +22,14 @@ type EventRow struct {
 }
 
 type EventEnvelope struct {
-	ID            string                 `json:"id"`
-	Type          string                 `json:"type"`
-	AggregateID   string                 `json:"aggregate_id"`
-	Data          map[string]any         `json:"data,omitempty"`
-	Metadata      map[string]any         `json:"metadata,omitempty"`
-	OriginNode    string                 `json:"origin_node,omitempty"`
-	OriginCounter uint64                 `json:"origin_counter,omitempty"`
-	Seq           uint64                 `json:"seq,omitempty"`
+	ID            string         `json:"id"`
+	Type          string         `json:"type"`
+	AggregateID   string         `json:"aggregate_id"`
+	Data          map[string]any `json:"data,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	OriginNode    string         `json:"origin_node,omitempty"`
+	OriginCounter uint64         `json:"origin_counter,omitempty"`
+	Seq           uint64         `json:"seq,omitempty"`
 }
 
 func PullWithCursor(ctx context.Context, db *sql.DB, since cursor.Cursor, limit int) ([]EventEnvelope, cursor.Cursor, error) {
