@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
@@ -44,7 +43,10 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 			if err != nil {
 				return nil, err
 			}
-			return cursor.IntegerCursor{Seq: uint64(v)}, nil
+		if v == 0 {
+			return nil, fmt.Errorf("invalid version: zero is not a valid version")
+		}
+		return cursor.IntegerCursor{Seq: uint64(v)}, nil
 		}
 	}
 	if options == nil {

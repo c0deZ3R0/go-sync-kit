@@ -19,13 +19,13 @@ type PullCursorResponse struct {
 
 func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
 		return
 	}
 
 	var req PullCursorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "bad request: "+err.Error())
+		respondWithError(w, r, http.StatusBadRequest, "bad request: "+err.Error(), h.options)
 		return
 	}
 
@@ -34,12 +34,12 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	if req.Since != nil {
 		c, err := cursor.UnmarshalWire(req.Since)
 		if err != nil {
-			respondWithError(w, http.StatusBadRequest, "bad cursor: "+err.Error())
+			respondWithError(w, r, http.StatusBadRequest, "bad cursor: "+err.Error(), h.options)
 			return
 		}
 		ic, ok := c.(cursor.IntegerCursor)
 		if !ok {
-			respondWithError(w, http.StatusBadRequest, "cursor kind not supported by this store")
+			respondWithError(w, r, http.StatusBadRequest, "cursor kind not supported by this store", h.options)
 			return
 		}
 		since = cursor.IntegerCursor{Seq: ic.Seq}
@@ -48,7 +48,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	// Load events since
 	events, err := h.store.Load(r.Context(), since)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "could not load events")
+		respondWithError(w, r, http.StatusInternalServerError, "could not load events", h.options)
 		return
 	}
 
@@ -79,8 +79,8 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 		nextWire = nextCursor
 	}
 
-	respondWithJSON(w, http.StatusOK, PullCursorResponse{
+	respondWithJSON(w, r, http.StatusOK, PullCursorResponse{
 		Events: jsonEvents,
 		Next:   nextWire,
-	})
+	}, h.options)
 }

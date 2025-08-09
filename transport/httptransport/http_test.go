@@ -1,12 +1,9 @@
 package httptransport
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -53,7 +50,18 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	m.events = append(m.events, synckit.EventWithVersion{Event: event, Version: version})
+	// Mock server-side version assignment
+	var seq uint64 = 1
+	if len(m.events) > 0 {
+		if lastVersion, ok := m.events[len(m.events)-1].Version.(cursor.IntegerCursor); ok {
+			seq = lastVersion.Seq + 1
+		}
+	}
+
+	m.events = append(m.events, synckit.EventWithVersion{
+		Event:   event,
+		Version: cursor.IntegerCursor{Seq: seq},
+	})
 	return nil
 }
 
@@ -113,7 +121,7 @@ func setupTestStore(t *testing.T) (*MockEventStore, func()) {
 
 func TestHTTPTransport_NewTransport(t *testing.T) {
 // Test with default client
-	transport := NewTransport("http://example.com", nil, nil)
+transport := NewTransport("http://example.com", http.DefaultClient, nil, DefaultClientOptions())
 	if transport.client != http.DefaultClient {
 		t.Error("Expected default client when nil is provided")
 	}
@@ -123,14 +131,14 @@ func TestHTTPTransport_NewTransport(t *testing.T) {
 
 	// Test with custom client
 customClient := &http.Client{Timeout: 5 * time.Second}
-	transport = NewTransport("http://custom.com", customClient, nil)
+transport = NewTransport("http://custom.com", customClient, nil, DefaultClientOptions())
 	if transport.client != customClient {
 		t.Error("Expected custom client to be used")
 	}
 }
 
 func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
-	transport := NewTransport("http://example.com", nil, nil)
+transport := NewTransport("http://example.com", http.DefaultClient, nil, DefaultClientOptions())
 	
 	ctx := context.Background()
 	err := transport.Push(ctx, []synckit.EventWithVersion{})
@@ -188,6 +196,7 @@ func TestHTTPTransport_Compression(t *testing.T) {
 				AggregateIDValue: "agg1",
 				DataValue:        longString,
 			},
+			Version: cursor.IntegerCursor{Seq: 1},
 		},
 	}
 
@@ -210,7 +219,7 @@ func TestHTTPTransport_Compression(t *testing.T) {
 	// Create client with compression enabled
 	transport := NewTransport(s.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
 
-	// Store events first
+// Store events first
 	err := transport.Push(context.Background(), events)
 	require.NoError(t, err)
 
@@ -220,7 +229,14 @@ func TestHTTPTransport_Compression(t *testing.T) {
 	// Should succeed and get the same data back
 	require.NoError(t, err)
 	assert.Equal(t, len(events), len(fetched))
-	assert.Equal(t, events[0].Event.(*SimpleEvent).DataValue, fetched[0].Event.(*SimpleEvent).DataValue)
+	// Compare only the event data, not version since server assigns its own
+	fetchedEvent, ok := fetched[0].Event.(*SimpleEvent)
+	require.True(t, ok, "Expected fetched event to be *SimpleEvent")
+	originalEvent := events[0].Event.(*SimpleEvent)
+	assert.Equal(t, originalEvent.DataValue, fetchedEvent.DataValue)
+	assert.Equal(t, originalEvent.IDValue, fetchedEvent.IDValue)
+	assert.Equal(t, originalEvent.TypeValue, fetchedEvent.TypeValue)
+	assert.Equal(t, originalEvent.AggregateIDValue, fetchedEvent.AggregateIDValue)
 }
 
 func testHelperRespondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
@@ -262,7 +278,7 @@ func TestHTTPTransport_Push(t *testing.T) {
 	}))
 	defer server.Close()
 
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -292,7 +308,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -360,7 +376,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	
 	ctx := context.Background()
 	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
@@ -375,7 +391,7 @@ transport := NewTransport(server.URL, nil, nil)
 }
 
 func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
-	transport := NewTransport("http://example.com", nil, nil)
+transport := NewTransport("http://example.com", http.DefaultClient, nil, DefaultClientOptions())
 	
 	ctx := context.Background()
 	err := transport.Subscribe(ctx, func([]synckit.EventWithVersion) error { return nil })
@@ -389,7 +405,7 @@ func TestHTTPTransport_Subscribe_NotImplemented(t *testing.T) {
 }
 
 func TestHTTPTransport_Close(t *testing.T) {
-	transport := NewTransport("http://example.com", nil, nil)
+transport := NewTransport("http://example.com", http.DefaultClient, nil, DefaultClientOptions())
 	
 	err := transport.Close()
 	
@@ -405,7 +421,7 @@ func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	
 	// Test with default parser
-	handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
@@ -444,7 +460,7 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	}
 
 	// Test with custom parser
-	handler := NewSyncHandler(store, logger, customParser)
+handler := NewSyncHandler(store, logger, customParser, DefaultServerOptions())
 
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
@@ -473,7 +489,7 @@ func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	
 	req := httptest.NewRequest(http.MethodGet, "/push", nil)
 	w := httptest.NewRecorder()
@@ -491,8 +507,7 @@ func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
-	
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -520,7 +535,7 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
 	w := httptest.NewRecorder()
@@ -547,7 +562,7 @@ func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	
 	req := httptest.NewRequest(http.MethodPost, "/pull", nil)
 	w := httptest.NewRecorder()
@@ -579,7 +594,7 @@ func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
 	}
 
 	// Create handler with custom parser
-	handler := NewSyncHandler(store, logger, customParser)
+handler := NewSyncHandler(store, logger, customParser, DefaultServerOptions())
 
 	// Test valid version format
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=v1", nil)
@@ -615,7 +630,7 @@ func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
 	w := httptest.NewRecorder()
@@ -633,7 +648,7 @@ func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	
 	// Test /push route
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
@@ -668,12 +683,12 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	
 	logger := log.New(os.Stdout, "[E2E] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := NewSyncHandler(store, logger, nil)
+handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	
 	// Set up the client
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	
 	// Create test events
 	events := []synckit.EventWithVersion{
@@ -732,7 +747,7 @@ func BenchmarkHTTPTransport_Push(b *testing.B) {
 	}))
 	defer server.Close()
 	
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	
 	events := []synckit.EventWithVersion{
 		{
@@ -779,7 +794,7 @@ events := []synckit.EventWithVersion{
 	}))
 	defer server.Close()
 	
-transport := NewTransport(server.URL, nil, nil)
+transport := NewTransport(server.URL, http.DefaultClient, nil, DefaultClientOptions())
 	ctx := context.Background()
 	
 	b.ResetTimer()
