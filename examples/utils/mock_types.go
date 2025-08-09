@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
+"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MockEvent implements the Event interface for testing
@@ -41,7 +41,7 @@ func NewMockVersion(t time.Time) *MockVersion {
 	return &MockVersion{timestamp: t}
 }
 
-func (v *MockVersion) Compare(other sync_pkg.Version) int {
+func (v *MockVersion) Compare(other synckit.Version) int {
 	if other == nil {
 		return 1 // non-nil is greater than nil
 	}
