@@ -14,6 +14,13 @@ func WithMaxRequestSize(size int64) ServerOption {
     }
 }
 
+// WithMaxDecompressedSize sets the maximum allowed size of decompressed request bodies
+func WithMaxDecompressedSize(size int64) ServerOption {
+    return func(opts *ServerOptions) {
+        opts.MaxDecompressedSize = size
+    }
+}
+
 // WithCompression enables or disables response compression
 func WithCompression(enabled bool) ServerOption {
     return func(opts *ServerOptions) {
@@ -56,6 +63,13 @@ func WithClientCompression(enabled bool) ClientOption {
 func WithMaxResponseSize(size int64) ClientOption {
     return func(opts *ClientOptions) {
         opts.MaxResponseSize = size
+    }
+}
+
+// WithMaxDecompressedResponseSize sets the maximum allowed size of decompressed response bodies
+func WithMaxDecompressedResponseSize(size int64) ClientOption {
+    return func(opts *ClientOptions) {
+        opts.MaxDecompressedResponseSize = size
     }
 }
 

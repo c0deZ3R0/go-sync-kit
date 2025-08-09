@@ -3,9 +3,54 @@ package httptransport
 import (
 	"compress/gzip"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 )
+
+// validateContentType validates that the request Content-Type is appropriate for JSON endpoints
+// Returns true if valid, false if invalid (and writes appropriate error response)
+func validateContentType(w http.ResponseWriter, r *http.Request, options *ServerOptions) bool {
+	// Only validate Content-Type for requests with a body (POST, PUT, PATCH)
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodDelete {
+		return true
+	}
+
+	// Get Content-Type header
+	contentType := r.Header.Get("Content-Type")
+	
+	// If no Content-Type is provided, we'll be lenient and allow it
+	// (some clients might not set it)
+	if contentType == "" {
+		return true
+	}
+	
+	// Check if Content-Type starts with "application/json"
+	// This allows for charset parameters like "application/json; charset=utf-8"
+	if !strings.HasPrefix(contentType, "application/json") {
+		respondWithError(w, r, http.StatusUnsupportedMediaType, "unsupported media type", options)
+		return false
+	}
+	
+	return true
+}
+
+// negotiateCompression determines if compression should be used based on client capabilities
+func negotiateCompression(r *http.Request, options *ServerOptions, responseSize int) bool {
+	if options == nil || !options.CompressionEnabled {
+		return false
+	}
+	
+	// Only compress responses above the threshold
+	if responseSize < int(options.CompressionThreshold) {
+		return false
+	}
+	
+	// Check if client accepts gzip compression
+	acceptEncoding := r.Header.Get("Accept-Encoding")
+	return strings.Contains(strings.ToLower(acceptEncoding), "gzip")
+}
 
 // respondWithJSON responds to an HTTP request with a JSON payload
 func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}, options *ServerOptions) {
@@ -15,16 +60,8 @@ func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload i
 		return
 	}
 
-	// Check if compression should be used
-	useCompression := false
-	if options != nil && options.CompressionEnabled && 
-	   len(response) >= int(options.CompressionThreshold) {
-		// Check if client accepts gzip
-		acceptEncoding := r.Header.Get("Accept-Encoding")
-		if strings.Contains(acceptEncoding, "gzip") {
-			useCompression = true
-		}
-	}
+	// Use the helper function to determine if compression should be used
+	useCompression := negotiateCompression(r, options, len(response))
 
 	w.Header().Set("Content-Type", "application/json")
 	
@@ -45,3 +82,63 @@ func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload i
 func respondWithError(w http.ResponseWriter, r *http.Request, code int, message string, options *ServerOptions) {
 	respondWithJSON(w, r, code, map[string]string{"error": message}, options)
 }
+
+func newMaxDecompressedReader(r io.Reader, limit int64) io.Reader {
+	return &maxDecompressedReader{reader: r, limit: limit}
+}
+
+// errResponseDecompressedTooLarge is returned when decompressed response body exceeds the limit
+var errResponseDecompressedTooLarge = errors.New("response decompressed body exceeds limit")
+
+// createSafeResponseReader wraps resp.Body first with a compressed size limit,
+// then conditionally a gzip.Reader and a max-decompressed limiter.
+// Returns the reader and a cleanup func to close any internal readers.
+func createSafeResponseReader(resp *http.Response, opts *ClientOptions) (io.Reader, func(), error) {
+	cleanup := func() { _ = resp.Body.Close() }
+
+	// Enforce compressed (on-the-wire) limit
+	limited := io.LimitReader(resp.Body, opts.MaxResponseSize)
+	var r io.Reader = limited
+
+	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
+		gz, err := gzip.NewReader(limited)
+		if err != nil {
+			cleanup()
+			return nil, nil, err
+		}
+		// Ensure both readers get closed
+		oldCleanup := cleanup
+		cleanup = func() {
+			_ = gz.Close()
+			oldCleanup()
+		}
+		// Enforce decompressed limit with a separate sentinel error for responses
+		r = &maxResponseDecompressedReader{r: gz, n: opts.MaxDecompressedResponseSize}
+	}
+
+	return r, cleanup, nil
+}
+
+// maxResponseDecompressedReader wraps an io.Reader and returns errResponseDecompressedTooLarge
+// when the number of bytes read exceeds the specified limit
+type maxResponseDecompressedReader struct {
+	r io.Reader
+	n int64
+}
+
+func (m *maxResponseDecompressedReader) Read(p []byte) (int, error) {
+	if m.n <= 0 {
+		return 0, errResponseDecompressedTooLarge
+	}
+	if int64(len(p)) > m.n {
+		p = p[:m.n]
+	}
+	n, err := m.r.Read(p)
+	m.n -= int64(n)
+	if m.n <= 0 && err == nil {
+		// Next Read will return errResponseDecompressedTooLarge; this read succeeds.
+		// Do not spuriously fail a successful read.
+	}
+	return n, err
+}
+

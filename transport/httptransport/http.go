@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -61,6 +62,15 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 }
 
 // Push sends a batch of events to the remote server via an HTTP POST request.
+//
+// Note: If CompressionEnabled is true in ClientOptions, the client will compress JSON request bodies over 1KB
+// using gzip and set the "Content-Encoding: gzip" header. It also sets "Accept-Encoding" header to
+// indicate support for gzip and deflate compressed responses.
+//
+// The server is responsible for decompressing gzip-compressed requests and compressing responses if requested.
+//
+// This explicit behavior is needed because Go's default http.Client automatically decompresses gzip responses.
+// Our client disables that implicit decompression by managing compression explicitly for more control and security.
 func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVersion) error {
 	if len(events) == 0 {
 		return nil // Nothing to push
@@ -76,14 +86,38 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/push", bytes.NewBuffer(data))
+	// Prepare the request body (with optional compression)
+	var requestBody io.Reader = bytes.NewBuffer(data)
+	contentEncoding := ""
+	
+	// Compress request body if enabled and data is large enough
+	if t.options.CompressionEnabled && len(data) >= 1024 { // 1KB threshold for request compression
+		var compressed bytes.Buffer
+		gzipWriter := gzip.NewWriter(&compressed)
+		if _, err := gzipWriter.Write(data); err != nil {
+			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to compress request: %w", err))
+		}
+		if err := gzipWriter.Close(); err != nil {
+			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to close gzip writer: %w", err))
+		}
+		requestBody = &compressed
+		contentEncoding = "gzip"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/push", requestBody)
 	if err != nil {
 		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
+	
+	// Set standard headers
 	req.Header.Set("Content-Type", "application/json")
 	
-	// Add compression headers if enabled
+	// Set compression headers
+	if contentEncoding != "" {
+		req.Header.Set("Content-Encoding", contentEncoding)
+	}
 	if t.options.CompressionEnabled {
+		// Accept compressed responses
 		req.Header.Set("Accept-Encoding", "gzip, deflate")
 	}
 
@@ -108,6 +142,11 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
 	}
+	
+	// Set Accept-Encoding header if compression is enabled
+	if t.options.CompressionEnabled {
+		req.Header.Set("Accept-Encoding", "gzip, deflate")
+	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
@@ -120,19 +159,19 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
-	// Handle compressed response if enabled
-	var reader io.Reader = resp.Body
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		gzReader, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create gzip reader: %w", err))
-		}
-		defer gzReader.Close()
-		reader = gzReader
+	// Handle compressed response and enforce size limits
+	reader, cleanup, err := createSafeResponseReader(resp, t.options)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
 	}
+	defer cleanup()
 
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(reader).Decode(&jsonEvents); err != nil {
+		// Check if this is a size limit violation
+		if errors.Is(err, errResponseDecompressedTooLarge) {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+		}
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
 	}
 
@@ -180,8 +219,19 @@ func (t *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
 	}
 
+	// Handle compressed response and enforce size limits
+	reader, cleanup, err := createSafeResponseReader(resp, t.options)
+	if err != nil {
+		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
+	}
+	defer cleanup()
+
 	var versionStr string
-	if err := json.NewDecoder(resp.Body).Decode(&versionStr); err != nil {
+	if err := json.NewDecoder(reader).Decode(&versionStr); err != nil {
+		// Check if this is a size limit violation
+		if errors.Is(err, errResponseDecompressedTooLarge) {
+			return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+		}
 		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
 	}
 
@@ -265,13 +315,48 @@ func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePush"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindMethodNotAllowed,
+			"method not allowed",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	// Validate Content-Type for JSON endpoints
+	if !validateContentType(w, r, h.options) {
+		return // validateContentType already sent the response
+	}
+
+	// Check Content-Length if available
+	if r.ContentLength > h.options.MaxRequestSize {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePush"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindTooLarge,
+			fmt.Errorf("request body too large: %d bytes exceeds maximum of %d bytes", r.ContentLength, h.options.MaxRequestSize),
+		)
+		h.logger.Printf("error: %v", e)
+		h.respondErr(w, r, http.StatusRequestEntityTooLarge, 
+			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize))
 		return
 	}
 
 	// Create safe reader that handles both compressed and decompressed size limits
 	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
 	if err != nil {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePush"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindInvalid,
+			err,
+			"create safe request reader",
+		)
+		h.logger.Printf("error: %v", e)
+		// Use mapped error handling for consistent HTTP status codes
 		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
 	}
@@ -280,9 +365,26 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
 		if err == io.EOF {
+			e := syncErrors.E(
+				syncErrors.Op("httptransport.handlePush"),
+				syncErrors.Component("httptransport"),
+				syncErrors.KindInvalid,
+				err,
+				"empty request body",
+			)
+			h.logger.Printf("error: %v", e)
 			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
+		// Log the error with structured logging
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePush"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindInvalid,
+			err,
+			"decode request",
+		)
+		h.logger.Printf("error: %v", e)
 		// Use mapped error handling for consistent HTTP status codes
 		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
@@ -291,7 +393,14 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	for _, jev := range jsonEvents {
 		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
-			h.logger.Printf("Failed to convert JSONEventWithVersion: %v", err)
+			e := syncErrors.E(
+				syncErrors.Op("httptransport.handlePush"),
+				syncErrors.Component("httptransport"),
+				syncErrors.KindInvalid,
+				err,
+				"convert JSON event",
+			)
+			h.logger.Printf("error: %v", e)
 			continue
 		}
 		// Note: The server-side store will assign its own version upon insertion.
@@ -301,7 +410,14 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			// This could be a unique constraint violation if the event already exists,
 			// which is often okay during sync. We log it but don't fail the whole batch.
 			// For other errors, we should fail.
-			h.logger.Printf("Failed to store event %s: %v", ev.Event.ID(), err)
+			e := syncErrors.E(
+				syncErrors.Op("httptransport.handlePush"),
+				syncErrors.Component("httptransport"),
+				syncErrors.KindInternal,
+				err,
+				fmt.Sprintf("store event %s", ev.Event.ID()),
+			)
+			h.logger.Printf("error: %v", e)
 			// In a real app, you might check for specific errors here.
 		}
 	}
@@ -312,13 +428,27 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handleLatestVersion"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindMethodNotAllowed,
+			"method not allowed",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	version, err := h.store.LatestVersion(r.Context())
 	if err != nil {
-		h.logger.Printf("Error getting latest version: %v", err)
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handleLatestVersion"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindInternal,
+			err,
+			"get latest version",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusInternalServerError, "could not get latest version")
 		return
 	}
@@ -328,6 +458,13 @@ func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePull"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindMethodNotAllowed,
+			"method not allowed",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -341,13 +478,28 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 	// This decouples the transport from specific version implementations
 	version, err := h.versionParser(r.Context(), sinceStr)
 	if err != nil {
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePull"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindInvalid,
+			err,
+			"parse since version",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return
 	}
 
 	events, err := h.store.Load(r.Context(), version)
 	if err != nil {
-		h.logger.Printf("Error loading events from store: %v", err)
+		e := syncErrors.E(
+			syncErrors.Op("httptransport.handlePull"),
+			syncErrors.Component("httptransport"),
+			syncErrors.KindInternal,
+			err,
+			"load events from store",
+		)
+		h.logger.Printf("error: %v", e)
 		h.respondErr(w, r, http.StatusInternalServerError, "could not load events")
 		return
 	}

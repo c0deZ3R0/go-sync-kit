@@ -1,6 +1,8 @@
 package httptransport
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -57,11 +59,12 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 			seq = lastVersion.Seq + 1
 		}
 	}
-
+	
 	m.events = append(m.events, synckit.EventWithVersion{
 		Event:   event,
 		Version: cursor.IntegerCursor{Seq: seq},
 	})
+	
 	return nil
 }
 
@@ -113,6 +116,208 @@ func (m *MockEventStore) Close() error {
 	return nil
 }
 
+// Test Content-Type validation
+func TestSyncHandler_ContentTypeValidation(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+
+	t.Run("ValidContentType", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("ValidContentTypeWithCharset", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("NoContentType", func(t *testing.T) {
+		// Should be lenient and allow requests without Content-Type
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidContentType", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+		req.Header.Set("Content-Type", "text/plain")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+		assert.Contains(t, w.Body.String(), "unsupported media type")
+	})
+
+	t.Run("InvalidContentTypeXML", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
+		req.Header.Set("Content-Type", "application/xml")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+	})
+
+	t.Run("GetRequestIgnored", func(t *testing.T) {
+		// GET requests should not be validated for Content-Type
+		req := httptest.NewRequest(http.MethodGet, "/pull", nil)
+		req.Header.Set("Content-Type", "text/plain")
+		w := httptest.NewRecorder()
+
+		handler.handlePull(w, req)
+		assert.Equal(t, http.StatusOK, w.Code) // Should not return 415
+	})
+}
+
+// Test cursor API Content-Type validation
+func TestSyncHandler_CursorContentTypeValidation(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+
+	t.Run("CursorAPI_ValidContentType", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/pull-cursor", strings.NewReader(`{"limit": 100}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req, NewCursorOptions())
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("CursorAPI_InvalidContentType", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/pull-cursor", strings.NewReader(`{"limit": 100}`))
+		req.Header.Set("Content-Type", "text/plain")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req, NewCursorOptions())
+		assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+	})
+}
+
+// Test client-side compression
+func TestHTTPTransport_ClientCompression(t *testing.T) {
+	// Create a test server that inspects request headers and body
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check headers
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		assert.Equal(t, "gzip, deflate", r.Header.Get("Accept-Encoding"))
+		
+		// Check if request was compressed (the client will compress if the JSON is > 1KB)
+		contentEncoding := r.Header.Get("Content-Encoding")
+		if contentEncoding == "gzip" {
+			// Decompress and verify content
+			gzReader, err := gzip.NewReader(r.Body)
+			assert.NoError(t, err)
+			defer gzReader.Close()
+			
+			var events []JSONEventWithVersion
+			assert.NoError(t, json.NewDecoder(gzReader).Decode(&events))
+			assert.Greater(t, len(events), 0)
+		} else {
+			// Handle uncompressed request
+			var events []JSONEventWithVersion
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&events))
+			assert.Greater(t, len(events), 0)
+		}
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Test with compression enabled
+	transport := NewTransport(server.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+
+	t.Run("SmallRequest_NoCompression", func(t *testing.T) {
+		// Small payload should not be compressed
+		events := []synckit.EventWithVersion{
+			{
+				Event: &MockEvent{id: "small", eventType: "test", aggregateID: "agg1", data: "small"},
+				Version: cursor.IntegerCursor{Seq: 1},
+			},
+		}
+
+		err := transport.Push(context.Background(), events)
+		assert.NoError(t, err)
+	})
+
+	t.Run("LargeRequest_WithCompression", func(t *testing.T) {
+		// Large payload should be compressed
+		largeData := strings.Repeat("large data payload ", 100) // Make it big enough
+		events := []synckit.EventWithVersion{
+			{
+				Event: &MockEvent{id: "large", eventType: "test", aggregateID: "agg1", data: largeData},
+				Version: cursor.IntegerCursor{Seq: 1},
+			},
+		}
+
+		err := transport.Push(context.Background(), events)
+		assert.NoError(t, err)
+	})
+}
+
+// Test server-side compressed request handling
+func TestSyncHandler_CompressedRequests(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+
+	t.Run("GzipCompressedRequest", func(t *testing.T) {
+		events := []JSONEventWithVersion{
+			{
+				Event: JSONEvent{
+					ID:          "compressed-test",
+					Type:        "test",
+					AggregateID: "agg1",
+					Data:        "compressed test data",
+				},
+				Version: "1",
+			},
+		}
+
+		// Marshal and compress the data
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		var compressed bytes.Buffer
+		gzWriter := gzip.NewWriter(&compressed)
+		_, err = gzWriter.Write(data)
+		require.NoError(t, err)
+		gzWriter.Close()
+
+		// Create request with compressed body
+		req := httptest.NewRequest(http.MethodPost, "/push", &compressed)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidGzipRequest", func(t *testing.T) {
+		// Send invalid gzip data
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid gzip data"))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "invalid request body")
+	})
+}
+
+
 func setupTestStore(t *testing.T) (*MockEventStore, func()) {
 	store := NewMockEventStore()
 	cleanup := func() {}
@@ -150,40 +355,48 @@ func TestHTTPTransport_Push_EmptyEvents(t *testing.T) {
 
 func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
 	// Create a large event payload that exceeds the size limit
-	longString := strings.Repeat("x", 10*1024*1024+1) // 10MB + 1 byte
-	events := []synckit.EventWithVersion{
+	longString := strings.Repeat("x", 5*1024*1024) // 5MB
+	events := []JSONEventWithVersion{
 		{
-			Event: &MockEvent{
-				id:          "1",
-				eventType:   "test",
-				aggregateID: "agg1",
-				data:        longString,
+			Event: JSONEvent{
+				ID:          "1",
+				Type:        "test",
+				AggregateID: "agg1",
+				Data:        longString,
 			},
-			Version: cursor.IntegerCursor{Seq: 1},
+			Version: "1",
 		},
 	}
 
-	// Create server with default options (10MB limit)
+	// Marshal to get the actual size
+	data, err := json.Marshal(events)
+	require.NoError(t, err)
+	t.Logf("Request size: %d bytes", len(data))
+
+	// Create server with smaller limit (1MB)
 	handler := NewSyncHandler(
 		NewMockEventStore(),
 		log.New(os.Stderr, "[test] ", log.LstdFlags),
 		nil,
-		DefaultServerOptions(),
+		&ServerOptions{
+			MaxRequestSize:       1024 * 1024, // 1MB limit
+			MaxDecompressedSize:  2 * 1024 * 1024, // 2MB decompressed limit
+			CompressionEnabled:   false,
+			CompressionThreshold: 1024,
+		},
 	)
 
-	// Create test server
-	s := httptest.NewServer(handler)
-	defer s.Close()
+	// Test directly against handler to ensure size limit is enforced
+	req := httptest.NewRequest(http.MethodPost, "/push", bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = int64(len(data))
+	w := httptest.NewRecorder()
 
-	// Create client
-	transport := NewTransport(s.URL, nil, nil, DefaultClientOptions())
+	handler.handlePush(w, req)
 
-	// Try to push the large event
-	err := transport.Push(context.Background(), events)
-
-	// Should get a 413 Request Entity Too Large error
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "413")
+	// Should get 413 Request Entity Too Large
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	assert.Contains(t, w.Body.String(), "request body too large")
 }
 
 func TestHTTPTransport_Compression(t *testing.T) {
@@ -207,7 +420,8 @@ func TestHTTPTransport_Compression(t *testing.T) {
 		log.New(os.Stderr, "[test] ", log.LstdFlags),
 		nil,
 		&ServerOptions{
-			MaxRequestSize:       10 * 1024 * 1024,
+			MaxRequestSize:       10 * 1024 * 1024, // 10MB
+			MaxDecompressedSize:  20 * 1024 * 1024, // 20MB
 			CompressionEnabled:   true,
 			CompressionThreshold: 1024, // 1KB
 		},
@@ -217,8 +431,12 @@ func TestHTTPTransport_Compression(t *testing.T) {
 	s := httptest.NewServer(handler)
 	defer s.Close()
 
-	// Create client with compression enabled
-	transport := NewTransport(s.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+	// Create client with compression enabled and appropriate size limits
+	transport := NewTransport(s.URL, nil, nil, &ClientOptions{
+		CompressionEnabled: true,
+		MaxResponseSize: 10 * 1024 * 1024, // 10MB
+		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
+	})
 
 	// Store events first
 	err := transport.Push(context.Background(), events)
@@ -805,4 +1023,244 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 			b.Fatalf("Pull failed: %v", err)
 		}
 	}
+}
+
+// Test compression size limits
+func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+
+	// Create server with small limits for testing
+	opts := &ServerOptions{
+		MaxRequestSize:      1024,  // 1KB compressed limit
+		MaxDecompressedSize: 2048,  // 2KB decompressed limit
+		CompressionEnabled:  true,
+		CompressionThreshold: 100,
+	}
+	handler := NewSyncHandler(store, logger, nil, opts)
+
+	t.Run("CompressedSizeExceedsLimit", func(t *testing.T) {
+		// Let's create multiple large events that together exceed the compressed size limit
+		events := make([]JSONEventWithVersion, 50)
+		for i := 0; i < 50; i++ {
+			// Create somewhat random data for each event
+			eventData := fmt.Sprintf("Event_%d_with_random_data_%d", i, i*12345)
+			events[i] = JSONEventWithVersion{
+				Event: JSONEvent{
+					ID:          fmt.Sprintf("event-%d", i),
+					Type:        fmt.Sprintf("EventType%d", i%5),
+					AggregateID: fmt.Sprintf("aggregate-%d", i%10),
+					Data:        eventData + strings.Repeat(fmt.Sprintf("_%d", i), 50),
+					Metadata: map[string]interface{}{
+						"timestamp": fmt.Sprintf("2023-01-01T%02d:%02d:00Z", i%24, i%60),
+						"source":    fmt.Sprintf("service-%d", i%3),
+					},
+				},
+				Version: fmt.Sprintf("%d", i+1),
+			}
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size exceeds our limit
+		compressedSize := buf.Len()
+		t.Logf("Compressed size: %d bytes (should exceed %d)", compressedSize, opts.MaxRequestSize)
+		require.Greater(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should exceed limit")
+
+		// Make request with compressed data that exceeds limit
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		req.ContentLength = int64(buf.Len()) // Set the content length
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should get 413 Request Entity Too Large
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	})
+
+	t.Run("DecompressedSizeExceedsLimit", func(t *testing.T) {
+		// Create a payload that compresses well but exceeds decompressed limit
+		longString := strings.Repeat("a", 3000) // 3KB when decompressed, but compresses very well
+		events := []JSONEventWithVersion{
+			{
+				Event: JSONEvent{
+					ID:          "1",
+					Type:        "test",
+					AggregateID: "agg1",
+					Data:        longString,
+				},
+				Version: "1",
+			},
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data (should compress very well)
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size is under MaxRequestSize but decompressed exceeds MaxDecompressedSize
+		compressedSize := buf.Len()
+		t.Logf("Compressed size: %d bytes, Decompressed size: %d bytes", compressedSize, len(data))
+		require.Less(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should be under limit")
+		require.Greater(t, int64(len(data)), opts.MaxDecompressedSize, "Decompressed size should exceed limit")
+
+		// Make request
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should get 413 Request Entity Too Large for decompressed size limit exceeded
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	})
+
+	t.Run("ValidCompressedRequest", func(t *testing.T) {
+		// Create a small payload that fits within both limits
+		events := []JSONEventWithVersion{
+			{
+				Event: JSONEvent{
+					ID:          "1",
+					Type:        "test",
+					AggregateID: "agg1",
+					Data:        "small data",
+				},
+				Version: "1",
+			},
+		}
+
+		data, err := json.Marshal(events)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Make request
+		req := httptest.NewRequest(http.MethodPost, "/push", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should succeed
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidGzipPayload", func(t *testing.T) {
+		// Send invalid gzip data
+		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid gzip data"))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePush(w, req)
+
+		// Should get 400 Bad Request
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "invalid request body")
+	})
+}
+
+// Test cursor API size limits
+func TestSyncHandler_CursorAPICompressionSizeLimits(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+
+	// Create server with small limits for testing
+	opts := &ServerOptions{
+		MaxRequestSize:      1024,  // 1KB compressed limit
+		MaxDecompressedSize: 2048,  // 2KB decompressed limit
+		CompressionEnabled:  true,
+		CompressionThreshold: 100,
+	}
+	handler := NewSyncHandler(store, logger, nil, opts)
+
+	t.Run("CursorAPI_DecompressedSizeExceedsLimit", func(t *testing.T) {
+		// Create a payload that compresses well but exceeds decompressed limit
+		longString := strings.Repeat("a", 3000) // 3KB when decompressed, but compresses very well
+		// Use a simple request structure that will generate large JSON when marshaled
+		cursorRequest := map[string]interface{}{
+			"since": nil,
+			"limit": 100,
+			"large_data": longString,  // Add the large data field
+		}
+
+		data, err := json.Marshal(cursorRequest)
+		require.NoError(t, err)
+
+		// Compress the data (should compress very well)
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size is under MaxRequestSize but decompressed exceeds MaxDecompressedSize
+		compressedSize := buf.Len()
+		t.Logf("Cursor API - Compressed size: %d bytes, Decompressed size: %d bytes", compressedSize, len(data))
+		require.Less(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should be under limit")
+		require.Greater(t, int64(len(data)), opts.MaxDecompressedSize, "Decompressed size should exceed limit")
+
+		// Make request to cursor API endpoint
+		req := httptest.NewRequest(http.MethodPost, "/cursor/pull", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req, NewCursorOptions())
+
+		// Should get 413 Request Entity Too Large for decompressed size limit exceeded
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	})
+
+	t.Run("CursorAPI_ValidCompressedRequest", func(t *testing.T) {
+		// Create a small payload that fits within both limits
+		cursorRequest := map[string]interface{}{
+			"since": nil,
+			"limit": 100,
+			"small_data": "small data",
+		}
+
+		data, err := json.Marshal(cursorRequest)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Make request to cursor API endpoint
+		req := httptest.NewRequest(http.MethodPost, "/cursor/pull", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req, NewCursorOptions())
+
+		// Should succeed
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
 }
