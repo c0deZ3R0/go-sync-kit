@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -50,7 +51,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 	if r.ContentLength > options.MaxRequestSize {
 		respondWithError(w, r, http.StatusRequestEntityTooLarge, 
 			fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize), options.ServerOptions)
-		return
+	return
 	}
 
 	// Log request details if logger is available
@@ -61,23 +62,19 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 	// Create safe reader that handles both compressed and decompressed size limits
 	safeReader, cleanup, err := createSafeRequestReader(w, r, options.ServerOptions)
 	if err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "invalid request body", options.ServerOptions)
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
 		return
 	}
 	defer cleanup()
 
 	var req PullCursorRequest
 	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
-		if errors.Is(err, errDecompressedTooLarge) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", options.ServerOptions)
+		if err == io.EOF {
+			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", options.ServerOptions)
-			return
-		}
-		respondWithError(w, r, http.StatusBadRequest, "bad request", options.ServerOptions)
+		// Use mapped error handling for consistent HTTP status codes
+		respondWithMappedError(w, r, err, "invalid request body", options.ServerOptions)
 	return
 	}
 
