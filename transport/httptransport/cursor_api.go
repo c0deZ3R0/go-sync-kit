@@ -3,10 +3,8 @@ package httptransport
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 )
@@ -47,32 +45,27 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, o
 		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
 	}
 
-	// Check Content-Length if available
-	if r.ContentLength > 0 && r.ContentLength > options.MaxRequestSize {
-		log.Printf("Request too large, length: %d", r.ContentLength)
-		h.respondErr(w, r, http.StatusRequestEntityTooLarge,
-			fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize))
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
+	if err != nil {
+		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
 		return
 	}
-	if r.ContentLength < 0 {
-		h.respondErr(w, r, http.StatusBadRequest, "invalid Content-Length")
-		return
-	}
-
-	// Wrap body in a LimitReader to prevent memory exhaustion
-	r.Body = http.MaxBytesReader(w, r.Body, options.MaxRequestSize)
+	defer cleanup()
 
 	var req PullCursorRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var mbe *http.MaxBytesError
-		if errors.As(err, &mbe) || strings.Contains(err.Error(), "http: request body too large") {
-			h.respondErr(w, r, http.StatusRequestEntityTooLarge,
-				fmt.Sprintf("request body too large: maximum size is %d bytes", options.MaxRequestSize))
+	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
+		if errors.Is(err, errDecompressedTooLarge) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
 			return
 		}
-		// For other decode errors, treat as bad request
-		h.respondErr(w, r, http.StatusBadRequest, "bad request: "+err.Error())
-		return
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			return
+		}
+		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
+	return
 	}
 
 	// Integer mode first

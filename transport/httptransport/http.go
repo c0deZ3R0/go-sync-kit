@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -276,16 +277,30 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wrap body in a LimitReader to prevent memory exhaustion
-	limitedReader := io.LimitReader(r.Body, h.options.MaxRequestSize)
+	// Create safe reader that handles both compressed and decompressed size limits
+	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
+	if err != nil {
+		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
+		return
+	}
+	defer cleanup()
 
 	var jsonEvents []JSONEventWithVersion
-	if err := json.NewDecoder(limitedReader).Decode(&jsonEvents); err != nil {
+	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
+		if errors.Is(err, errDecompressedTooLarge) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			return
+		}
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			return
+		}
 		if err == io.EOF {
 			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
-		h.respondErr(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
+		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
 		return
 	}
 
