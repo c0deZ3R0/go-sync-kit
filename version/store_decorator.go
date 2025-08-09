@@ -5,6 +5,8 @@ import (
 	"fmt"
 	syncLib "sync"
 
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -12,15 +14,15 @@ import (
 // This allows different versioning strategies to be plugged in.
 type VersionManager interface {
 	// CurrentVersion returns the current version state
-	CurrentVersion() synckit.Version
+	CurrentVersion() interfaces.Version
 
 	// NextVersion generates the next version for a new event
 	// The nodeID parameter allows node-specific versioning (e.g., for vector clocks)
-	NextVersion(nodeID string) synckit.Version
+	NextVersion(nodeID string) interfaces.Version
 
 	// UpdateFromVersion updates the internal state based on an observed version
 	// This is used when loading events from the store or receiving from peers
-	UpdateFromVersion(version synckit.Version) error
+	UpdateFromVersion(version interfaces.Version) error
 
 	// Clone creates a copy of the version manager
 	Clone() VersionManager
@@ -40,7 +42,7 @@ func NewVectorClockManager() *VectorClockManager {
 }
 
 // NewVectorClockManagerFromVersion creates a vector clock manager from an existing version.
-func NewVectorClockManagerFromVersion(version synckit.Version) (*VectorClockManager, error) {
+func NewVectorClockManagerFromVersion(version interfaces.Version) (*VectorClockManager, error) {
 	if version == nil || version.IsZero() {
 		return NewVectorClockManager(), nil
 	}
@@ -56,14 +58,14 @@ func NewVectorClockManagerFromVersion(version synckit.Version) (*VectorClockMana
 }
 
 // CurrentVersion returns the current vector clock state.
-func (vm *VectorClockManager) CurrentVersion() synckit.Version {
+func (vm *VectorClockManager) CurrentVersion() interfaces.Version {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 	return vm.clock.Clone()
 }
 
 // NextVersion increments the clock for the given node and returns the new version.
-func (vm *VectorClockManager) NextVersion(nodeID string) synckit.Version {
+func (vm *VectorClockManager) NextVersion(nodeID string) interfaces.Version {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -75,7 +77,7 @@ func (vm *VectorClockManager) NextVersion(nodeID string) synckit.Version {
 }
 
 // UpdateFromVersion merges the observed version into the current state.
-func (vm *VectorClockManager) UpdateFromVersion(version synckit.Version) error {
+func (vm *VectorClockManager) UpdateFromVersion(version interfaces.Version) error {
 	if version == nil || version.IsZero() {
 		return nil
 	}
@@ -100,12 +102,39 @@ func (vm *VectorClockManager) Clone() VersionManager {
 	}
 }
 
+// Error types
+var (
+	ErrIncompatibleVersion = fmt.Errorf("incompatible version type")
+	ErrStoreClosed = fmt.Errorf("store is closed")
+)
+
 // VersionedStore is a decorator for an EventStore that manages versioning automatically.
 // It uses a pluggable VersionManager to handle different versioning strategies.
 type VersionedStore struct {
 	store          synckit.EventStore
 	nodeID         string
 	versionManager VersionManager
+	mu            syncLib.RWMutex
+	closed        bool
+}
+
+// cursorToVectorClock converts a cursor sequence to a vector clock
+func cursorToVectorClock(c cursor.IntegerCursor) *VectorClock {
+	vc := NewVectorClock()
+	vc.clocks["sequence"] = c.Seq
+	return vc
+}
+
+// vectorClockToCursor converts a vector clock to a cursor sequence
+// Uses the special "sequence" key for tracking the global sequence
+func vectorClockToCursor(vc *VectorClock) cursor.IntegerCursor {
+	if vc == nil {
+		return cursor.IntegerCursor{Seq: 0}
+	}
+	if seq, ok := vc.clocks["sequence"]; ok {
+		return cursor.IntegerCursor{Seq: seq}
+	}
+	return cursor.IntegerCursor{Seq: 0}
 }
 
 // NewVersionedStore creates a new versioned store decorator.
@@ -115,14 +144,25 @@ func NewVersionedStore(store synckit.EventStore, nodeID string, versionManager V
 		return nil, fmt.Errorf("version manager cannot be nil")
 	}
 
-	// On startup, get the latest version from the store and update the version manager
-	latestVersion, err := store.LatestVersion(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latest version from store: %w", err)
+	// Create versioned store first
+	vs := &VersionedStore{
+		store:          store,
+		nodeID:         nodeID,
+		versionManager: versionManager,
 	}
 
-	if err := versionManager.UpdateFromVersion(latestVersion); err != nil {
-		return nil, fmt.Errorf("failed to initialize version manager: %w", err)
+	// Now we use our store's LatestVersion method to get the latest version
+	latestVersion, err := vs.LatestVersion(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest version: %w", err)
+	}
+
+	// Convert cursor version to vector clock and initialize version manager
+	if cursorVersion, ok := latestVersion.(cursor.IntegerCursor); ok {
+		vcVersion := cursorToVectorClock(cursorVersion)
+		if err := versionManager.UpdateFromVersion(vcVersion); err != nil {
+			return nil, fmt.Errorf("failed to initialize version manager: %w", err)
+		}
 	}
 
 	return &VersionedStore{
@@ -133,33 +173,73 @@ func NewVersionedStore(store synckit.EventStore, nodeID string, versionManager V
 }
 
 // Store generates the next version and stores the event with that version.
-func (s *VersionedStore) Store(ctx context.Context, event synckit.Event, version synckit.Version) error {
-	// If no version is provided, generate the next version
-	if version == nil {
-		version = s.versionManager.NextVersion(s.nodeID)
-	} else {
-		// If a version is provided, update our version manager state
-		if err := s.versionManager.UpdateFromVersion(version); err != nil {
-			return fmt.Errorf("failed to update version manager: %w", err)
-		}
+func (s *VersionedStore) Store(ctx context.Context, event synckit.Event, version interfaces.Version) error {
+	// Get the next sequence number from store
+	latestVersion, err := s.store.LatestVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest version: %w", err)
 	}
 
-	return s.store.Store(ctx, event, version)
+	cursorVersion, ok := latestVersion.(cursor.IntegerCursor)
+	if !ok {
+		return fmt.Errorf("incompatible version type: %T", latestVersion)
+	}
+
+	// Increment cursor sequence
+	cursorVersion.Seq++
+
+	// Handle vector clock versioning
+	if ve, ok := event.(interface{ Version() *VectorClock; SetVersion(*VectorClock) }); ok {
+		// Initialize or update vector clock
+		vc := ve.Version()
+		if vc == nil {
+			vc = NewVectorClock()
+		}
+
+		// Set sequence number and increment node clock
+		vc.clocks["sequence"] = cursorVersion.Seq
+		vc.Increment(s.nodeID)
+		ve.SetVersion(vc)
+	}
+
+	// Store the event with cursor version
+	return s.store.Store(ctx, event, cursorVersion)
 }
 
 // Load passes through to the underlying store and updates version manager state.
 func (s *VersionedStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
-	events, err := s.store.Load(ctx, since)
+	// Never pass a nil version to the underlying store; use zero cursor instead
+	if since == nil {
+		since = cursor.IntegerCursor{Seq: 0}
+	}
+	Events, err := s.store.Load(ctx, since)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update version manager state from loaded events
-	for _, event := range events {
-		if updateErr := s.versionManager.UpdateFromVersion(event.Version); updateErr != nil {
-			// Log the error but don't fail the entire operation
-			// In production, you might want to use a proper logger here
-			fmt.Printf("Warning: failed to update version manager from loaded event: %v\n", updateErr)
+	// Alias to a local variable named events for the rest of the method
+	events := Events
+
+	// Update event versions with both cursor and vector clock
+	for _, ev := range events {
+		// Get cursor version
+		cursorVersion, ok := ev.Version.(cursor.IntegerCursor)
+		if !ok {
+			fmt.Printf("Warning: event has non-cursor version: %T\n", ev.Version)
+			continue
+		}
+
+		// Convert cursor to vector clock
+		vcVersion := cursorToVectorClock(cursorVersion)
+
+		// Set vector clock on event if it supports it
+		if ve, ok := ev.Event.(interface{ SetVersion(*VectorClock) }); ok {
+			ve.SetVersion(vcVersion)
+		}
+
+		// Update version manager
+		if err := s.versionManager.UpdateFromVersion(vcVersion); err != nil {
+			fmt.Printf("Warning: failed to update version manager: %v\n", err)
 		}
 	}
 
@@ -168,24 +248,61 @@ func (s *VersionedStore) Load(ctx context.Context, since synckit.Version) ([]syn
 
 // LoadByAggregate passes through to the underlying store and updates version manager state.
 func (s *VersionedStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+	// Never pass a nil version to the underlying store; use zero cursor instead
+	if since == nil {
+		since = cursor.IntegerCursor{Seq: 0}
+	}
 	events, err := s.store.LoadByAggregate(ctx, aggregateID, since)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update version manager state from loaded events
-	for _, event := range events {
-		if updateErr := s.versionManager.UpdateFromVersion(event.Version); updateErr != nil {
-			fmt.Printf("Warning: failed to update version manager from loaded event: %v\n", updateErr)
+	// Update event versions with both cursor and vector clock
+	for _, ev := range events {
+		// Get cursor version
+		cursorVersion, ok := ev.Version.(cursor.IntegerCursor)
+		if !ok {
+			fmt.Printf("Warning: event has non-cursor version: %T\n", ev.Version)
+			continue
+		}
+
+		// Convert cursor to vector clock
+		vcVersion := cursorToVectorClock(cursorVersion)
+
+		// Set vector clock on event if it supports it
+		if ve, ok := ev.Event.(interface{ SetVersion(*VectorClock) }); ok {
+			ve.SetVersion(vcVersion)
+		}
+
+		// Update version manager
+		if err := s.versionManager.UpdateFromVersion(vcVersion); err != nil {
+			fmt.Printf("Warning: failed to update version manager: %v\n", err)
 		}
 	}
 
 	return events, nil
 }
 
-// LatestVersion returns the current version from the version manager.
+// LatestVersion returns the highest version number in the store.
 func (s *VersionedStore) LatestVersion(ctx context.Context) (synckit.Version, error) {
-	return s.versionManager.CurrentVersion(), nil
+	s.mu.RLock()
+	if s.closed {
+		s.mu.RUnlock()
+		return nil, ErrStoreClosed
+	}
+	s.mu.RUnlock()
+
+	latestVersion, err := s.store.LatestVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cursorVersion, ok := latestVersion.(cursor.IntegerCursor)
+	if !ok {
+		return nil, ErrIncompatibleVersion
+	}
+
+	return cursorVersion, nil
 }
 
 // ParseVersion delegates to the underlying store.

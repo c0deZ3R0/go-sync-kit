@@ -31,7 +31,7 @@ import (
     "log"
     
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
-    "github.com/c0deZ3R0/go-sync-kit/sync"
+    "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 func main() {
@@ -44,11 +44,11 @@ func main() {
     
     // Use with SyncManager
     transport := &MyTransport{} // Your transport implementation
-    options := &sync.SyncOptions{
+    options := &synckit.SyncOptions{
         BatchSize: 100,
     }
     
-    syncManager := sync.NewSyncManager(store, transport, options)
+    syncManager := synckit.NewSyncManager(store, transport, options)
     
     // Perform sync operations
     ctx := context.Background()

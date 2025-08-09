@@ -9,22 +9,22 @@ import (
 	"time"
 
 "github.com/c0deZ3R0/go-sync-kit/cursor"
-	sync_pkg "github.com/c0deZ3R0/go-sync-kit/sync"
+"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MockTransport implements both Transport and CursorTransport interfaces
 type MockTransport struct {
 	mu     std_sync.RWMutex
-	events []sync_pkg.EventWithVersion
+	events []synckit.EventWithVersion
 }
 
-func NewMockTransport() sync_pkg.Transport {
+func NewMockTransport() synckit.Transport {
 	return &MockTransport{
-		events: make([]sync_pkg.EventWithVersion, 0),
+		events: make([]synckit.EventWithVersion, 0),
 	}
 }
 
-func (t *MockTransport) Push(ctx context.Context, events []sync_pkg.EventWithVersion) error {
+func (t *MockTransport) Push(ctx context.Context, events []synckit.EventWithVersion) error {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 		log.Printf("Mock transport: pushing %d events", len(events))
@@ -32,7 +32,7 @@ func (t *MockTransport) Push(ctx context.Context, events []sync_pkg.EventWithVer
 		return nil
 }
 
-func (t *MockTransport) Pull(ctx context.Context, since sync_pkg.Version) ([]sync_pkg.EventWithVersion, error) {
+func (t *MockTransport) Pull(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
@@ -40,7 +40,7 @@ func (t *MockTransport) Pull(ctx context.Context, since sync_pkg.Version) ([]syn
 		return t.events, nil
 	}
 
-var result []sync_pkg.EventWithVersion
+var result []synckit.EventWithVersion
 	for _, ev := range t.events {
 		if ev.Version.Compare(since) > 0 {
 			result = append(result, ev)
@@ -49,7 +49,7 @@ var result []sync_pkg.EventWithVersion
 	return result, nil
 }
 
-func (t *MockTransport) GetLatestVersion(ctx context.Context) (sync_pkg.Version, error) {
+func (t *MockTransport) GetLatestVersion(ctx context.Context) (synckit.Version, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
@@ -66,7 +66,7 @@ func (t *MockTransport) GetLatestVersion(ctx context.Context) (sync_pkg.Version,
 	return latest, nil
 }
 
-func (t *MockTransport) Subscribe(ctx context.Context, handler func([]sync_pkg.EventWithVersion) error) error {
+func (t *MockTransport) Subscribe(ctx context.Context, handler func([]synckit.EventWithVersion) error) error {
 	// In this mock, we'll just send updates every 5 seconds
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -98,7 +98,7 @@ func (t *MockTransport) Close() error {
 }
 
 // PullWithCursor implements cursor-based sync
-func (t *MockTransport) PullWithCursor(ctx context.Context, since cursor.Cursor, limit int) ([]sync_pkg.EventWithVersion, cursor.Cursor, error) {
+func (t *MockTransport) PullWithCursor(ctx context.Context, since cursor.Cursor, limit int) ([]synckit.EventWithVersion, cursor.Cursor, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 

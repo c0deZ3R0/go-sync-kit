@@ -3,6 +3,7 @@ package httptransport
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
@@ -18,10 +19,30 @@ type PullCursorResponse struct {
 	Next   *cursor.WireCursor     `json:"next,omitempty"`
 }
 
-func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
+// CursorOptions configures the cursor handler
+type CursorOptions struct {
+	*ServerOptions
+}
+
+// NewCursorOptions returns default cursor options
+func NewCursorOptions() *CursorOptions {
+	return &CursorOptions{
+		ServerOptions: DefaultServerOptions(),
+	}
+}
+
+// testLogger is used for debugging in tests
+var testLogger *log.Logger
+
+func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request, options *CursorOptions) {
 	if r.Method != http.MethodPost {
-		respondWithError(w, r, http.StatusMethodNotAllowed, "method not allowed", h.options)
+		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
+	}
+
+	// Log request details if logger is available
+	if testLogger != nil {
+		testLogger.Printf("Request ContentLength: %d, MaxRequestSize: %d", r.ContentLength, options.MaxRequestSize)
 	}
 
 	// Create safe reader that handles both compressed and decompressed size limits
@@ -44,7 +65,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
-		return
+	return
 	}
 
 	// Integer mode first
@@ -52,12 +73,12 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	if req.Since != nil {
 		c, err := cursor.UnmarshalWire(req.Since)
 		if err != nil {
-			respondWithError(w, r, http.StatusBadRequest, "bad cursor: "+err.Error(), h.options)
+			h.respondErr(w, r, http.StatusBadRequest, "bad cursor: "+err.Error())
 			return
 		}
 		ic, ok := c.(cursor.IntegerCursor)
 		if !ok {
-			respondWithError(w, r, http.StatusBadRequest, "cursor kind not supported by this store", h.options)
+			h.respondErr(w, r, http.StatusBadRequest, "cursor kind not supported by this store")
 			return
 		}
 		since = cursor.IntegerCursor{Seq: ic.Seq}
@@ -66,7 +87,7 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	// Load events since
 	events, err := h.store.Load(r.Context(), since)
 	if err != nil {
-		respondWithError(w, r, http.StatusInternalServerError, "could not load events", h.options)
+		h.respondErr(w, r, http.StatusInternalServerError, "could not load events")
 		return
 	}
 
@@ -100,5 +121,5 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, r, http.StatusOK, PullCursorResponse{
 		Events: jsonEvents,
 		Next:   nextWire,
-	}, h.options)
+	}, options.ServerOptions)
 }

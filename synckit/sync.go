@@ -6,6 +6,9 @@ package synckit
 import (
 	"context"
 	"time"
+
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 )
 
 // Event represents a syncable event in the system.
@@ -29,16 +32,7 @@ type Event interface {
 
 // Version represents a point-in-time snapshot for sync operations.
 // Users can implement different versioning strategies (timestamps, hashes, vector clocks).
-type Version interface {
-	// Compare returns -1 if this version is before other, 0 if equal, 1 if after
-	Compare(other Version) int
-
-	// String returns a string representation of the version
-	String() string
-
-	// IsZero returns true if this is the zero/initial version
-	IsZero() bool
-}
+type Version = interfaces.Version
 
 // EventStore provides persistence for events.
 // Implementations can use any storage backend (SQLite, BadgerDB, PostgreSQL, etc.).
@@ -96,6 +90,15 @@ type Transport interface {
 	Close() error
 }
 
+// CursorTransport extends Transport with cursor-based capabilities.
+type CursorTransport interface {
+	Transport
+
+	// PullWithCursor retrieves events using a cursor-based pagination strategy.
+	// Returns events, next cursor, and any error.
+	PullWithCursor(ctx context.Context, since cursor.Cursor, limit int) ([]EventWithVersion, cursor.Cursor, error)
+}
+
 // RetryConfig configures the retry behavior for sync operations
 type RetryConfig struct {
 	// MaxAttempts is the maximum number of retry attempts
@@ -113,6 +116,12 @@ type RetryConfig struct {
 
 // SyncOptions configures the synchronization behavior
 type SyncOptions struct {
+	// LastCursorLoader loads the last saved cursor for cursor-based syncs
+	LastCursorLoader func() cursor.Cursor
+
+	// CursorSaver saves the latest cursor after a successful sync
+	CursorSaver func(cursor.Cursor) error
+
 	// PushOnly indicates this client should only push events, not pull
 	PushOnly bool
 
