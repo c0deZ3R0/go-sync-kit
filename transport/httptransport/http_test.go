@@ -1273,7 +1273,7 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 
 		// Should return exactly 413, not 400 or other error codes
 		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code, "Should return exactly 413 for size overflow without gzip")
-		assert.Contains(t, w.Body.String(), "request entity too large")
+		assert.Contains(t, w.Body.String(), "http: request body too large")
 	})
 
 	t.Run("ValidSizedRequest_WithGzip_Returns200", func(t *testing.T) {
