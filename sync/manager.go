@@ -1,3 +1,4 @@
+// Deprecated: This package is deprecated. Use github.com/c0deZ3R0/go-sync-kit/synckit instead.
 package sync
 
 import (

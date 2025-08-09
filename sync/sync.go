@@ -1,6 +1,9 @@
 // Package sync provides a generic event-driven synchronization system
 // for distributed applications. It supports offline-first architectures
 // with conflict resolution and pluggable storage backends.
+//
+// Deprecated: This package is deprecated. Use github.com/c0deZ3R0/go-sync-kit/synckit instead.
+// The sync package will be removed in a future version.
 package sync
 
 import (
