@@ -218,8 +218,12 @@ func TestHTTPTransport_Compression(t *testing.T) {
 	s := httptest.NewServer(handler)
 	defer s.Close()
 
-	// Create client with compression enabled
-	transport := NewTransport(s.URL, nil, nil, &ClientOptions{CompressionEnabled: true})
+	// Create client with compression enabled and appropriate size limits
+	transport := NewTransport(s.URL, nil, nil, &ClientOptions{
+		CompressionEnabled: true,
+		MaxResponseSize: 10 * 1024 * 1024, // 10MB
+		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
+	})
 
 // Store events first
 	err := transport.Push(context.Background(), events)
