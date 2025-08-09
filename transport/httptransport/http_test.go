@@ -910,9 +910,8 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 
 		handler.handlePush(w, req)
 
-		// Should succeed because our implementation should handle this properly
-		// The LimitReader will stop reading at MaxDecompressedSize
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		// Should get 413 Request Entity Too Large for decompressed size limit exceeded
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 	})
 
 	t.Run("ValidCompressedRequest", func(t *testing.T) {
@@ -962,6 +961,89 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 
 		// Should get 400 Bad Request
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Contains(t, w.Body.String(), "invalid gzip payload")
+		assert.Contains(t, w.Body.String(), "invalid request body")
+	})
+}
+
+// Test cursor API size limits
+func TestSyncHandler_CursorAPICompressionSizeLimits(t *testing.T) {
+	store := NewMockEventStore()
+	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
+
+	// Create server with small limits for testing
+	opts := &ServerOptions{
+		MaxRequestSize:      1024,  // 1KB compressed limit
+		MaxDecompressedSize: 2048,  // 2KB decompressed limit
+		CompressionEnabled:  true,
+		CompressionThreshold: 100,
+	}
+	handler := NewSyncHandler(store, logger, nil, opts)
+
+	t.Run("CursorAPI_DecompressedSizeExceedsLimit", func(t *testing.T) {
+		// Create a payload that compresses well but exceeds decompressed limit
+		longString := strings.Repeat("a", 3000) // 3KB when decompressed, but compresses very well
+		// Use a simple request structure that will generate large JSON when marshaled
+		cursorRequest := map[string]interface{}{
+			"since": nil,
+			"limit": 100,
+			"large_data": longString,  // Add the large data field
+		}
+
+		data, err := json.Marshal(cursorRequest)
+		require.NoError(t, err)
+
+		// Compress the data (should compress very well)
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Verify compressed size is under MaxRequestSize but decompressed exceeds MaxDecompressedSize
+		compressedSize := buf.Len()
+		t.Logf("Cursor API - Compressed size: %d bytes, Decompressed size: %d bytes", compressedSize, len(data))
+		require.Less(t, int64(compressedSize), opts.MaxRequestSize, "Compressed size should be under limit")
+		require.Greater(t, int64(len(data)), opts.MaxDecompressedSize, "Decompressed size should exceed limit")
+
+		// Make request to cursor API endpoint
+		req := httptest.NewRequest(http.MethodPost, "/cursor/pull", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req)
+
+		// Should get 413 Request Entity Too Large for decompressed size limit exceeded
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	})
+
+	t.Run("CursorAPI_ValidCompressedRequest", func(t *testing.T) {
+		// Create a small payload that fits within both limits
+		cursorRequest := map[string]interface{}{
+			"since": nil,
+			"limit": 100,
+			"small_data": "small data",
+		}
+
+		data, err := json.Marshal(cursorRequest)
+		require.NoError(t, err)
+
+		// Compress the data
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err = gz.Write(data)
+		require.NoError(t, err)
+		gz.Close()
+
+		// Make request to cursor API endpoint
+		req := httptest.NewRequest(http.MethodPost, "/cursor/pull", &buf)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		w := httptest.NewRecorder()
+
+		handler.handlePullCursor(w, req)
+
+		// Should succeed
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }

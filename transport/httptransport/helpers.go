@@ -3,6 +3,7 @@ package httptransport
 import (
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -47,23 +48,64 @@ func respondWithError(w http.ResponseWriter, r *http.Request, code int, message 
 	respondWithJSON(w, r, code, map[string]string{"error": message}, options)
 }
 
-// createSafeRequestReader creates a safe reader for request bodies that enforces both
-// compressed and decompressed size limits to prevent zip-bomb attacks
-func createSafeRequestReader(w http.ResponseWriter, r *http.Request, opts *ServerOptions) (io.Reader, error) {
-	// Always enforce compressed/on-the-wire limit
-	rawLimited := http.MaxBytesReader(w, r.Body, opts.MaxRequestSize)
+// errDecompressedTooLarge is returned when decompressed body exceeds the limit
+var errDecompressedTooLarge = errors.New("decompressed body exceeds limit")
 
-	var reader io.Reader = rawLimited
-	isGzip := strings.EqualFold(r.Header.Get("Content-Encoding"), "gzip")
-	if isGzip {
-		gz, err := gzip.NewReader(rawLimited)
+// maxDecompressedReader wraps an io.Reader and returns errDecompressedTooLarge
+// when the number of bytes read exceeds the specified limit
+type maxDecompressedReader struct {
+	r io.Reader
+	n int64
+}
+
+func (m *maxDecompressedReader) Read(p []byte) (int, error) {
+	if m.n <= 0 {
+		return 0, errDecompressedTooLarge
+	}
+	if int64(len(p)) > m.n {
+		p = p[:m.n]
+	}
+	n, err := m.r.Read(p)
+	m.n -= int64(n)
+	if m.n <= 0 && err == nil {
+		// Next Read will return errDecompressedTooLarge; this read succeeds.
+		// Do not spuriously fail a successful read.
+	}
+	return n, err
+}
+
+func newMaxDecompressedReader(r io.Reader, limit int64) io.Reader {
+	return &maxDecompressedReader{r: r, n: limit}
+}
+
+// createSafeRequestReader wraps r.Body first with MaxBytesReader (compressed limit),
+// then conditionally a gzip.Reader and a max-decompressed limiter.
+// Returns the reader and a cleanup func to close any internal readers.
+func createSafeRequestReader(
+	w http.ResponseWriter,
+	r *http.Request,
+	opts *ServerOptions,
+) (io.Reader, func(), error) {
+	// Enforce compressed (on-the-wire) limit
+	limited := http.MaxBytesReader(w, r.Body, opts.MaxRequestSize)
+	cleanup := func() { _ = limited.Close() }
+
+	enc := r.Header.Get("Content-Encoding")
+	if strings.EqualFold(enc, "gzip") {
+		gz, err := gzip.NewReader(limited)
 		if err != nil {
-			return nil, err
+			cleanup()
+			return nil, nil, err
 		}
-		// Note: gzip.Reader will be closed when the response writer is closed
-		// Enforce decompressed limit to mitigate zip-bombs
-		reader = io.LimitReader(gz, opts.MaxDecompressedSize)
+		// Ensure both readers get closed
+		oldCleanup := cleanup
+		cleanup = func() {
+			_ = gz.Close()
+			oldCleanup()
+		}
+		// Enforce decompressed limit
+		return newMaxDecompressedReader(gz, opts.MaxDecompressedSize), cleanup, nil
 	}
 
-	return reader, nil
+	return limited, cleanup, nil
 }

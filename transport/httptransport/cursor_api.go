@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
@@ -24,15 +25,25 @@ func (h *SyncHandler) handlePullCursor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create safe reader that handles both compressed and decompressed size limits
-	safeReader, err := createSafeRequestReader(w, r, h.options)
+	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
 	if err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "invalid gzip payload", h.options)
+		respondWithError(w, r, http.StatusBadRequest, "invalid request body", h.options)
 		return
 	}
+	defer cleanup()
 
 	var req PullCursorRequest
 	if err := json.NewDecoder(safeReader).Decode(&req); err != nil {
-		respondWithError(w, r, http.StatusBadRequest, "bad request: "+err.Error(), h.options)
+		if errors.Is(err, errDecompressedTooLarge) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			return
+		}
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			respondWithError(w, r, http.StatusRequestEntityTooLarge, "request entity too large", h.options)
+			return
+		}
+		respondWithError(w, r, http.StatusBadRequest, "bad request", h.options)
 		return
 	}
 
