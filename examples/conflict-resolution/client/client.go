@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
@@ -302,7 +304,7 @@ func New(config Config) (*Client, error) {
 	}
 
 	// Create sync manager
-	manager := synckit.NewSyncManager(store, transport, opts)
+	manager := synckit.NewSyncManager(store, transport, opts, logging.Default().Logger)
 
 	// Create client
 	client := &Client{

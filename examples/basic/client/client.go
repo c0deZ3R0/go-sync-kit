@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/examples/basic/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
@@ -52,7 +53,7 @@ func RunClient(ctx context.Context) error {
 	}
 
 	// Create sync manager
-	syncManager := synckit.NewSyncManager(clientStore, clientTransport, syncOptions)
+	syncManager := synckit.NewSyncManager(clientStore, clientTransport, syncOptions, logging.Default().Logger)
 
 	// Subscribe to sync events
 	syncManager.Subscribe(func(result *synckit.SyncResult) {

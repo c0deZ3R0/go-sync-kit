@@ -5,6 +5,7 @@ package synckit
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
@@ -209,7 +210,7 @@ type SyncResult struct {
 }
 
 // NewSyncManager creates a new sync manager with the provided components
-func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions) SyncManager {
+func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, logger *slog.Logger) SyncManager {
 	if opts == nil {
 		opts = &SyncOptions{
 			BatchSize: 100,
@@ -232,5 +233,6 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions) Sy
 		store:     store,
 		transport: transport,
 		options:   *opts,
+		logger:    logger,
 	}
 }

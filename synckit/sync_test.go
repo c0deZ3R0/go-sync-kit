@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
 type mockEventWithDetails struct {
@@ -51,7 +53,7 @@ func TestSyncManager_Push_GetLatestVersion(t *testing.T) {
 	transport := &TestTransport{}
 
 	// Create sync manager
-	sm := NewSyncManager(store, transport, &SyncOptions{})
+	sm := NewSyncManager(store, transport, &SyncOptions{}, logging.Default().Logger)
 
 	ctx := context.Background()
 
@@ -97,7 +99,7 @@ func TestSyncManager_Sync(t *testing.T) {
 
 	sm := NewSyncManager(store, transport, &SyncOptions{
 		ConflictResolver: resolver,
-	})
+	}, logging.Default().Logger)
 
 	ctx := context.Background()
 
