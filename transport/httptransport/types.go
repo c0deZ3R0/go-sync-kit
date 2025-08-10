@@ -34,6 +34,10 @@ type ServerOptions struct {
 	// ShutdownTimeout is the maximum duration to wait for in-flight requests during shutdown
 	// If 0, defaults to 10 seconds
 	ShutdownTimeout time.Duration
+
+	// CodecAwareEncoder enables codec-based event data encoding/decoding
+	// If nil, falls back to standard JSON encoding
+	CodecAwareEncoder *CodecAwareEncoder
 }
 
 // DefaultServerOptions returns the default server options with validated settings.
@@ -147,6 +151,10 @@ type ClientOptions struct {
 	// RetryWaitMax is the maximum time to wait between retries
 	// If 0, defaults to 30 seconds
 	RetryWaitMax time.Duration
+
+	// CodecAwareEncoder enables codec-based event data encoding/decoding
+	// If nil, falls back to standard JSON encoding
+	CodecAwareEncoder *CodecAwareEncoder
 }
 
 // DefaultClientOptions returns the default client options
