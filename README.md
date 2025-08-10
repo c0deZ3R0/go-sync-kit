@@ -229,7 +229,7 @@ func main() {
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-Latest version: **v0.9.0** - [What's new in v0.9.0](CHANGELOG.md#v090) - Production-ready SQLite defaults with WAL mode, HTTP compression support, enhanced security, and comprehensive integration testing.
+Latest version: **v0.10.0** - [What's new in v0.10.0](CHANGELOG.md#v0100) - Real-time SSE transport for live event streaming with cursor-based pagination and hybrid transport support.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
