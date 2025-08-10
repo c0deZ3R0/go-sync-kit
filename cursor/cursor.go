@@ -216,6 +216,40 @@ func InitDefaultCodecs() {
 	Register(vectorCodec{})
 }
 
+// NewInteger creates a new IntegerCursor with the given sequence number
+func NewInteger(seq uint64) IntegerCursor {
+	return IntegerCursor{Seq: seq}
+}
+
+// NewVector creates a new VectorCursor with the given counters
+func NewVector(counters map[string]uint64) VectorCursor {
+	return VectorCursor{Counters: counters}
+}
+
+// MustMarshalWire marshals a cursor to WireCursor format, panicking on error
+// This is useful for cases where the cursor is known to be valid
+func MustMarshalWire(c Cursor) WireCursor {
+	wc, err := MarshalWire(c)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal cursor: %v", err))
+	}
+	return *wc
+}
+
+// MustUnmarshalWire unmarshals a WireCursor to a Cursor, panicking on error
+// This is useful for cases where the wire cursor is known to be valid
+func MustUnmarshalWire(data []byte) Cursor {
+	var wc WireCursor
+	if err := json.Unmarshal(data, &wc); err != nil {
+		panic(fmt.Sprintf("failed to unmarshal wire cursor: %v", err))
+	}
+	c, err := UnmarshalWire(&wc)
+	if err != nil {
+		panic(fmt.Sprintf("failed to unmarshal cursor: %v", err))
+	}
+	return c
+}
+
 // Optional: compact binary helpers if you later want non-JSON wire payloads.
 func EncodeUvarint(u uint64) []byte {
 	buf := make([]byte, binary.MaxVarintLen64)
