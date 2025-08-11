@@ -94,23 +94,21 @@ func TestLastWriteWinsResolver(t *testing.T) {
 			wantIDs: []string{},
 		},
 	}
-	for _, tt := range tests {
-		t := tt
-		t.Run(t.name, func(t *testing.T) {
-			res, err := r.Resolve(ctx, t.c)
-			if err != nil { t.Fatalf("unexpected err: %v", err) }
-			if res.Decision != t.wantDecision {
-				t.Fatalf("decision: got %s want %s", res.Decision, t.wantDecision)
+for _, tt := range tests {
+		tt := tt
+		res, err := r.Resolve(ctx, tt.c)
+		if err != nil { t.Fatalf("unexpected err: %v", err) }
+		if res.Decision != tt.wantDecision {
+			t.Fatalf("decision: got %s want %s", res.Decision, tt.wantDecision)
+		}
+		if len(res.ResolvedEvents) != len(tt.wantIDs) {
+			t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(tt.wantIDs))
+		}
+		for i, e := range res.ResolvedEvents {
+			if e.Event.ID() != tt.wantIDs[i] {
+				t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), tt.wantIDs[i])
 			}
-			if len(res.ResolvedEvents) != len(t.wantIDs) {
-				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(t.wantIDs))
-			}
-			for i, e := range res.ResolvedEvents {
-				if e.Event.ID() != t.wantIDs[i] {
-					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), t.wantIDs[i])
-				}
-			}
-		})
+		}
 	}
 }
 
@@ -127,20 +125,17 @@ func TestAdditiveMergeResolver(t *testing.T) {
 		{"both", Conflict{Local: ev("L", 1), Remote: ev("R", 2)}, []string{"L","R"}},
 		{"none", Conflict{}, []string{}},
 	}
-	for _, tt := range tests {
-		t := tt
-		t.Run(t.name, func(t *testing.T) {
-			res, err := r.Resolve(ctx, t.c)
-			if err != nil { t.Fatalf("unexpected err: %v", err) }
-			if len(res.ResolvedEvents) != len(t.wantIDs) {
-				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(t.wantIDs))
+for _, tt := range tests {
+		res, err := r.Resolve(ctx, tt.c)
+		if err != nil { t.Fatalf("unexpected err: %v", err) }
+		if len(res.ResolvedEvents) != len(tt.wantIDs) {
+			t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(tt.wantIDs))
+		}
+		for i, e := range res.ResolvedEvents {
+			if e.Event.ID() != tt.wantIDs[i] {
+				t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), tt.wantIDs[i])
 			}
-			for i, e := range res.ResolvedEvents {
-				if e.Event.ID() != t.wantIDs[i] {
-					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), t.wantIDs[i])
-				}
-			}
-		})
+		}
 	}
 }
 
