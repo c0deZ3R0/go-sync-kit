@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -115,7 +116,7 @@ func CursorBasedSync() {
 	}
 
 	// Create sync manager
-	sm := synckit.NewSyncManager(store, t, opts)
+	sm := synckit.NewSyncManager(store, t, opts, logging.Default().Logger)
 	defer sm.Close()
 
 	// Run initial sync

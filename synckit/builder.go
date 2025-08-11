@@ -2,7 +2,10 @@ package synckit
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
 // SyncManagerBuilder provides a fluent interface for constructing SyncManager instances.
@@ -10,6 +13,7 @@ type SyncManagerBuilder struct {
 	store       EventStore
 	transport   Transport
 	options     *SyncOptions
+	logger      *slog.Logger
 	pushOnlySet bool // Track if PushOnly was explicitly set
 	pullOnlySet bool // Track if PullOnly was explicitly set
 }
@@ -23,6 +27,7 @@ func NewSyncManagerBuilder() *SyncManagerBuilder {
 			Timeout:           0, // No timeout by default
 			EnableCompression: false,
 		},
+		logger: logging.Default().Logger, // Use default logger
 	}
 }
 
@@ -96,6 +101,12 @@ func (b *SyncManagerBuilder) WithCompression(enabled bool) *SyncManagerBuilder {
 	return b
 }
 
+// WithLogger sets a custom logger for the SyncManager.
+func (b *SyncManagerBuilder) WithLogger(logger *slog.Logger) *SyncManagerBuilder {
+	b.logger = logger
+	return b
+}
+
 // Build creates a new SyncManager instance with the configured options.
 func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 	// Validate required components
@@ -117,7 +128,7 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 	}
 
 	// Create a new SyncManager instance
-	return NewSyncManager(b.store, b.transport, b.options), nil
+	return NewSyncManager(b.store, b.transport, b.options, b.logger), nil
 }
 
 // Reset clears the builder, allowing reuse.
@@ -130,6 +141,7 @@ func (b *SyncManagerBuilder) Reset() *SyncManagerBuilder {
 		Timeout:           0,
 		EnableCompression: false,
 	}
+	b.logger = logging.Default().Logger
 	b.pushOnlySet = false
 	b.pullOnlySet = false
 	return b

@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/c0deZ3R0/go-sync-kit/example/dashboard"
-	"github.com/c0deZ3R0/go-sync-kit/example/metrics"
-	transport "github.com/c0deZ3R0/go-sync-kit/transport/http"
-	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
+	"github.com/c0deZ3R0/go-sync-kit/dashboard"
+	"github.com/c0deZ3R0/go-sync-kit/http/httptransport"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
+	"github.com/c0deZ3R0/go-sync-kit/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/store/sqlite"
 )
 
 // ServerEvent represents a server-generated event
@@ -36,6 +38,16 @@ func (e *ServerEvent) Metadata() map[string]interface{} { return e.eventMetadata
 
 // example/server.go
 func RunServer(ctx context.Context) error {
+	// Initialize structured logging
+	logConfig := logging.GetConfigFromEnv()
+	logging.Init(logConfig)
+	logger := logging.WithComponent(logging.Component("server"))
+
+	logger.InfoContext(ctx, "Starting sync server",
+		slog.String("version", "1.0.0"),
+		slog.String("environment", logConfig.Environment),
+	)
+
 	// Initialize dashboard metrics
 	dashboard.InitializeMetrics()
 
@@ -56,9 +68,9 @@ func RunServer(ctx context.Context) error {
 	// Set up HTTP mux with multiple endpoints
 	mux := http.NewServeMux()
 
-	// Sync handler
-	logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
-	syncHandler := transport.NewSyncHandler(store, logger)
+	// Sync handler (using standard log for compatibility with transport)
+	stdLogger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
+	syncHandler := transport.NewSyncHandler(store, stdLogger)
 	mux.Handle("/sync/", syncHandler) // Note the trailing slash
 
 	// Metrics endpoint
@@ -104,22 +116,25 @@ func RunServer(ctx context.Context) error {
 	go generateServerEvents(ctx, store, metricsCollector)
 
 	// Start server
-	log.Println("Starting sync server on :8080")
-	log.Println("Endpoints:")
-	log.Println("  - /        : Dashboard UI")
-	log.Println("  - /sync    : Sync endpoint")
-	log.Println("  - /metrics : Metrics endpoint")
-	log.Println("  - /health  : Health check")
+	logger.InfoContext(ctx, "HTTP server starting",
+		slog.String("address", ":8080"),
+		slog.Group("endpoints",
+			slog.String("/", "Dashboard UI"),
+			slog.String("/sync", "Sync endpoint"),
+			slog.String("/metrics", "Metrics endpoint"),
+			slog.String("/health", "Health check"),
+		),
+	)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Server error: %v", err)
+			logging.LogError(ctx, err, "HTTP server error")
 		}
 	}()
 
 	// Wait for context cancellation
 	<-ctx.Done()
-	log.Println("Shutting down server...")
+	logger.InfoContext(ctx, "Shutting down server")
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
@@ -133,6 +148,11 @@ func RunServer(ctx context.Context) error {
 
 // Update event generator to track metrics
 func generateServerEvents(ctx context.Context, store *sqlite.SQLiteEventStore, metrics *metrics.HTTPMetricsCollector) {
+	logger := logging.WithComponent(logging.Component("event-generator"))
+	logger.InfoContext(ctx, "Event generator started",
+		slog.Duration("interval", 10*time.Second),
+	)
+
 	// Keep track of cumulative events pushed
 	cumulativePushed := 0
 	ticker := time.NewTicker(10 * time.Second)
@@ -173,13 +193,13 @@ func generateServerEvents(ctx context.Context, store *sqlite.SQLiteEventStore, m
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Event generator stopped")
+			logger.InfoContext(ctx, "Event generator stopped")
 			return
 		case <-ticker.C:
 			// Get current version
 			version, err := store.LatestVersion(ctx)
 			if err != nil {
-				log.Printf("Failed to get latest version: %v", err)
+				logging.LogError(ctx, err, "Failed to get latest version")
 				continue
 			}
 
@@ -203,7 +223,10 @@ func generateServerEvents(ctx context.Context, store *sqlite.SQLiteEventStore, m
 
 			start := time.Now()
 			if err := store.Store(ctx, event, nil); err != nil {
-				log.Printf("Failed to store server event: %v", err)
+				logging.LogError(ctx, err, "Failed to store server event",
+					slog.String("event_id", event.eventID),
+					slog.String("event_type", event.eventType),
+				)
 				metrics.RecordSyncErrors("store", "storage")
 				continue
 			}
@@ -245,8 +268,14 @@ func generateServerEvents(ctx context.Context, store *sqlite.SQLiteEventStore, m
 				Metadata:  event.eventMetadata,
 			})
 
-			log.Printf("[Event #%d] Type: %s, Content: %s",
-				eventCount, event.eventType, event.content)
+			logger.DebugContext(ctx, "Event generated and stored",
+				slog.Int("event_count", eventCount),
+				slog.String("event_id", event.eventID),
+				slog.String("event_type", event.eventType),
+				slog.String("content", event.content),
+				slog.Duration("store_duration", elapsed),
+				slog.Int("cumulative_pushed", cumulativePushed),
+			)
 			eventCount++
 		}
 	}

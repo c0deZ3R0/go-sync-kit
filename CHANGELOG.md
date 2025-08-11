@@ -2,7 +2,7 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
-## [v0.10.0] - 2025-08-10
+## [v0.13.0] - 2025-08-11
 
 ### 🎯 Major Features
 
@@ -55,6 +55,166 @@ All notable changes to Go Sync Kit will be documented in this file.
 - ⚡ **Connection Pooling**: Optimized concurrent database access
 - ⚡ **Batch Processing**: Efficient multi-event transactions
 - ⚡ **Index Strategy**: Query-optimized database schema
+
+---
+
+## [v0.12.0] - 2025-08-11
+
+### 🎯 Major Features
+
+#### Structured Logging Integration
+- ✨ **Complete slog Migration**: All components now use Go's structured logging
+- ✨ **Centralized Logging Config**: New `logging` package for consistent configuration
+- ✨ **Component-based Logging**: Structured logs with component identification
+- ✨ **Performance Optimized**: Efficient logging with minimal allocations
+- ✨ **Environment Integration**: Automatic level detection from environment
+
+#### Event Data Codec Registry
+- ✨ **Stable Wire Format**: Consistent event serialization across transports
+- ✨ **Type Safety**: Compile-time registration with generic type constraints
+- ✨ **Backward Compatibility**: Version-aware codec system
+- ✨ **HTTP Transport Integration**: Automatic wire format handling
+- ✨ **Extensible Design**: Plugin system for custom event types
+
+### 🔧 Technical Improvements
+
+#### Logging System
+- 🔄 **Structured Context**: Rich context in all log messages
+- 🔄 **Component Isolation**: Clear component boundaries in logs
+- 🔄 **Performance Monitoring**: Built-in performance logging
+- 🔄 **Error Context**: Enhanced error logging with full context
+
+#### HTTP Transport Enhancements
+- 🔄 **Wire Format Support**: Stable serialization format
+- 🔄 **Codec Integration**: Automatic event type registration
+- 🔄 **Version Handling**: Protocol version management
+- 🔄 **Performance Improvements**: Optimized serialization pipeline
+
+---
+
+## [v0.11.0] - 2025-08-11
+
+### 🎯 Major Features
+
+#### Event Data Codec Registry
+- ✨ **Type-Safe Registration**: Register event types with compile-time safety
+- ✨ **Stable Wire Format**: Consistent serialization across all transports
+- ✨ **Version Management**: Handle multiple versions of event schemas
+- ✨ **HTTP Integration**: Seamless integration with HTTP transport
+- ✨ **Error Handling**: Comprehensive error reporting for codec operations
+
+### 🔧 Technical Implementations
+
+#### Codec System (`synckit/codec/`)
+- 🔄 **Generic Constraints**: Type-safe event registration using Go generics
+- 🔄 **Reflection-based Marshaling**: Efficient JSON serialization/deserialization
+- 🔄 **Registry Management**: Global codec registry with thread-safe operations
+- 🔄 **Error Recovery**: Graceful handling of unregistered or malformed events
+
+#### HTTP Transport Integration
+- 🔄 **Automatic Wire Format**: Seamless codec integration
+- 🔄 **Version Headers**: HTTP header-based version negotiation
+- 🔄 **Backward Compatibility**: Support for multiple wire format versions
+- 🔄 **Content-Type Management**: Proper MIME type handling for different formats
+
+---
+
+## [v0.10.0] - 2025-08-10
+
+### 🎯 Major Features
+
+#### Real-time SSE Transport
+- ✨ **Server-Sent Events Transport**: New SSE transport for real-time event streaming
+- ✨ **Cursor-Based Pagination**: Efficient, resumable streaming with cursor checkpoints
+- ✨ **Subscribe-Only MVP**: Focused implementation for real-time event consumption
+- ✨ **JSON Wire Format**: Cross-platform compatible event serialization
+- ✨ **Hybrid Transport Usage**: Combine HTTP (Push/Pull) with SSE (Subscribe) transports
+
+### 🔧 Technical Implementations
+
+#### SSE Server (`transport/sse/server.go`)
+- 🔄 **Streaming Handler**: HTTP handler with Server-Sent Events protocol
+- 🔄 **Batch Processing**: Configurable batch sizes for optimal performance
+- 🔄 **Cursor Management**: Automatic cursor progression and persistence
+- 🔄 **Error Handling**: Comprehensive error management using kit's error system
+- 🔄 **Event Store Integration**: Works with any `synckit.EventStore` implementation
+
+#### SSE Client (`transport/sse/client.go`)
+- 🔄 **Real-time Subscription**: Non-blocking event consumption via `Subscribe()` method
+- 🔄 **Event Conversion**: Automatic JSON to `synckit.Event` transformation
+- 🔄 **Connection Management**: Robust connection handling with context support
+- 🔄 **Transport Interface**: Implements `synckit.Transport` (Subscribe-only MVP)
+- 🔄 **Error Recovery**: Graceful handling of connection issues and timeouts
+
+#### Enhanced Cursor Package
+- ✨ **Helper Functions**: Added `NewInteger()`, `NewVector()` convenience constructors
+- ✨ **Wire Marshaling**: `MustMarshalWire()` and `MustUnmarshalWire()` utilities
+- 🔄 **Better Ergonomics**: Simplified cursor creation and manipulation
+
+### 🧪 Testing & Documentation
+
+#### Comprehensive Test Suite
+- 🧪 **Integration Tests**: Full SSE server-client communication tests
+- 🧪 **Mock Implementations**: `MockEventStore` for testing SSE components
+- 🧪 **Example Functions**: Working examples with real event streaming
+- 🧪 **Error Scenarios**: Comprehensive error handling and timeout testing
+
+#### Documentation & Examples
+- 📚 **Complete README Section**: Added SSE transport to main documentation
+- 📚 **Usage Examples**: Server setup, client usage, and hybrid transport patterns
+- 📚 **API Documentation**: Comprehensive SSE package documentation
+- 📚 **Integration Guides**: How to combine SSE with existing HTTP transports
+
+### 🔗 Integration Features
+
+#### Transport Ecosystem
+- 🔄 **Protocol Compatibility**: Standard SSE protocol for broad client support
+- 🔄 **Cursor Resumption**: Start streaming from any cursor checkpoint
+- 🔄 **Event Filtering**: Server-side event filtering and batching
+- 🔄 **Real-time Notifications**: Immediate event delivery as they occur
+
+#### Architecture Benefits
+- ✨ **Clean Separation**: SSE transport doesn't complicate existing HTTP transport
+- ✨ **Hybrid Usage**: Use HTTP for Push/Pull operations, SSE for real-time Subscribe
+- ✨ **Scalable Design**: Supports future RealtimeSyncManager integration
+- ✨ **Event Store Agnostic**: Works with SQLite, BadgerDB, and any storage backend
+
+### 📈 Performance & Reliability
+
+#### Streaming Efficiency
+- ⚡ **Non-blocking I/O**: Asynchronous event streaming
+- ⚡ **Batch Optimization**: Configurable batch sizes for network efficiency
+- ⚡ **Memory Management**: Efficient buffering and cursor state management
+- ⚡ **Connection Reuse**: Persistent connections for real-time streaming
+
+#### Error Handling & Resilience
+- 🔒 **Graceful Degradation**: Handles connection drops and timeouts
+- 🔒 **Context Cancellation**: Proper cleanup on client disconnection
+- 🔒 **Cursor Recovery**: Resume from last known cursor on reconnection
+- 🔒 **Resource Management**: Prevents memory leaks and connection exhaustion
+
+### 🚀 Future Foundation
+
+#### Extensibility
+- 🔮 **RealtimeSyncManager Ready**: Designed for future integration
+- 🔮 **Authentication Hooks**: Structure ready for auth/authorization middleware
+- 🔮 **Metrics Integration**: Foundation for real-time transport metrics
+- 🔮 **Compression Support**: Architecture supports future compression features
+
+### ⚠️ Pre-release Notes
+
+- 🚧 **Subscribe-Only MVP**: Currently implements only `Subscribe()` method
+- 🚧 **Simple Cursor Parsing**: Basic version parsing (suitable for MVP)
+- 🚧 **No Authentication**: Basic implementation without auth (add middleware as needed)
+- 🚧 **Single Connection**: Each subscription creates new connection (pool in future)
+
+### 📦 New Files
+
+- `transport/sse/server.go` - SSE server implementation
+- `transport/sse/client.go` - SSE client implementation  
+- `transport/sse/types.go` - Shared JSON serialization types
+- `transport/sse/example_test.go` - Tests and integration examples
+- `transport/sse/README.md` - Complete package documentation
 
 ---
 

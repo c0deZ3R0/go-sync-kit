@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
 func TestMetricsCollection(t *testing.T) {
@@ -132,7 +134,7 @@ func TestMetricsCollection(t *testing.T) {
 			sm := NewSyncManager(store, transport, &SyncOptions{
 				MetricsCollector: metrics,
 				BatchSize:        100,
-			})
+			}, logging.Default().Logger)
 
 			err := tt.operation(sm)
 			if err != nil && tt.name != "failed sync records error metrics" {

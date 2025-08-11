@@ -6,10 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -119,8 +118,7 @@ func (m *MockEventStore) Close() error {
 // Test Content-Type validation
 func TestSyncHandler_ContentTypeValidation(t *testing.T) {
 	store := NewMockEventStore()
-	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	t.Run("ValidContentType", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
@@ -182,8 +180,7 @@ func TestSyncHandler_ContentTypeValidation(t *testing.T) {
 // Test cursor API Content-Type validation
 func TestSyncHandler_CursorContentTypeValidation(t *testing.T) {
 	store := NewMockEventStore()
-	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	t.Run("CursorAPI_ValidContentType", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/pull-cursor", strings.NewReader(`{"limit": 100}`))
@@ -268,8 +265,7 @@ func TestHTTPTransport_ClientCompression(t *testing.T) {
 // Test server-side compressed request handling
 func TestSyncHandler_CompressedRequests(t *testing.T) {
 	store := NewMockEventStore()
-	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	t.Run("GzipCompressedRequest", func(t *testing.T) {
 		events := []JSONEventWithVersion{
@@ -375,7 +371,7 @@ func TestHTTPTransport_RequestSizeLimit(t *testing.T) {
 	// Create server with smaller limit (1MB)
 	handler := NewSyncHandler(
 		NewMockEventStore(),
-		log.New(os.Stderr, "[test] ", log.LstdFlags),
+		slog.Default(),
 		nil,
 		&ServerOptions{
 			MaxRequestSize:       1024 * 1024,     // 1MB limit
@@ -416,7 +412,7 @@ func TestHTTPTransport_Compression(t *testing.T) {
 	// Create handler with compression enabled
 	handler := NewSyncHandler(
 		NewMockEventStore(),
-		log.New(os.Stderr, "[test] ", log.LstdFlags),
+		slog.Default(),
 		nil,
 		&ServerOptions{
 			MaxRequestSize:       10 * 1024 * 1024, // 10MB
@@ -636,15 +632,13 @@ func TestSyncHandler_NewSyncHandler_WithDefaultParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-
 	// Test with default parser
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
 	}
-	if handler.logger != logger {
+	if handler.logger != slog.Default() {
 		t.Error("Expected logger to be set correctly")
 	}
 
@@ -670,20 +664,18 @@ func TestSyncHandler_NewSyncHandler_WithCustomParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-
 	// Create a custom parser that always returns version 42
 	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 		return cursor.IntegerCursor{Seq: 42}, nil
 	}
 
 	// Test with custom parser
-	handler := NewSyncHandler(store, logger, customParser, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), customParser, DefaultServerOptions())
 
 	if handler.store != store {
 		t.Error("Expected store to be set correctly")
 	}
-	if handler.logger != logger {
+	if handler.logger != slog.Default() {
 		t.Error("Expected logger to be set correctly")
 	}
 	if handler.versionParser == nil {
@@ -705,9 +697,8 @@ func TestSyncHandler_HandlePush_MethodNotAllowed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	req := httptest.NewRequest(http.MethodGet, "/push", nil)
 	w := httptest.NewRecorder()
@@ -723,9 +714,8 @@ func TestSyncHandler_HandlePush_InvalidJSON(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -752,9 +742,8 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 	}
 	store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
 	w := httptest.NewRecorder()
@@ -779,9 +768,8 @@ func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	req := httptest.NewRequest(http.MethodPost, "/pull", nil)
 	w := httptest.NewRecorder()
@@ -797,8 +785,6 @@ func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
-
 	// Create a custom parser that validates version format
 	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 		if !strings.HasPrefix(s, "v") {
@@ -813,7 +799,7 @@ func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
 	}
 
 	// Create handler with custom parser
-	handler := NewSyncHandler(store, logger, customParser, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), customParser, DefaultServerOptions())
 
 	// Test valid version format
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=v1", nil)
@@ -847,9 +833,8 @@ func TestSyncHandler_HandlePull_InvalidVersion(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
 	w := httptest.NewRecorder()
@@ -865,9 +850,8 @@ func TestSyncHandler_ServeHTTP_Routing(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
 	// Test /push route
 	req := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader("[]"))
@@ -900,9 +884,8 @@ func TestEndToEnd_HTTPTransportWithSyncHandler(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
-	logger := log.New(os.Stdout, "[E2E] ", log.LstdFlags)
 	// Use default version parser (store.ParseVersion)
-	handler := NewSyncHandler(store, logger, nil, DefaultServerOptions())
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
@@ -1027,8 +1010,6 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 // Test compression size limits
 func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 	store := NewMockEventStore()
-	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
-
 	// Create server with small limits for testing
 	opts := &ServerOptions{
 		MaxRequestSize:       1024, // 1KB compressed limit
@@ -1036,7 +1017,7 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 		CompressionEnabled:   true,
 		CompressionThreshold: 100,
 	}
-	handler := NewSyncHandler(store, logger, nil, opts)
+	handler := NewSyncHandler(store, slog.Default(), nil, opts)
 
 	t.Run("CompressedSizeExceedsLimit", func(t *testing.T) {
 		// Let's create multiple large events that together exceed the compressed size limit
@@ -1184,8 +1165,6 @@ func TestSyncHandler_CompressionSizeLimits(t *testing.T) {
 // Test deterministic 413 error handling for decompressed size overflow
 func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 	store := NewMockEventStore()
-	logger := log.New(os.Stderr, "[test] ", log.LstdFlags)
-
 	// Create server with small limits for deterministic testing
 	opts := &ServerOptions{
 		MaxRequestSize:       5 * 1024, // 5KB compressed limit
@@ -1193,7 +1172,7 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 		CompressionEnabled:   true,
 		CompressionThreshold: 100,
 	}
-	handler := NewSyncHandler(store, logger, nil, opts)
+	handler := NewSyncHandler(store, slog.Default(), nil, opts)
 
 	t.Run("DecompressedSizeOverflow_WithGzip_Returns413", func(t *testing.T) {
 		// Create a payload that compresses well but exceeds decompressed limit

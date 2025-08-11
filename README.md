@@ -229,7 +229,7 @@ func main() {
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-Latest version: **v0.9.0** - [What's new in v0.9.0](CHANGELOG.md#v090) - Production-ready SQLite defaults with WAL mode, HTTP compression support, enhanced security, and comprehensive integration testing.
+Latest version: **v0.10.0** - [What's new in v0.10.0](CHANGELOG.md#v0100) - Real-time SSE transport for live event streaming with cursor-based pagination and hybrid transport support.
 
 ## Architecture
 Go Sync Kit follows clean architecture principles with clear separation of concerns:
@@ -536,6 +536,64 @@ func (b *BadgerEventStore) Store(ctx context.Context, event Event, version Versi
 
 Go Sync Kit includes a production-ready HTTP transport implementation that provides both client and server components.
 
+### Built-in SSE Transport (Real-time)
+
+For real-time event streaming, Go Sync Kit provides a Server-Sent Events (SSE) transport that enables live synchronization without polling.
+
+**Key Features:**
+- **Real-time streaming** using standard SSE protocol
+- **Cursor-based pagination** for efficient, resumable streaming  
+- **Subscribe-only MVP** - designed for real-time event consumption
+- **Hybrid usage** - combine with HTTP transport (HTTP for Push/Pull, SSE for Subscribe)
+- **JSON wire format** for cross-platform compatibility
+
+#### SSE Server Setup
+```go
+import "github.com/c0deZ3R0/go-sync-kit/transport/sse"
+
+// Create SSE server
+server := sse.NewServer(eventStore, logger)
+
+// Mount SSE endpoint
+http.Handle("/sse", server.Handler())
+http.ListenAndServe(":8080", nil)
+```
+
+#### SSE Client Setup
+```go
+import "github.com/c0deZ3R0/go-sync-kit/transport/sse"
+
+// Create SSE client
+client := sse.NewClient("http://localhost:8080", nil)
+
+// Subscribe to real-time events
+err := client.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
+    // Process real-time events as they arrive
+    for _, event := range events {
+        log.Printf("Received: %s - %s", event.Event.Type(), event.Event.ID())
+    }
+    return nil
+})
+```
+
+#### Hybrid Transport Usage
+```go
+// Use HTTP transport for Push/Pull operations
+httpTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
+
+// Use SSE transport for real-time Subscribe operations  
+sseTransport := sse.NewClient("http://localhost:8080", nil)
+
+// Create SyncManager with HTTP transport (SSE used separately for real-time)
+syncManager := synckit.NewSyncManager(store, httpTransport, options)
+
+// Run periodic sync via HTTP
+result, err := syncManager.Sync(ctx)
+
+// Run real-time subscription via SSE
+go sseTransport.Subscribe(ctx, eventHandler)
+```
+
 #### Client Setup
 ```go
 import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
@@ -803,6 +861,7 @@ go test ./...
 - [x] **SQLite EventStore** - Production-ready SQLite implementation with WAL support
 - [x] **Vector Clock Versioning** - Complete implementation with VersionedStore decorator
 - [x] **HTTP Transport** - Production-ready HTTP transport with context support
+- [x] **SSE Transport** - Real-time Server-Sent Events transport for live event streaming
 - [x] **Metrics Collection** - Built-in metrics tracking for sync operations
 - [x] **Error System** - Enhanced error handling with codes and metadata
 - [x] **Builder Pattern** - Improved configuration with validation

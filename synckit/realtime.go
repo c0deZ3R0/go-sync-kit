@@ -3,6 +3,7 @@ package synckit
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"sync"
 	"time"
@@ -165,6 +166,7 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 		syncManager: syncManager{
 			store:     store,
 			transport: transport,
+			logger:    slog.Default(),
 			options:   options.SyncOptions,
 		},
 		realtimeOptions:  *options,
