@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 	"github.com/c0deZ3R0/go-sync-kit/version"
 )
-
 // Client represents a counter client that can work offline and sync with server
 type Client struct {
 	id        string

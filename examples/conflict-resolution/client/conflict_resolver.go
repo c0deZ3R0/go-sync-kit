@@ -16,45 +16,59 @@ func NewImprovedCounterConflictResolver() *ImprovedCounterConflictResolver {
 	return &ImprovedCounterConflictResolver{}
 }
 
-// Resolve implements synckit.ConflictResolver
-func (r *ImprovedCounterConflictResolver) Resolve(ctx context.Context, local, remote []synckit.EventWithVersion) ([]synckit.EventWithVersion, error) {
-	// Combine local and remote events
-	events := make([]*CounterEvent, 0, len(local)+len(remote))
-	for _, ev := range local {
-		if ce, ok := ev.Event.(*CounterEvent); ok {
-			events = append(events, ce)
+// Resolve implements synckit.ConflictResolver using the new interface
+func (r *ImprovedCounterConflictResolver) Resolve(ctx context.Context, conflict synckit.Conflict) (synckit.ResolvedConflict, error) {
+	// Extract counter events from the conflict
+	localEvent, localOk := conflict.Local.Event.(*CounterEvent)
+	remoteEvent, remoteOk := conflict.Remote.Event.(*CounterEvent)
+	
+	if !localOk || !remoteOk {
+		return synckit.ResolvedConflict{
+			Decision: "error",
+			Reasons:  []string{"conflict contains non-counter events"},
+		}, fmt.Errorf("expected counter events, got local: %T, remote: %T", conflict.Local.Event, conflict.Remote.Event)
+	}
+	
+	// Combine the conflicting events for resolution
+	events := []*CounterEvent{localEvent, remoteEvent}
+	
+	// Resolve the counter events using our existing logic
+	resolvedEvents, err := r.resolveCounterEvents(events)
+	if err != nil {
+		return synckit.ResolvedConflict{
+			Decision: "error",
+			Reasons:  []string{fmt.Sprintf("resolution failed: %v", err)},
+		}, err
+	}
+	
+	// Convert resolved events back to EventWithVersion format
+	var resultEvents []synckit.EventWithVersion
+	for _, ev := range resolvedEvents {
+		resultEvents = append(resultEvents, synckit.EventWithVersion{
+			Event:   ev,
+			Version: ev.Version(),
+		})
+	}
+	
+	// Determine the resolution decision
+	decision := "merge"
+	reasons := []string{"counter events merged using vector clock causality"}
+	
+	if len(resolvedEvents) == 1 {
+		if resolvedEvents[0].clientID == "resolver" {
+			decision = "combined"
+			reasons = []string{"concurrent counter operations combined"}
+		} else {
+			decision = "keep_winner"
+			reasons = []string{fmt.Sprintf("kept event from client %s based on resolution rules", resolvedEvents[0].clientID)}
 		}
 	}
-	for _, ev := range remote {
-		if ce, ok := ev.Event.(*CounterEvent); ok {
-			events = append(events, ce)
-		}
-	}
-
-	if len(events) == 0 {
-		return nil, nil
-	}
-
-	// Group events by counter ID
-	groups := make(map[string][]*CounterEvent)
-	for _, event := range events {
-		counterID := event.AggregateID()
-		groups[counterID] = append(groups[counterID], event)
-	}
-
-	// Process each counter's events separately
-	var resolved []synckit.EventWithVersion
-	for _, counterEvents := range groups {
-		resolvedEvents, err := r.resolveCounterEvents(counterEvents)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve counter events: %w", err)
-		}
-		for _, ev := range resolvedEvents {
-			resolved = append(resolved, synckit.EventWithVersion{Event: ev})
-		}
-	}
-
-	return resolved, nil
+	
+	return synckit.ResolvedConflict{
+		ResolvedEvents: resultEvents,
+		Decision:       decision,
+		Reasons:        reasons,
+	}, nil
 }
 
 // resolveCounterEvents resolves conflicts for a single counter's events
