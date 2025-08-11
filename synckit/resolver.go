@@ -3,23 +3,25 @@ package synckit
 import (
 	"context"
 	"errors"
+
+	"github.com/c0deZ3R0/go-sync-kit/synckit/dynres"
 )
 
 // Rule binds a matcher Specification to a ConflictResolver Strategy.
 // Rules are evaluated in insertion order with first-match-wins semantics.
 type Rule struct {
 	Name     string
-	Matcher  Spec
-	Resolver ConflictResolver
+	Matcher  dynres.Spec
+	Resolver dynres.ConflictResolver
 }
 
 // Hooks provides optional callbacks for observability around resolution.
 // All hooks are optional; nil functions are safe no-ops.
 type Hooks struct {
-	OnRuleMatched func(conflict Conflict, rule Rule)
-	OnResolved    func(conflict Conflict, result ResolvedConflict)
-	OnFallback    func(conflict Conflict)
-	OnError       func(conflict Conflict, err error)
+	OnRuleMatched func(conflict dynres.Conflict, rule Rule)
+	OnResolved    func(conflict dynres.Conflict, result dynres.ResolvedConflict)
+	OnFallback    func(conflict dynres.Conflict)
+	OnError       func(conflict dynres.Conflict, err error)
 }
 
 // Validator can perform configuration validation at construction time.
@@ -31,7 +33,7 @@ type Validator interface {
 // resolverOptions holds construction-time options.
 type resolverOptions struct {
 	rules    []Rule
-	fallback ConflictResolver
+	fallback dynres.ConflictResolver
 	logger   any
 	hooks    Hooks
 	validator Validator
@@ -44,18 +46,18 @@ type optionFn func(*resolverOptions)
 func (f optionFn) apply(o *resolverOptions) { f(o) }
 
 // WithFallback sets the required fallback ConflictResolver.
-func WithFallback(r ConflictResolver) Option { return optionFn(func(o *resolverOptions) { o.fallback = r }) }
+func WithFallback(r dynres.ConflictResolver) Option { return optionFn(func(o *resolverOptions) { o.fallback = r }) }
 
 // WithRule appends a rule with a custom matcher and resolver in insertion order.
-func WithRule(name string, matcher Spec, resolver ConflictResolver) Option {
+func WithRule(name string, matcher dynres.Spec, resolver dynres.ConflictResolver) Option {
 	return optionFn(func(o *resolverOptions) {
 		o.rules = append(o.rules, Rule{Name: name, Matcher: matcher, Resolver: resolver})
 	})
 }
 
 // WithEventTypeRule is a convenience helper for matching by event type.
-func WithEventTypeRule(name string, eventType string, resolver ConflictResolver) Option {
-	return WithRule(name, EventTypeIs(eventType), resolver)
+func WithEventTypeRule(name string, eventType string, resolver dynres.ConflictResolver) Option {
+	return WithRule(name, dynres.EventTypeIs(eventType), resolver)
 }
 
 // WithLogger attaches an optional logger (opaque type to avoid dependency).
@@ -72,12 +74,12 @@ func WithValidator(v Validator) Option { return optionFn(func(o *resolverOptions
 // Resolve returns an error.
 type DynamicResolver struct {
 	rules    []Rule
-	fallback ConflictResolver
+	fallback dynres.ConflictResolver
 	logger   any
 	hooks    Hooks
 }
 
-var _ ConflictResolver = (*DynamicResolver)(nil)
+var _ dynres.ConflictResolver = (*DynamicResolver)(nil)
 
 // NewDynamicResolver constructs a DynamicResolver with validation.
 // Invariants:
@@ -114,28 +116,28 @@ func NewDynamicResolver(opts ...Option) (*DynamicResolver, error) {
 
 // Resolve implements the ConflictResolver interface using first-match-wins
 // over the ordered rules, else delegates to fallback.
-func (d *DynamicResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
+func (d *DynamicResolver) Resolve(ctx context.Context, c dynres.Conflict) (dynres.ResolvedConflict, error) {
 	for _, r := range d.rules {
 		if r.Matcher != nil && r.Matcher(c) {
 			if d.hooks.OnRuleMatched != nil { d.hooks.OnRuleMatched(c, r) }
 			res, err := r.Resolver.Resolve(ctx, c)
 			if err != nil {
-				if d.hooks.OnError != nil { d.hooks.OnError(c, err) }
-				return ResolvedConflict{}, err
+			if d.hooks.OnError != nil { d.hooks.OnError(c, err) }
+			return dynres.ResolvedConflict{}, err
 			}
 			if d.hooks.OnResolved != nil { d.hooks.OnResolved(c, res) }
 			return res, nil
 		}
 	}
 	if d.fallback == nil {
-		if d.hooks.OnError != nil { d.hooks.OnError(c, errors.New("no rule matched and no fallback configured")) }
-		return ResolvedConflict{}, errors.New("no rule matched and no fallback configured")
+	if d.hooks.OnError != nil { d.hooks.OnError(c, errors.New("no rule matched and no fallback configured")) }
+	return dynres.ResolvedConflict{}, errors.New("no rule matched and no fallback configured")
 	}
 	if d.hooks.OnFallback != nil { d.hooks.OnFallback(c) }
 	res, err := d.fallback.Resolve(ctx, c)
 	if err != nil {
 		if d.hooks.OnError != nil { d.hooks.OnError(c, err) }
-		return ResolvedConflict{}, err
+		return dynres.ResolvedConflict{}, err
 	}
 	if d.hooks.OnResolved != nil { d.hooks.OnResolved(c, res) }
 	return res, nil
