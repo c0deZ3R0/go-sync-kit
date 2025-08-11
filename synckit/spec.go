@@ -40,6 +40,42 @@ func MetadataEq(key string, value any) Spec {
 	}
 }
 
+// FieldChanged matches when a specific field has changed.
+func FieldChanged(field string) Spec {
+	return func(c Conflict) bool {
+		for _, f := range c.ChangedFields {
+			if f == field {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// AggregateIDMatches matches when the aggregate ID matches the pattern.
+func AggregateIDMatches(pattern string) Spec {
+	return func(c Conflict) bool {
+		return c.AggregateID == pattern
+	}
+}
+
+// AlwaysMatch returns a spec that always matches.
+func AlwaysMatch() Spec {
+	return func(c Conflict) bool { return true }
+}
+
+// AndMatcher combines multiple specs with AND logic.
+func AndMatcher(specs ...Spec) Spec {
+	return func(c Conflict) bool {
+		for _, spec := range specs {
+			if spec == nil || !spec(c) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // anyEqual provides a basic equality check for common comparable types.
 func anyEqual(a, b any) bool {
 	switch av := a.(type) {
