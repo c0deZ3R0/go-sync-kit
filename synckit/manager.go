@@ -424,9 +424,9 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 			"filtered_count", len(remoteEvents))
 	}
 
-	// Check for conflicts if we have a conflict resolver
+	// Process conflicts with the new dynamic resolver
 	if sm.options.ConflictResolver != nil {
-		sm.logger.Debug("Starting conflict resolution", "remote_events", len(remoteEvents))
+		sm.logger.Debug("Starting conflict detection and resolution", "remote_events", len(remoteEvents))
 		// Create a timeout context for database operations
 		dbCtx, cancel := sm.withTimeout(ctx)
 		defer cancel()
@@ -444,33 +444,60 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 		}
 
 		if len(localEvents) > 0 {
-			sm.logger.Debug("Found potential conflicts",
+			sm.logger.Debug("Detecting conflicts between local and remote events",
 				"local_events", len(localEvents),
 				"remote_events", len(remoteEvents))
-			// Check context before starting conflict resolution
-			select {
-			case <-ctx.Done():
-				sm.logger.Warn("Conflict resolution canceled by context", "error", ctx.Err())
-				sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
-				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
-			default:
-			}
-
-			resolvedEvents, err := sm.options.ConflictResolver.Resolve(ctx, localEvents, remoteEvents)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					sm.logger.Warn("Conflict resolution canceled", "error", err)
+			
+			// Detect actual conflicts by comparing events
+			conflicts := sm.detectConflicts(localEvents, remoteEvents)
+			if len(conflicts) > 0 {
+				sm.logger.Info("Found conflicts, starting resolution", "conflict_count", len(conflicts))
+				
+				// Check context before starting conflict resolution
+				select {
+				case <-ctx.Done():
+					sm.logger.Warn("Conflict resolution canceled by context", "error", ctx.Err())
 					sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
-				} else {
-					sm.logger.Error("Conflict resolution failed", "error", err)
+					return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
+				default:
 				}
-				return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
+				
+				// Resolve each conflict using the new interface
+				var resolvedEvents []EventWithVersion
+				for _, conflict := range conflicts {
+					resolvedConflict, err := sm.options.ConflictResolver.Resolve(ctx, conflict)
+					if err != nil {
+						if errors.Is(err, context.Canceled) {
+							sm.logger.Warn("Conflict resolution canceled", "error", err)
+							sm.options.MetricsCollector.RecordSyncErrors("conflict_resolution", "context_canceled")
+						} else {
+							sm.logger.Error("Conflict resolution failed", "conflict", conflict, "error", err)
+						}
+						return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
+					}
+					
+					// Apply resolved events
+					resolvedEvents = append(resolvedEvents, resolvedConflict.ResolvedEvents...)
+					
+					// Log resolution details for audit
+					if len(resolvedConflict.Reasons) > 0 {
+						sm.logger.Info("Conflict resolved with reasons", 
+							"aggregate_id", conflict.AggregateID,
+							"event_type", conflict.EventType,
+							"decision", resolvedConflict.Decision,
+							"reasons", resolvedConflict.Reasons)
+					}
+				}
+				
+				// Replace remote events with resolved events
+				remoteEvents = resolvedEvents
+				result.ConflictsResolved = len(conflicts)
+				sm.logger.Info("Conflict resolution completed",
+					"conflicts_resolved", result.ConflictsResolved,
+					"final_events", len(resolvedEvents))
+			} else {
+				sm.logger.Debug("No conflicts detected between local and remote events")
 			}
-			remoteEvents = resolvedEvents
-			result.ConflictsResolved = len(localEvents) + len(remoteEvents) - len(resolvedEvents)
-			sm.logger.Info("Conflict resolution completed",
-				"conflicts_resolved", result.ConflictsResolved,
-				"final_events", len(resolvedEvents))
 		} else {
 			sm.logger.Debug("No local events found, no conflicts to resolve")
 		}
@@ -708,4 +735,114 @@ func findLatestVersion(events []EventWithVersion) Version {
 		}
 	}
 	return latest
+}
+
+// detectConflicts analyzes local and remote events to identify conflicts.
+// It builds rich Conflict instances with metadata as required by Phase 3.
+// This method implements simple conflict detection based on:
+// 1. Same AggregateID and EventType
+// 2. Different versions/timestamps indicating concurrent modifications
+func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVersion) []Conflict {
+	var conflicts []Conflict
+	
+	// Create a map of local events by aggregate+type for quick lookup
+	localByKey := make(map[string][]EventWithVersion)
+	for _, local := range localEvents {
+		key := local.Event.AggregateID() + ":" + local.Event.Type()
+		localByKey[key] = append(localByKey[key], local)
+	}
+	
+	// Check each remote event for conflicts with local events
+	for _, remote := range remoteEvents {
+		key := remote.Event.AggregateID() + ":" + remote.Event.Type()
+		localMatches, exists := localByKey[key]
+		
+		if !exists {
+			continue // No local event with same aggregate+type, no conflict
+		}
+		
+		// For each matching local event, check if there's a version conflict
+		for _, local := range localMatches {
+			// Simple conflict detection: if we have both local and remote events
+			// for the same aggregate+type, and they have different versions,
+			// consider it a conflict
+			if local.Version.Compare(remote.Version) != 0 {
+				conflict := Conflict{
+					EventType:   remote.Event.Type(),
+					AggregateID: remote.Event.AggregateID(),
+					Local:       local,
+					Remote:      remote,
+					Metadata:    make(map[string]any),
+				}
+				
+				// Add metadata for enhanced conflict resolution
+				conflict.Metadata["local_version"] = local.Version.String()
+				conflict.Metadata["remote_version"] = remote.Version.String()
+				conflict.Metadata["version_comparison"] = local.Version.Compare(remote.Version)
+				
+				// Try to detect changed fields by comparing event data
+				if changedFields := sm.detectChangedFields(local.Event, remote.Event); len(changedFields) > 0 {
+					conflict.ChangedFields = changedFields
+				}
+				
+				// Add origin metadata if available from event metadata
+				if localMeta := local.Event.Metadata(); localMeta != nil {
+					if origin, ok := localMeta["origin"]; ok {
+						conflict.Metadata["local_origin"] = origin
+					}
+					if timestamp, ok := localMeta["timestamp"]; ok {
+						conflict.Metadata["local_timestamp"] = timestamp
+					}
+				}
+				if remoteMeta := remote.Event.Metadata(); remoteMeta != nil {
+					if origin, ok := remoteMeta["origin"]; ok {
+						conflict.Metadata["remote_origin"] = origin
+					}
+					if timestamp, ok := remoteMeta["timestamp"]; ok {
+						conflict.Metadata["remote_timestamp"] = timestamp
+					}
+				}
+				
+				conflicts = append(conflicts, conflict)
+				
+				sm.logger.Debug("Detected conflict",
+					"aggregate_id", conflict.AggregateID,
+					"event_type", conflict.EventType,
+					"local_version", local.Version.String(),
+					"remote_version", remote.Version.String(),
+					"changed_fields", conflict.ChangedFields)
+			}
+		}
+	}
+	
+	return conflicts
+}
+
+
+// detectChangedFields attempts to detect which fields changed between two events.
+// This is a basic implementation that could be enhanced with more sophisticated
+// comparison logic based on event structure.
+func (sm *syncManager) detectChangedFields(local, remote Event) []string {
+	// For now, we'll do a simple check based on event data comparison
+	// In a real implementation, this would be more sophisticated and potentially
+	// use reflection or schema-based comparison
+	
+	localData := local.Data()
+	remoteData := remote.Data()
+	
+	if localData == nil && remoteData == nil {
+		return nil
+	}
+	
+	if localData == nil || remoteData == nil {
+		return []string{"data"}
+	}
+	
+	// Simple comparison - if data differs, mark "data" as changed
+	// A more sophisticated implementation would inspect struct fields
+	if fmt.Sprintf("%v", localData) != fmt.Sprintf("%v", remoteData) {
+		return []string{"data"}
+	}
+	
+	return nil
 }
