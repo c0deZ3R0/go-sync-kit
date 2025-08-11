@@ -3,7 +3,7 @@ package dynres
 import (
 	"context"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 var (
@@ -19,29 +19,29 @@ func (r *LastWriteWinsResolver) Resolve(ctx context.Context, c Conflict) (Resolv
 		return ResolvedConflict{Decision: "noop", Reasons: []string{"no versions"}}, nil
 	}
 	if c.Local.Version == nil {
-		return ResolvedConflict{ResolvedEvents: []synckit.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"local missing"}}, nil
+		return ResolvedConflict{ResolvedEvents: []types.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"local missing"}}, nil
 	}
 	if c.Remote.Version == nil {
-		return ResolvedConflict{ResolvedEvents: []synckit.EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"remote missing"}}, nil
+		return ResolvedConflict{ResolvedEvents: []types.EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"remote missing"}}, nil
 	}
 	switch c.Local.Version.Compare(c.Remote.Version) {
 	case -1:
-		return ResolvedConflict{ResolvedEvents: []synckit.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"remote newer"}}, nil
+		return ResolvedConflict{ResolvedEvents: []types.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"remote newer"}}, nil
 	case 1:
-		return ResolvedConflict{ResolvedEvents: []synckit.EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"local newer"}}, nil
+		return ResolvedConflict{ResolvedEvents: []types.EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"local newer"}}, nil
 	default:
-		return ResolvedConflict{ResolvedEvents: []synckit.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
+		return ResolvedConflict{ResolvedEvents: []types.EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
 	}
 }
 
 type AdditiveMergeResolver struct{}
 
 func (r *AdditiveMergeResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
-	out := make([]synckit.EventWithVersion, 0, 2)
-	if (c.Local != synckit.EventWithVersion{}) {
+	out := make([]types.EventWithVersion, 0, 2)
+	if (c.Local != types.EventWithVersion{}) {
 		out = append(out, c.Local)
 	}
-	if (c.Remote != synckit.EventWithVersion{}) {
+	if (c.Remote != types.EventWithVersion{}) {
 		out = append(out, c.Remote)
 	}
 	return ResolvedConflict{ResolvedEvents: out, Decision: "merge", Reasons: []string{"additive merge"}}, nil

@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // testVersion implements Version for ordering in tests.
 type testVersion struct{ v int }
 
-func (t testVersion) Compare(other synckit.Version) int {
+func (t testVersion) Compare(other types.Version) int {
 	if other == nil {
 		return 1
 	}
@@ -44,8 +44,8 @@ func (e testEvent) AggregateID() string      { return e.agg }
 func (e testEvent) Data() any                { return e.data }
 func (e testEvent) Metadata() map[string]any { return e.meta }
 
-func ev(id string, v int) synckit.EventWithVersion {
-	return synckit.EventWithVersion{Event: testEvent{id: id}, Version: testVersion{v: v}}
+func ev(id string, v int) types.EventWithVersion {
+	return types.EventWithVersion{Event: testEvent{id: id}, Version: testVersion{v: v}}
 }
 
 func TestLastWriteWinsResolver(t *testing.T) {
@@ -77,37 +77,37 @@ func TestLastWriteWinsResolver(t *testing.T) {
 		},
 		{
 			name: "local nil uses remote",
-			c: Conflict{Local: synckit.EventWithVersion{}, Remote: ev("R", 1)},
+			c: Conflict{Local: types.EventWithVersion{}, Remote: ev("R", 1)},
 			wantDecision: "keep_remote",
 			wantIDs: []string{"R"},
 		},
 		{
 			name: "remote nil uses local",
-			c: Conflict{Local: ev("L", 1), Remote: synckit.EventWithVersion{}},
+			c: Conflict{Local: ev("L", 1), Remote: types.EventWithVersion{}},
 			wantDecision: "keep_local",
 			wantIDs: []string{"L"},
 		},
 		{
 			name: "both nil noop",
-			c: Conflict{Local: synckit.EventWithVersion{}, Remote: synckit.EventWithVersion{}},
+			c: Conflict{Local: types.EventWithVersion{}, Remote: types.EventWithVersion{}},
 			wantDecision: "noop",
 			wantIDs: []string{},
 		},
 	}
 	for _, tt := range tests {
-		t := tt
-		t.Run(t.name, func(t *testing.T) {
-			res, err := r.Resolve(ctx, t.c)
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := r.Resolve(ctx, tt.c)
 			if err != nil { t.Fatalf("unexpected err: %v", err) }
-			if res.Decision != t.wantDecision {
-				t.Fatalf("decision: got %s want %s", res.Decision, t.wantDecision)
+			if res.Decision != tt.wantDecision {
+				t.Fatalf("decision: got %s want %s", res.Decision, tt.wantDecision)
 			}
-			if len(res.ResolvedEvents) != len(t.wantIDs) {
-				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(t.wantIDs))
+			if len(res.ResolvedEvents) != len(tt.wantIDs) {
+				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(tt.wantIDs))
 			}
 			for i, e := range res.ResolvedEvents {
-				if e.Event.ID() != t.wantIDs[i] {
-					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), t.wantIDs[i])
+				if e.Event.ID() != tt.wantIDs[i] {
+					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), tt.wantIDs[i])
 				}
 			}
 		})
@@ -128,16 +128,16 @@ func TestAdditiveMergeResolver(t *testing.T) {
 		{"none", Conflict{}, []string{}},
 	}
 	for _, tt := range tests {
-		t := tt
-		t.Run(t.name, func(t *testing.T) {
-			res, err := r.Resolve(ctx, t.c)
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := r.Resolve(ctx, tt.c)
 			if err != nil { t.Fatalf("unexpected err: %v", err) }
-			if len(res.ResolvedEvents) != len(t.wantIDs) {
-				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(t.wantIDs))
+			if len(res.ResolvedEvents) != len(tt.wantIDs) {
+				t.Fatalf("len events: got %d want %d", len(res.ResolvedEvents), len(tt.wantIDs))
 			}
 			for i, e := range res.ResolvedEvents {
-				if e.Event.ID() != t.wantIDs[i] {
-					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), t.wantIDs[i])
+				if e.Event.ID() != tt.wantIDs[i] {
+					t.Fatalf("id[%d]: got %s want %s", i, e.Event.ID(), tt.wantIDs[i])
 				}
 			}
 		})

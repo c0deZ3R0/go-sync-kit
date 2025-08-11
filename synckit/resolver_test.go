@@ -55,11 +55,20 @@ func TestDynamicResolver_Fallback(t *testing.T) {
 	if fb.calls != 1 { t.Fatalf("expected fallback called once") }
 }
 
-func TestDynamicResolver_NoFallbackError(t *testing.T) {
-	_, err := NewDynamicResolver(
+func TestDynamicResolver_NoFallbackNoRules(t *testing.T) {
+	// Test constructor error when no rules AND no fallback
+	_, err := NewDynamicResolver()
+	if err == nil { t.Fatalf("expected constructor error with no rules and no fallback") }
+}
+
+func TestDynamicResolver_NoMatchingRuleNoFallbackError(t *testing.T) {
+	// Test runtime error when rule doesn't match and no fallback
+	dr, err := NewDynamicResolver(
 		WithRule("nope", func(c dynres.Conflict) bool { return false }, &mockResolver{}),
 	)
-	if err == nil { t.Fatalf("expected constructor error without fallback and no matching rules") }
+	if err != nil { t.Fatalf("unexpected constructor error: %v", err) }
+	_, err = dr.Resolve(context.Background(), dynres.Conflict{})
+	if err == nil { t.Fatalf("expected resolve error when no rules match and no fallback") }
 }
 
 func TestDynamicResolver_InvalidRuleErrors(t *testing.T) {

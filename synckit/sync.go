@@ -10,26 +10,12 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/interfaces"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // Event represents a syncable event in the system.
 // This interface should be implemented by user's event types.
-type Event interface {
-	// ID returns a unique identifier for this event
-	ID() string
-
-	// Type returns the event type (e.g., "UserCreated", "OrderUpdated")
-	Type() string
-
-	// AggregateID returns the ID of the aggregate this event belongs to
-	AggregateID() string
-
-	// Data returns the event payload
-	Data() interface{}
-
-	// Metadata returns additional event metadata
-	Metadata() map[string]interface{}
-}
+type Event = types.Event
 
 // Version represents a point-in-time snapshot for sync operations.
 // Users can implement different versioning strategies (timestamps, hashes, vector clocks).
@@ -59,10 +45,7 @@ type EventStore interface {
 }
 
 // EventWithVersion pairs an event with its version information
-type EventWithVersion struct {
-	Event   Event
-	Version Version
-}
+type EventWithVersion = types.EventWithVersion
 
 // ConflictResolver handles conflicts when the same data is modified concurrently.
 // Different strategies can be plugged in (last-write-wins, merge, user-prompt, etc.).
