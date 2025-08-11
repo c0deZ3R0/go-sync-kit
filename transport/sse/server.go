@@ -1,29 +1,34 @@
 package sse
 
-import (
+	import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	kiterr "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
 
 type Server struct {
 	Store     synckit.EventStore
-	Logger    *log.Logger
+	Logger    *slog.Logger
 	BatchSize int
 }
 
 // NewServer creates a new SSE server with default settings
-func NewServer(store synckit.EventStore, logger *log.Logger) *Server {
+func NewServer(store synckit.EventStore, logger *slog.Logger) *Server {
+	return NewServerWithLogger(store, logger)
+}
+
+// NewServerWithLogger creates a new SSE server with structured logging
+func NewServerWithLogger(store synckit.EventStore, logger *slog.Logger) *Server {
 	if logger == nil {
-		logger = log.Default()
+		logger = logging.Default().Logger
 	}
 	return &Server{
 		Store:     store,
@@ -34,8 +39,14 @@ func NewServer(store synckit.EventStore, logger *log.Logger) *Server {
 
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.Logger.Debug("SSE client connected",
+			slog.String("remote_addr", r.RemoteAddr),
+			slog.String("user_agent", r.UserAgent()))
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
+			s.Logger.Error("Client does not support streaming",
+				slog.String("remote_addr", r.RemoteAddr))
 			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 			return
 		}
@@ -47,36 +58,49 @@ func (s *Server) Handler() http.Handler {
 		curParam := r.URL.Query().Get("cursor")
 		var cur cursor.Cursor
 		if curParam != "" {
+			s.Logger.Debug("Parsing cursor from client",
+				slog.String("cursor_param", curParam),
+				slog.String("remote_addr", r.RemoteAddr))
 			// Use existing WireCursor parser
 			var wc cursor.WireCursor
 			if err := json.Unmarshal([]byte(curParam), &wc); err != nil {
+				s.Logger.Warn("Invalid cursor format from SSE client",
+					slog.String("cursor_param", curParam),
+					slog.String("error", err.Error()),
+					slog.String("remote_addr", r.RemoteAddr))
 				http.Error(w, "bad cursor format", http.StatusBadRequest)
 				return
 			}
 			parsed, err := cursor.UnmarshalWire(&wc)
 			if err != nil {
+				s.Logger.Warn("Failed to parse cursor from SSE client",
+					slog.String("cursor_param", curParam),
+					slog.String("error", err.Error()),
+					slog.String("remote_addr", r.RemoteAddr))
 				http.Error(w, "bad cursor", http.StatusBadRequest)
 				return
 			}
 			cur = parsed
+		} else {
+			s.Logger.Debug("SSE client starting from beginning (no cursor provided)",
+				slog.String("remote_addr", r.RemoteAddr))
 		}
 
 		for {
 			select {
 			case <-ctx.Done():
+				s.Logger.Debug("SSE client disconnected",
+					slog.String("remote_addr", r.RemoteAddr))
 				return
 			default:
 			}
 
 			events, nextCur, err := loadNext(ctx, s.Store, cur, s.BatchSize)
 			if err != nil {
-				e := kiterr.E(
-					kiterr.Op("sse.Handler"),
-					kiterr.Component("transport/sse"),
-					kiterr.KindInternal,
-					err, "loadNext",
-				)
-				s.Logger.Printf("error: %v", e)
+				s.Logger.Error("Failed to load events for SSE client",
+					slog.String("error", err.Error()),
+					slog.String("remote_addr", r.RemoteAddr),
+					slog.String("cursor", fmt.Sprintf("%v", cur)))
 				return
 			}
 			if len(events) == 0 {
@@ -98,6 +122,10 @@ func (s *Server) Handler() http.Handler {
 			NextCursor: cursor.MustMarshalWire(nextCur),
 		}
 			b, _ := json.Marshal(payload)
+			s.Logger.Debug("Sending events to SSE client",
+				slog.Int("event_count", len(events)),
+				slog.String("remote_addr", r.RemoteAddr),
+				slog.String("next_cursor", fmt.Sprintf("%v", nextCur)))
 			fmt.Fprintf(w, "data: %s\n\n", b)
 			flusher.Flush()
 

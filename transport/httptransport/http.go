@@ -9,12 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -28,6 +29,7 @@ type HTTPTransport struct {
 	client        *http.Client
 	baseURL       string // e.g., "http://remote-server.com/sync"
 	versionParser VersionParser
+	logger        *slog.Logger
 	options       *ClientOptions
 }
 
@@ -45,6 +47,11 @@ func newHTTPClient(opts *ClientOptions) *http.Client {
 // NewTransport creates a new HTTPTransport client.
 // If a custom http.Client is not provided, one will be created based on the options.
 func NewTransport(baseURL string, client *http.Client, parser VersionParser, options *ClientOptions) *HTTPTransport {
+	return NewTransportWithLogger(baseURL, client, parser, options, logging.Default().Logger)
+}
+
+// NewTransportWithLogger creates a new HTTPTransport client with a custom logger.
+func NewTransportWithLogger(baseURL string, client *http.Client, parser VersionParser, options *ClientOptions, logger *slog.Logger) *HTTPTransport {
 	if options == nil {
 		options = DefaultClientOptions()
 	}
@@ -78,6 +85,7 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 		client:        client,
 		baseURL:       baseURL,
 		versionParser: parser,
+		logger:        logger,
 		options:       options,
 	}
 }
@@ -94,8 +102,13 @@ func NewTransport(baseURL string, client *http.Client, parser VersionParser, opt
 // Our client disables that implicit decompression by managing compression explicitly for more control and security.
 func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVersion) error {
 	if len(events) == 0 {
+		t.logger.Debug("Push called with no events, skipping")
 		return nil // Nothing to push
 	}
+
+	t.logger.Debug("Starting push operation",
+		slog.Int("event_count", len(events)),
+		slog.String("base_url", t.baseURL))
 
 	jsonData := make([]JSONEventWithVersion, 0, len(events))
 	for _, ev := range events {
@@ -116,13 +129,22 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 		var compressed bytes.Buffer
 		gzipWriter := gzip.NewWriter(&compressed)
 		if _, err := gzipWriter.Write(data); err != nil {
+			t.logger.Error("Failed to compress push request",
+				slog.String("error", err.Error()),
+				slog.Int("original_size", len(data)))
 			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to compress request: %w", err))
 		}
 		if err := gzipWriter.Close(); err != nil {
+			t.logger.Error("Failed to close gzip writer for push request",
+				slog.String("error", err.Error()))
 			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to close gzip writer: %w", err))
 		}
 		requestBody = &compressed
 		contentEncoding = "gzip"
+		t.logger.Debug("Compressed push request",
+			slog.Int("original_size", len(data)),
+			slog.Int("compressed_size", compressed.Len()),
+			slog.Float64("compression_ratio", float64(compressed.Len())/float64(len(data))))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/push", requestBody)
@@ -151,20 +173,33 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 
 	resp, err := t.client.Do(req)
 	if err != nil {
+		t.logger.Error("Push request failed",
+			slog.String("error", err.Error()),
+			slog.String("url", t.baseURL+"/push"))
 		return syncErrors.NewRetryable(syncErrors.OpPush, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		t.logger.Error("Push request returned error status",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response_body", string(body)),
+			slog.String("url", t.baseURL+"/push"))
 		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
+	t.logger.Debug("Push operation completed successfully",
+		slog.Int("event_count", len(events)))
 	return nil
 }
 
 // Pull fetches events from the remote server since a given version via an HTTP GET request.
 func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+	t.logger.Debug("Starting pull operation",
+		slog.String("since_version", since.String()),
+		slog.String("base_url", t.baseURL))
+
 	url := fmt.Sprintf("%s/pull?since=%s", t.baseURL, since.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -184,12 +219,19 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 
 	resp, err := t.client.Do(req)
 	if err != nil {
+		t.logger.Error("Pull request failed",
+			slog.String("error", err.Error()),
+			slog.String("url", url))
 		return nil, syncErrors.NewRetryable(syncErrors.OpPull, fmt.Errorf("network error: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		t.logger.Error("Pull request returned error status",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response_body", string(body)),
+			slog.String("url", url))
 		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
 	}
 
@@ -231,6 +273,9 @@ func (t *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		}
 	}
 
+	t.logger.Debug("Pull operation completed successfully",
+		slog.Int("event_count", len(events)),
+		slog.String("since_version", since.String()))
 	return events, nil
 }
 
@@ -293,14 +338,22 @@ func (t *HTTPTransport) Close() error {
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
 	store         synckit.EventStore
-	logger        *log.Logger
+	logger        *slog.Logger
 	versionParser VersionParser
 	options       *ServerOptions
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
 // It requires an EventStore to interact with the database and optionally accepts a VersionParser and ServerOptions.
-func NewSyncHandler(store synckit.EventStore, logger *log.Logger, parser VersionParser, options *ServerOptions) *SyncHandler {
+func NewSyncHandler(store synckit.EventStore, logger *slog.Logger, parser VersionParser, options *ServerOptions) *SyncHandler {
+	return NewSyncHandlerWithLogger(store, logger, parser, options)
+}
+
+// NewSyncHandlerWithLogger creates a new handler for serving sync endpoints with structured logging.
+func NewSyncHandlerWithLogger(store synckit.EventStore, logger *slog.Logger, parser VersionParser, options *ServerOptions) *SyncHandler {
+	if logger == nil {
+		logger = logging.Default().Logger
+	}
 	if parser == nil {
 		// Default to using store's ParseVersion method if no parser provided
 		parser = store.ParseVersion
@@ -348,14 +401,15 @@ func (h *SyncHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling push request",
+		slog.String("method", r.Method),
+		slog.String("remote_addr", r.RemoteAddr),
+		slog.String("user_agent", r.UserAgent()))
+
 	if r.Method != http.MethodPost {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePush"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindMethodNotAllowed,
-			"method not allowed",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Warn("Push request with invalid method",
+			slog.String("method", r.Method),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -367,13 +421,10 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 
 	// Check Content-Length if available
 	if r.ContentLength > h.options.MaxRequestSize {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePush"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindTooLarge,
-			fmt.Errorf("request body too large: %d bytes exceeds maximum of %d bytes", r.ContentLength, h.options.MaxRequestSize),
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Warn("Push request body too large",
+			slog.Int64("content_length", r.ContentLength),
+			slog.Int64("max_size", h.options.MaxRequestSize),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusRequestEntityTooLarge,
 			fmt.Sprintf("request body too large: maximum size is %d bytes", h.options.MaxRequestSize))
 		return
@@ -382,14 +433,9 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	// Create safe reader that handles both compressed and decompressed size limits
 	safeReader, cleanup, err := createSafeRequestReader(w, r, h.options)
 	if err != nil {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePush"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindInvalid,
-			err,
-			"create safe request reader",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Error("Failed to create safe request reader",
+			slog.String("error", err.Error()),
+			slog.String("remote_addr", r.RemoteAddr))
 		// Use mapped error handling for consistent HTTP status codes
 		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
@@ -399,26 +445,15 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	var jsonEvents []JSONEventWithVersion
 	if err := json.NewDecoder(safeReader).Decode(&jsonEvents); err != nil {
 		if err == io.EOF {
-			e := syncErrors.E(
-				syncErrors.Op("httptransport.handlePush"),
-				syncErrors.Component("httptransport"),
-				syncErrors.KindInvalid,
-				err,
-				"empty request body",
-			)
-			h.logger.Printf("error: %v", e)
+			h.logger.Error("Empty request body in push request",
+				slog.String("remote_addr", r.RemoteAddr))
 			h.respondErr(w, r, http.StatusBadRequest, "empty request body")
 			return
 		}
 		// Log the error with structured logging
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePush"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindInvalid,
-			err,
-			"decode request",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Error("Failed to decode push request body",
+			slog.String("error", err.Error()),
+			slog.String("remote_addr", r.RemoteAddr))
 		// Use mapped error handling for consistent HTTP status codes
 		respondWithMappedError(w, r, err, "invalid request body", h.options)
 		return
@@ -427,14 +462,10 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	for _, jev := range jsonEvents {
 		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
-			e := syncErrors.E(
-				syncErrors.Op("httptransport.handlePush"),
-				syncErrors.Component("httptransport"),
-				syncErrors.KindInvalid,
-				err,
-				"convert JSON event",
-			)
-			h.logger.Printf("error: %v", e)
+			h.logger.Warn("Failed to convert JSON event in push request",
+				slog.String("error", err.Error()),
+				slog.String("event_id", jev.Event.ID),
+				slog.String("remote_addr", r.RemoteAddr))
 			continue
 		}
 		// Note: The server-side store will assign its own version upon insertion.
@@ -444,96 +475,85 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 			// This could be a unique constraint violation if the event already exists,
 			// which is often okay during sync. We log it but don't fail the whole batch.
 			// For other errors, we should fail.
-			e := syncErrors.E(
-				syncErrors.Op("httptransport.handlePush"),
-				syncErrors.Component("httptransport"),
-				syncErrors.KindInternal,
-				err,
-				fmt.Sprintf("store event %s", ev.Event.ID()),
-			)
-			h.logger.Printf("error: %v", e)
+			h.logger.Warn("Failed to store event during push",
+				slog.String("error", err.Error()),
+				slog.String("event_id", ev.Event.ID()),
+				slog.String("remote_addr", r.RemoteAddr))
 			// In a real app, you might check for specific errors here.
 		}
 	}
 
-	h.logger.Printf("Successfully pushed %d events", len(jsonEvents))
-	h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	h.logger.Info("Successfully pushed events",
+			slog.Int("event_count", len(jsonEvents)),
+			slog.String("remote_addr", r.RemoteAddr))
+		h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling latest version request",
+		slog.String("method", r.Method),
+		slog.String("remote_addr", r.RemoteAddr))
+
 	if r.Method != http.MethodGet {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handleLatestVersion"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindMethodNotAllowed,
-			"method not allowed",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Warn("Latest version request with invalid method",
+			slog.String("method", r.Method),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	version, err := h.store.LatestVersion(r.Context())
 	if err != nil {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handleLatestVersion"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindInternal,
-			err,
-			"get latest version",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Error("Failed to get latest version",
+			slog.String("error", err.Error()),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusInternalServerError, "could not get latest version")
 		return
 	}
 
+	h.logger.Debug("Returning latest version",
+		slog.String("version", version.String()),
+		slog.String("remote_addr", r.RemoteAddr))
 	h.respond(w, r, http.StatusOK, version.String())
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePull"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindMethodNotAllowed,
-			"method not allowed",
-		)
-		h.logger.Printf("error: %v", e)
-		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	sinceStr := r.URL.Query().Get("since")
 	if sinceStr == "" {
 		sinceStr = "0"
+	}
+
+	h.logger.Debug("Handling pull request",
+		slog.String("method", r.Method),
+		slog.String("since_version", sinceStr),
+		slog.String("remote_addr", r.RemoteAddr))
+
+	if r.Method != http.MethodGet {
+		h.logger.Warn("Pull request with invalid method",
+			slog.String("method", r.Method),
+			slog.String("remote_addr", r.RemoteAddr))
+		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
+		return
 	}
 
 	// Use the injected version parser to handle version parsing
 	// This decouples the transport from specific version implementations
 	version, err := h.versionParser(r.Context(), sinceStr)
 	if err != nil {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePull"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindInvalid,
-			err,
-			"parse since version",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Warn("Invalid since version in pull request",
+			slog.String("since_version", sinceStr),
+			slog.String("error", err.Error()),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return
 	}
 
 	events, err := h.store.Load(r.Context(), version)
 	if err != nil {
-		e := syncErrors.E(
-			syncErrors.Op("httptransport.handlePull"),
-			syncErrors.Component("httptransport"),
-			syncErrors.KindInternal,
-			err,
-			"load events from store",
-		)
-		h.logger.Printf("error: %v", e)
+		h.logger.Error("Failed to load events from store",
+			slog.String("error", err.Error()),
+			slog.String("since_version", sinceStr),
+			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusInternalServerError, "could not load events")
 		return
 	}
@@ -544,6 +564,9 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 		jsonEvents[i] = toJSONEventWithVersion(ev)
 	}
 
-	h.logger.Printf("Pulled %d events since version %s", len(events), sinceStr)
+	h.logger.Info("Successfully pulled events",
+		slog.Int("event_count", len(events)),
+		slog.String("since_version", sinceStr),
+		slog.String("remote_addr", r.RemoteAddr))
 	h.respond(w, r, http.StatusOK, jsonEvents)
 }

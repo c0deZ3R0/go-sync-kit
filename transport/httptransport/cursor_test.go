@@ -7,10 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -21,9 +20,6 @@ import (
 )
 
 func TestCursorAPI_SizeLimits(t *testing.T) {
-	// Create a logger
-	logger := log.New(os.Stdout, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
-	testLogger = logger
 	// Create a large request payload that exceeds the size limit
 	longString := strings.Repeat("x", 2*1024) // 2KB
 	// For json.RawMessage the bytes must be valid JSON; wrap as a quoted string so the JSON is valid
@@ -38,13 +34,13 @@ func TestCursorAPI_SizeLimits(t *testing.T) {
 	require.NoError(t, err)
 
 	// Log test setup
-	logger.Printf("Creating test payload size: %d bytes", len(data))
-	logger.Printf("Server MaxRequestSize: %d bytes", 1*1024)
+	t.Logf("Creating test payload size: %d bytes", len(data))
+	t.Logf("Server MaxRequestSize: %d bytes", 1*1024)
 
 	// Create handler with adjusted options (set much lower for test)
 	handler := NewSyncHandler(
 		NewMockEventStore(),
-		nil,
+		slog.Default(),
 		nil,
 		&ServerOptions{MaxRequestSize: 1 * 1024 /* 1KB */, CompressionEnabled: false, CompressionThreshold: 0},
 	)
@@ -96,7 +92,7 @@ func TestCursorAPI_Compression(t *testing.T) {
 	// Create handler with compression enabled
 	handler := NewSyncHandler(
 		store,
-		nil,
+		slog.Default(),
 		nil,
 		&ServerOptions{
 			MaxRequestSize:       1024, // Set to 1KB to ensure limit is hit during test

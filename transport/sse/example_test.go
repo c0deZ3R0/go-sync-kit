@@ -3,9 +3,8 @@ package sse
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -111,7 +110,7 @@ func ExampleTransport() {
 	}, cursor.NewInteger(2))
 
 	// Create SSE server
-	server := NewServer(store, log.New(os.Stdout, "SSE: ", log.LstdFlags))
+	server := NewServer(store, slog.Default())
 	
 	// Create test HTTP server
 	testServer := httptest.NewServer(server.Handler())
@@ -152,7 +151,7 @@ func TestSSEBasicIntegration(t *testing.T) {
 	store := &MockEventStore{}
 	
 	// Create SSE server
-	server := NewServer(store, nil)
+	server := NewServer(store, slog.Default())
 	
 	// Test that server can be created
 	if server == nil {
