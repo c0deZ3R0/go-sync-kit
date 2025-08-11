@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	stdSync "sync"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 
 	// Go SQLite driver
@@ -179,7 +181,11 @@ func New(config *Config) (*SQLiteEventStore, error) {
 		return nil, fmt.Errorf("DataSourceName is required")
 	}
 
-	config.Logger.Printf("[SQLite EventStore] Opening database: %s", config.DataSourceName)
+	logger := logging.WithComponent(logging.Component("sqlite-store"))
+	logger.InfoContext(context.Background(), "Opening SQLite database",
+		slog.String("data_source", config.DataSourceName),
+		slog.Bool("wal_enabled", config.EnableWAL),
+	)
 
 	db, err := sql.Open("sqlite3", config.DataSourceName)
 	if err != nil {
@@ -192,8 +198,12 @@ func New(config *Config) (*SQLiteEventStore, error) {
 	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
-	config.Logger.Printf("[SQLite EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d",
-		config.MaxOpenConns, config.MaxIdleConns)
+	logger.InfoContext(context.Background(), "Connection pool configured",
+		slog.Int("max_open_conns", config.MaxOpenConns),
+		slog.Int("max_idle_conns", config.MaxIdleConns),
+		slog.Duration("conn_max_lifetime", config.ConnMaxLifetime),
+		slog.Duration("conn_max_idle_time", config.ConnMaxIdleTime),
+	)
 
 	if err := db.Ping(); err != nil {
 		db.Close()
@@ -211,7 +221,9 @@ func New(config *Config) (*SQLiteEventStore, error) {
 		return nil, fmt.Errorf("failed to setup database schema: %w", err)
 	}
 
-	config.Logger.Printf("[SQLite EventStore] Successfully initialized with table: %s", config.TableName)
+	logger.InfoContext(context.Background(), "SQLite EventStore successfully initialized",
+		slog.String("table_name", config.TableName),
+	)
 	return store, nil
 }
 

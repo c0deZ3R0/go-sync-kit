@@ -3,6 +3,7 @@ package synckit
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,6 +80,7 @@ func TestPullContextTimeout(t *testing.T) {
 	sm := &syncManager{
 		store:     store,
 		transport: transport,
+		logger:    slog.Default(),
 		options: SyncOptions{
 			MetricsCollector: metrics,
 		},
@@ -117,6 +119,7 @@ func TestPullContextCancellation(t *testing.T) {
 	sm := &syncManager{
 		store:     store,
 		transport: transport,
+		logger:    slog.Default(),
 		options: SyncOptions{
 			MetricsCollector: metrics,
 		},
@@ -174,6 +177,7 @@ func TestConflictResolutionContextCancellation(t *testing.T) {
 	sm := &syncManager{
 		store:     store,
 		transport: transport,
+		logger:    slog.Default(),
 		options: SyncOptions{
 			ConflictResolver: resolver,
 			MetricsCollector: metrics,

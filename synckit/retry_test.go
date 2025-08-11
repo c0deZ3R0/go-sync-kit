@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 func TestSyncWithRetry_Success(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  3,
@@ -35,6 +37,7 @@ func TestSyncWithRetry_Success(t *testing.T) {
 
 func TestSyncWithRetry_RetryableError(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  3,
@@ -65,6 +68,7 @@ func TestSyncWithRetry_RetryableError(t *testing.T) {
 
 func TestSyncWithRetry_NonRetryableError(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  3,
@@ -90,6 +94,7 @@ func TestSyncWithRetry_NonRetryableError(t *testing.T) {
 
 func TestSyncWithRetry_ContextCancelled(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  3,
@@ -115,6 +120,7 @@ func TestSyncWithRetry_ContextCancelled(t *testing.T) {
 
 func TestSyncWithRetry_MaxRetriesExceeded(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  2,
@@ -160,6 +166,7 @@ func TestSyncWithRetry_ExponentialBackoff(t *testing.T) {
 		}
 	}()
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: &RetryConfig{
 				MaxAttempts:  3,
@@ -208,6 +215,7 @@ func TestSyncWithRetry_ExponentialBackoff(t *testing.T) {
 
 func TestSyncWithRetry_NoConfig(t *testing.T) {
 	sm := &syncManager{
+		logger: slog.Default(),
 		options: SyncOptions{
 			RetryConfig: nil,
 		},
