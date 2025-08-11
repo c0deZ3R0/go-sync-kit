@@ -41,8 +41,8 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 		{
 			name: "identical_versions_prefer_remote",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 5}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 5}},
+			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 5}},
+			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 5}},
 			},
 			wantDecision: "keep_remote",
 			wantEventCount: 1,
@@ -50,8 +50,8 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 		{
 			name: "zero_versions_both",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 0}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 0}},
+			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 0}},
+			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 0}},
 			},
 			wantDecision: "keep_remote",
 			wantEventCount: 1,
@@ -59,8 +59,8 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 		{
 			name: "very_large_version_numbers",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 999999999}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 1000000000}},
+			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 999999999}},
+			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 1000000000}},
 			},
 			wantDecision: "keep_remote",
 			wantEventCount: 1,
@@ -68,8 +68,8 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 		{
 			name: "negative_version_numbers",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: -1}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 1}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: -1}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 1}},
 			},
 			wantDecision: "keep_remote",
 			wantEventCount: 1,
@@ -77,8 +77,8 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 		{
 			name: "empty_events_with_versions",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: ""}, Version: testVersion{v: 1}},
-				Remote: EventWithVersion{Event: testEvent{id: ""}, Version: testVersion{v: 2}},
+				Local:  EventWithVersion{Event: &testEvent{id: ""}, Version: &testVersion{v: 1}},
+				Remote: EventWithVersion{Event: &testEvent{id: ""}, Version: &testVersion{v: 2}},
 			},
 			wantDecision: "keep_remote",
 			wantEventCount: 1,
@@ -117,8 +117,8 @@ func testLastWriteWinsBoundaryConditions(t *testing.T) {
 	cancel() // Cancel immediately
 	
 	conflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 1}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	
 	// Should still work even with cancelled context (no async operations)
@@ -146,8 +146,8 @@ func testLastWriteWinsErrorConditions(t *testing.T) {
 	
 	// Test with invalid version comparison
 	invalidVersionConflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: &invalidVersion{}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &invalidVersion{}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	
 	result, err := resolver.Resolve(context.Background(), invalidVersionConflict)
@@ -182,16 +182,16 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 		{
 			name: "local_empty_event_with_version",
 			conflict: Conflict{
-				Local:  EventWithVersion{Version: testVersion{v: 1}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+				Local:  EventWithVersion{Version: &testVersion{v: 1}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 			},
 			wantEventCount: 2, // AdditiveMerge includes both even if one is nil
 		},
 		{
 			name: "identical_events",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "same", data: "data"}, Version: testVersion{v: 1}},
-				Remote: EventWithVersion{Event: testEvent{id: "same", data: "data"}, Version: testVersion{v: 1}},
+				Local:  EventWithVersion{Event: &testEvent{id: "same", data: "data"}, Version: &testVersion{v: 1}},
+				Remote: EventWithVersion{Event: &testEvent{id: "same", data: "data"}, Version: &testVersion{v: 1}},
 			},
 			wantEventCount: 2, // Both included even if identical
 		},
@@ -199,18 +199,18 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 			name: "large_event_data",
 			conflict: Conflict{
 				Local: EventWithVersion{
-					Event: testEvent{
+					Event: &testEvent{
 						id:   "large-local",
 						data: strings.Repeat("x", 10000),
 					},
-					Version: testVersion{v: 1},
+					Version: &testVersion{v: 1},
 				},
 				Remote: EventWithVersion{
-					Event: testEvent{
+					Event: &testEvent{
 						id:   "large-remote", 
 						data: strings.Repeat("y", 10000),
 					},
-					Version: testVersion{v: 2},
+					Version: &testVersion{v: 2},
 				},
 			},
 			wantEventCount: 2,
@@ -219,8 +219,8 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 		{
 			name: "nil_event_data",
 			conflict: Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local", data: nil}, Version: testVersion{v: 1}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote", data: nil}, Version: testVersion{v: 2}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local", data: nil}, Version: &testVersion{v: 1}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote", data: nil}, Version: &testVersion{v: 2}},
 			},
 			wantEventCount: 2,
 		},
@@ -263,8 +263,8 @@ func testAdditiveMergeBoundaryConditions(t *testing.T) {
 	results := make(chan ResolvedConflict, numResolves)
 	
 	conflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 1}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	
 	for i := 0; i < numResolves; i++ {
@@ -327,8 +327,8 @@ func testManualReviewEdgeCases(t *testing.T) {
 			resolver := &ManualReviewResolver{Reason: tt.reason}
 			
 			conflict := Conflict{
-				Local:  EventWithVersion{Event: testEvent{id: "local"}},
-				Remote: EventWithVersion{Event: testEvent{id: "remote"}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local"}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}},
 			}
 			
 			result, err := resolver.Resolve(context.Background(), conflict)
@@ -371,8 +371,8 @@ func testManualReviewReasonHandling(t *testing.T) {
 	
 	// Test multiple sequential resolves maintain consistent reasons
 	conflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}},
 	}
 	
 	const numResolves = 10
@@ -735,8 +735,8 @@ func (v *invalidVersion) IsZero() bool {
 func BenchmarkLastWriteWinsResolver(b *testing.B) {
 	resolver := &LastWriteWinsResolver{}
 	conflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 1}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	ctx := context.Background()
 	
@@ -749,8 +749,8 @@ func BenchmarkLastWriteWinsResolver(b *testing.B) {
 func BenchmarkAdditiveMergeResolver(b *testing.B) {
 	resolver := &AdditiveMergeResolver{}
 	conflict := Conflict{
-		Local:  EventWithVersion{Event: testEvent{id: "local"}, Version: testVersion{v: 1}},
-		Remote: EventWithVersion{Event: testEvent{id: "remote"}, Version: testVersion{v: 2}},
+		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
+		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	ctx := context.Background()
 	

@@ -72,13 +72,13 @@ func testMultiUserConflictResolution(t *testing.T) {
 	}
 
 	// Alice stores her version first
-	err := alice.store.Store(ctx, userEvent1, testVersion{v: 1})
+	err := alice.store.Store(ctx, userEvent1, &testVersion{v: 1})
 	if err != nil {
 		t.Fatalf("Alice failed to store event: %v", err)
 	}
 
 	// Bob stores his version (conflict!)
-	err = bob.store.Store(ctx, userEvent2, testVersion{v: 2})
+	err = bob.store.Store(ctx, userEvent2, &testVersion{v: 2})
 	if err != nil {
 		t.Fatalf("Bob failed to store event: %v", err)
 	}
@@ -107,7 +107,7 @@ func testMultiUserConflictResolution(t *testing.T) {
 		meta: map[string]interface{}{"role": "admin", "user": "charlie"},
 	}
 
-	err = charlie.store.Store(ctx, orderEvent, testVersion{v: 1})
+	err = charlie.store.Store(ctx, orderEvent, &testVersion{v: 1})
 	if err != nil {
 		t.Fatalf("Charlie failed to store order: %v", err)
 	}
@@ -158,7 +158,7 @@ func testOfflineSync(t *testing.T) {
 		data: map[string]interface{}{"initialized": true},
 	}
 
-	err := alice.store.Store(ctx, initialEvent, testVersion{v: 1})
+	err := alice.store.Store(ctx, initialEvent, &testVersion{v: 1})
 	if err != nil {
 		t.Fatalf("Failed to store initial event: %v", err)
 	}
@@ -180,7 +180,7 @@ func testOfflineSync(t *testing.T) {
 			agg:  fmt.Sprintf("work-%d", i),
 			data: map[string]interface{}{"offline": true, "sequence": i},
 		}
-		err = alice.store.Store(ctx, offlineEvent, testVersion{v: i + 2})
+		err = alice.store.Store(ctx, offlineEvent, &testVersion{v: i + 2})
 		if err != nil {
 			t.Fatalf("Alice failed to store offline event %d: %v", i, err)
 		}
@@ -193,7 +193,7 @@ func testOfflineSync(t *testing.T) {
 		agg:  "work-shared",
 		data: map[string]interface{}{"online": true},
 	}
-	err = bob.store.Store(ctx, bobOnlineEvent, testVersion{v: 2})
+	err = bob.store.Store(ctx, bobOnlineEvent, &testVersion{v: 2})
 	if err != nil {
 		t.Fatalf("Bob failed to store online event: %v", err)
 	}
@@ -266,11 +266,11 @@ func testConcurrentResolverAccess(t *testing.T) {
 					Metadata:    map[string]interface{}{"priority": "high", "goroutine": goroutineID},
 			Local: EventWithVersion{
 				Event:   &Phase4TestEvent{id: fmt.Sprintf("local-%d-%d", goroutineID, j), typ: "TestEvent"},
-				Version: testVersion{v: j},
+			Version: &testVersion{v: j},
 			},
 			Remote: EventWithVersion{
 				Event:   &Phase4TestEvent{id: fmt.Sprintf("remote-%d-%d", goroutineID, j), typ: "TestEvent"},
-				Version: testVersion{v: j + 1},
+			Version: &testVersion{v: j + 1},
 			},
 				}
 
@@ -333,7 +333,7 @@ func testBranchingAndMerge(t *testing.T) {
 		agg:  "project-1",
 		data: map[string]interface{}{"version": "1.0"},
 	}
-	err := alice.store.Store(ctx, baseEvent, testVersion{v: 1})
+	err := alice.store.Store(ctx, baseEvent, &testVersion{v: 1})
 	if err != nil {
 		t.Fatalf("Failed to create base event: %v", err)
 	}
@@ -377,20 +377,20 @@ func testBranchingAndMerge(t *testing.T) {
 	}
 
 	// Store events locally (simulating work on separate branches)
-	err = alice.store.Store(ctx, aliceFeature1, testVersion{v: 2})
+	err = alice.store.Store(ctx, aliceFeature1, &testVersion{v: 2})
 	if err != nil {
 		t.Fatalf("Alice failed to store feature 1: %v", err)
 	}
-	err = alice.store.Store(ctx, aliceFeature2, testVersion{v: 3})
+	err = alice.store.Store(ctx, aliceFeature2, &testVersion{v: 3})
 	if err != nil {
 		t.Fatalf("Alice failed to store feature 2: %v", err)
 	}
 
-	err = bob.store.Store(ctx, bobFeature1, testVersion{v: 2})
+	err = bob.store.Store(ctx, bobFeature1, &testVersion{v: 2})
 	if err != nil {
 		t.Fatalf("Bob failed to store feature 1: %v", err)
 	}
-	err = bob.store.Store(ctx, bobFeature2, testVersion{v: 3})
+	err = bob.store.Store(ctx, bobFeature2, &testVersion{v: 3})
 	if err != nil {
 		t.Fatalf("Bob failed to store feature 2: %v", err)
 	}
@@ -507,11 +507,11 @@ func testDeterministicOutcomes(t *testing.T) {
 		AggregateID: "test-agg",
 		Local: EventWithVersion{
 			Event:   &Phase4TestEvent{id: "local", typ: "TestEvent", data: "local-data"},
-			Version: testVersion{v: 1},
+			Version: &testVersion{v: 1},
 		},
 		Remote: EventWithVersion{
 			Event:   &Phase4TestEvent{id: "remote", typ: "TestEvent", data: "remote-data"},
-			Version: testVersion{v: 2},
+			Version: &testVersion{v: 2},
 		},
 	}
 

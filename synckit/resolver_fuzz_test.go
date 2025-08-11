@@ -37,10 +37,10 @@ func FuzzDynamicResolver_Resolve(f *testing.F) {
 		// Create test versions
 		var localVer, remoteVer Version
 		if localVersion > 0 {
-			localVer = testVersion{v: int(localVersion)}
+			localVer = fuzzTestVersion{v: int(localVersion)}
 		}
 		if remoteVersion > 0 {
-			remoteVer = testVersion{v: int(remoteVersion)}
+			remoteVer = fuzzTestVersion{v: int(remoteVersion)}
 		}
 
 		// Construct conflict
@@ -49,8 +49,8 @@ func FuzzDynamicResolver_Resolve(f *testing.F) {
 			AggregateID:   aggregateID,
 			ChangedFields: changedFields,
 			Metadata:      metadata,
-			Local:         EventWithVersion{Event: testEvent{id: "local", typ: eventType, agg: aggregateID}, Version: localVer},
-			Remote:        EventWithVersion{Event: testEvent{id: "remote", typ: eventType, agg: aggregateID}, Version: remoteVer},
+			Local:         EventWithVersion{Event: fuzzTestEvent{id: "local", typ: eventType, agg: aggregateID}, Version: localVer},
+			Remote:        EventWithVersion{Event: fuzzTestEvent{id: "remote", typ: eventType, agg: aggregateID}, Version: remoteVer},
 		}
 
 		// Test multiple resolver configurations
@@ -201,17 +201,17 @@ func FuzzConflictResolvers(f *testing.F) {
 		// Build versions
 		var localVersion, remoteVersion Version
 		if localVer > 0 {
-			localVersion = testVersion{v: int(localVer)}
+			localVersion = fuzzTestVersion{v: int(localVer)}
 		}
 		if remoteVer > 0 {
-			remoteVersion = testVersion{v: int(remoteVer)}
+			remoteVersion = fuzzTestVersion{v: int(remoteVer)}
 		}
 
 		conflict := Conflict{
 			EventType:   eventType,
 			AggregateID: aggregateID,
-			Local:       EventWithVersion{Event: testEvent{id: "local", typ: eventType, agg: aggregateID}, Version: localVersion},
-			Remote:      EventWithVersion{Event: testEvent{id: "remote", typ: eventType, agg: aggregateID}, Version: remoteVersion},
+			Local:       EventWithVersion{Event: fuzzTestEvent{id: "local", typ: eventType, agg: aggregateID}, Version: localVersion},
+			Remote:      EventWithVersion{Event: fuzzTestEvent{id: "remote", typ: eventType, agg: aggregateID}, Version: remoteVersion},
 		}
 
 		resolvers := []ConflictResolver{
@@ -261,14 +261,14 @@ func getResolverName(index int) string {
 	return "unknown"
 }
 
-// testVersion is a simple Version implementation for fuzz testing
-type testVersion struct{ v int }
+// fuzzTestVersion is a simple Version implementation for fuzz testing
+type fuzzTestVersion struct{ v int }
 
-func (t testVersion) Compare(other Version) int {
+func (t fuzzTestVersion) Compare(other Version) int {
 	if other == nil {
 		return 1
 	}
-	o, ok := other.(testVersion)
+	o, ok := other.(fuzzTestVersion)
 	if !ok {
 		return 0
 	}
@@ -280,11 +280,11 @@ func (t testVersion) Compare(other Version) int {
 	}
 	return 0
 }
-func (t testVersion) String() string { return "" }
-func (t testVersion) IsZero() bool  { return t.v == 0 }
+func (t fuzzTestVersion) String() string { return "" }
+func (t fuzzTestVersion) IsZero() bool  { return t.v == 0 }
 
-// testEvent is a simple Event implementation for fuzz testing
-type testEvent struct {
+// fuzzTestEvent is a simple Event implementation for fuzz testing
+type fuzzTestEvent struct {
 	id   string
 	typ  string
 	agg  string
@@ -292,8 +292,8 @@ type testEvent struct {
 	meta map[string]any
 }
 
-func (e testEvent) ID() string               { return e.id }
-func (e testEvent) Type() string             { return e.typ }
-func (e testEvent) AggregateID() string      { return e.agg }
-func (e testEvent) Data() any                { return e.data }
-func (e testEvent) Metadata() map[string]any { return e.meta }
+func (e fuzzTestEvent) ID() string               { return e.id }
+func (e fuzzTestEvent) Type() string             { return e.typ }
+func (e fuzzTestEvent) AggregateID() string      { return e.agg }
+func (e fuzzTestEvent) Data() any                { return e.data }
+func (e fuzzTestEvent) Metadata() map[string]any { return e.meta }
