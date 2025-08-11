@@ -3,7 +3,7 @@ package dynres
 import (
 	"context"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // Conflict carries the context needed to resolve a detected conflict between
@@ -14,13 +14,13 @@ type Conflict struct {
 	ChangedFields []string
 	Metadata      map[string]any
 
-	Local  synckit.EventWithVersion
-	Remote synckit.EventWithVersion
+	Local  types.EventWithVersion
+	Remote types.EventWithVersion
 }
 
 // ResolvedConflict captures the decision and any follow-up data.
 type ResolvedConflict struct {
-	ResolvedEvents []synckit.EventWithVersion
+	ResolvedEvents []types.EventWithVersion
 	Decision       string
 	Reasons        []string
 }
