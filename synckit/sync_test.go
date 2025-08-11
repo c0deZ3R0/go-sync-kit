@@ -135,8 +135,12 @@ func TestSyncManager_Sync(t *testing.T) {
 // MockConflictResolver is a simple implementation of the ConflictResolver interface
 type MockConflictResolver struct{}
 
-func (m *MockConflictResolver) Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error) {
-	return remote, nil // Use remote for simplicity
+func (m *MockConflictResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
+	return ResolvedConflict{
+		Decision:        "use_remote", 
+		ResolvedEvents:  []EventWithVersion{conflict.Remote},
+		Reasons:         []string{"mock resolver chose remote"},
+	}, nil
 }
 
 func TestMockTransport_Pull_SinceParameter(t *testing.T) {

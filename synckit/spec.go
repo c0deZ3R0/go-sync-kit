@@ -1,4 +1,4 @@
-package dynres
+package synckit
 
 // Spec is a predicate used to match conflicts to rules. Combinators allow
 // building complex match logic from small, testable pieces.
@@ -57,4 +57,3 @@ func anyEqual(a, b any) bool {
 		return a == b
 	}
 }
-

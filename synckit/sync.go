@@ -10,7 +10,6 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/interfaces"
-	"github.com/c0deZ3R0/go-sync-kit/synckit/dynres"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
@@ -46,12 +45,12 @@ type EventStore interface {
 }
 
 // EventWithVersion pairs an event with its version information
-type EventWithVersion = types.EventWithVersion
+type EventWithVersion struct {
+	Event   Event
+	Version Version
+}
 
-// ConflictResolver handles conflicts when the same data is modified concurrently.
-// Different strategies can be plugged in (last-write-wins, merge, user-prompt, etc.).
-// This is an alias to the new dynamic conflict resolver interface.
-type ConflictResolver = dynres.ConflictResolver
+// ConflictResolver is now defined in conflict.go
 
 // Transport handles the actual network communication between clients and servers.
 // Implementations can use HTTP, gRPC, WebSockets, NATS, etc.
@@ -213,14 +212,14 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 	// Set default DynamicResolver with LWW fallback if none provided
 	if opts.ConflictResolver == nil {
 		defaultResolver, err := NewDynamicResolver(
-			WithFallback(&dynres.LastWriteWinsResolver{}),
+			WithFallback(&LastWriteWinsResolver{}),
 			WithLogger(logger),
 		)
 		if err != nil {
 			// This should never happen with a simple LWW fallback,
 			// but we handle it gracefully
 			logger.Warn("Failed to create default DynamicResolver, using LWW directly", "error", err)
-			opts.ConflictResolver = &dynres.LastWriteWinsResolver{}
+			opts.ConflictResolver = &LastWriteWinsResolver{}
 		} else {
 			opts.ConflictResolver = defaultResolver
 		}

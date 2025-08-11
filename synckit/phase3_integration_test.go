@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/c0deZ3R0/go-sync-kit/synckit/dynres"
 	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 )
 
@@ -45,9 +44,9 @@ func TestPhase3Integration(t *testing.T) {
 	t.Run("CustomDynamicResolverWithRules", func(t *testing.T) {
 		// Create a custom DynamicResolver with rules
 		resolver, err := NewDynamicResolver(
-			WithEventTypeRule("user_rule", "UserUpdated", &dynres.LastWriteWinsResolver{}),
-			WithEventTypeRule("order_rule", "OrderCreated", &dynres.AdditiveMergeResolver{}),
-			WithFallback(&dynres.ManualReviewResolver{}),
+			WithEventTypeRule("user_rule", "UserUpdated", &LastWriteWinsResolver{}),
+			WithEventTypeRule("order_rule", "OrderCreated", &AdditiveMergeResolver{}),
+			WithFallback(&ManualReviewResolver{}),
 			WithLogger(logger),
 		)
 		if err != nil {

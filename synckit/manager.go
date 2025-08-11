@@ -9,8 +9,6 @@ import (
 	"time"
 
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
-	"github.com/c0deZ3R0/go-sync-kit/synckit/dynres"
-	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // syncManager implements the SyncManager interface
@@ -744,8 +742,8 @@ func findLatestVersion(events []EventWithVersion) Version {
 // This method implements simple conflict detection based on:
 // 1. Same AggregateID and EventType
 // 2. Different versions/timestamps indicating concurrent modifications
-func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVersion) []dynres.Conflict {
-	var conflicts []dynres.Conflict
+func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVersion) []Conflict {
+	var conflicts []Conflict
 	
 	// Create a map of local events by aggregate+type for quick lookup
 	localByKey := make(map[string][]EventWithVersion)
@@ -769,11 +767,11 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 			// for the same aggregate+type, and they have different versions,
 			// consider it a conflict
 			if local.Version.Compare(remote.Version) != 0 {
-				conflict := dynres.Conflict{
+				conflict := Conflict{
 					EventType:   remote.Event.Type(),
 					AggregateID: remote.Event.AggregateID(),
-					Local:       convertToTypesEvent(local),
-					Remote:      convertToTypesEvent(remote),
+					Local:       local,
+					Remote:      remote,
 					Metadata:    make(map[string]any),
 				}
 				
@@ -820,14 +818,6 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 	return conflicts
 }
 
-// convertToTypesEvent converts a synckit EventWithVersion to types.EventWithVersion
-// to match the dynres.Conflict interface requirements.
-func convertToTypesEvent(ev EventWithVersion) types.EventWithVersion {
-	return types.EventWithVersion{
-		Event:   ev.Event, // Event is already aliased to types.Event
-		Version: ev.Version, // Version is already aliased to interfaces.Version
-	}
-}
 
 // detectChangedFields attempts to detect which fields changed between two events.
 // This is a basic implementation that could be enhanced with more sophisticated

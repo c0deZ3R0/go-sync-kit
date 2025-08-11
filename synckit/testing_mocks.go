@@ -68,6 +68,6 @@ type mockConflictResolver struct {
 	ConflictResolver
 }
 
-func (r *mockConflictResolver) Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error) {
-	return nil, nil
+func (r *mockConflictResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
+	return ResolvedConflict{}, nil
 }

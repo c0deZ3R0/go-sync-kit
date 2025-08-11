@@ -151,12 +151,16 @@ type delayedResolver struct {
 	delay time.Duration
 }
 
-func (r *delayedResolver) Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error) {
+func (r *delayedResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
 	select {
 	case <-time.After(r.delay):
-		return remote, nil
+		return ResolvedConflict{
+			Decision:        "use_remote",
+			ResolvedEvents:  []EventWithVersion{conflict.Remote},
+			Reasons:         []string{"delayed resolver chose remote"},
+		}, nil
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ResolvedConflict{}, ctx.Err()
 	}
 }
 
