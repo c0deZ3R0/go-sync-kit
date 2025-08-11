@@ -2,7 +2,124 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
-## [v0.10.0] - 2025-08-10 [PRE-RELEASE]
+## [v0.13.0] - 2025-08-11
+
+### 🎯 Major Features
+
+#### PostgreSQL EventStore with LISTEN/NOTIFY
+- ✨ **PostgreSQL Backend**: Complete PostgreSQL implementation of EventStore interface
+- ✨ **Real-time Notifications**: PostgreSQL LISTEN/NOTIFY for instant event streaming
+- ✨ **Stream-based Subscriptions**: Subscribe to events for specific aggregates
+- ✨ **Global Subscriptions**: Subscribe to all events across all streams  
+- ✨ **Event Type Filtering**: Subscribe to events of specific types
+- ✨ **Connection Recovery**: Automatic reconnection with exponential backoff
+- ✨ **Production Ready**: ACID transactions, connection pooling, prepared statements
+
+#### Advanced Database Features
+- 🔄 **JSONB Storage**: Efficient JSON storage and querying with GIN indexes
+- 🔄 **Generated Columns**: Automatic stream name generation for LISTEN/NOTIFY
+- 🔄 **Optimized Indexing**: B-tree and GIN indexes for maximum query performance
+- 🔄 **Batch Operations**: High-performance batch inserts with transactions
+- 📊 **Connection Pool Monitoring**: Real-time statistics and health checks
+
+### 🔧 Technical Improvements
+
+#### Real-time Event Streaming
+- 🌐 **Notification Listener**: Dedicated LISTEN/NOTIFY connection management
+- 🌐 **Subscription Manager**: Thread-safe subscription lifecycle management
+- 🌐 **Event Filtering**: Client-side filtering by event type and aggregate
+- 🌐 **Payload Parsing**: JSON notification payloads with full event metadata
+
+#### Integration and Testing
+- 🧪 **Docker Compose**: PostgreSQL test environment with automatic setup
+- 🧪 **Integration Tests**: Comprehensive real-time notification testing
+- 🧪 **Connection Recovery**: Automated reconnection testing
+- 🧪 **Benchmark Suite**: Performance testing for high-throughput scenarios
+- 🛠 **Development Tools**: Makefile with complete development workflow
+
+### 📚 Documentation & Examples
+- 📖 **Comprehensive README**: Complete PostgreSQL EventStore documentation
+- 📖 **Real-time Example**: Working demonstration of LISTEN/NOTIFY features
+- 📖 **Configuration Guide**: Production deployment recommendations
+- 📖 **Migration Guide**: SQLite to PostgreSQL migration path
+- 📖 **Troubleshooting**: Common issues and solutions
+
+### 🔒 Production Features
+- 🔐 **SSL/TLS Support**: Secure database connections
+- 🔐 **Connection String Masking**: Safe logging without exposing credentials
+- 🔐 **Resource Management**: Proper cleanup and connection handling
+- 🔐 **Error Handling**: Detailed error types and context preservation
+
+### 📈 Performance Optimizations
+- ⚡ **Prepared Statements**: Reduced query parsing overhead
+- ⚡ **Connection Pooling**: Optimized concurrent database access
+- ⚡ **Batch Processing**: Efficient multi-event transactions
+- ⚡ **Index Strategy**: Query-optimized database schema
+
+---
+
+## [v0.12.0] - 2025-08-11
+
+### 🎯 Major Features
+
+#### Structured Logging Integration
+- ✨ **Complete slog Migration**: All components now use Go's structured logging
+- ✨ **Centralized Logging Config**: New `logging` package for consistent configuration
+- ✨ **Component-based Logging**: Structured logs with component identification
+- ✨ **Performance Optimized**: Efficient logging with minimal allocations
+- ✨ **Environment Integration**: Automatic level detection from environment
+
+#### Event Data Codec Registry
+- ✨ **Stable Wire Format**: Consistent event serialization across transports
+- ✨ **Type Safety**: Compile-time registration with generic type constraints
+- ✨ **Backward Compatibility**: Version-aware codec system
+- ✨ **HTTP Transport Integration**: Automatic wire format handling
+- ✨ **Extensible Design**: Plugin system for custom event types
+
+### 🔧 Technical Improvements
+
+#### Logging System
+- 🔄 **Structured Context**: Rich context in all log messages
+- 🔄 **Component Isolation**: Clear component boundaries in logs
+- 🔄 **Performance Monitoring**: Built-in performance logging
+- 🔄 **Error Context**: Enhanced error logging with full context
+
+#### HTTP Transport Enhancements
+- 🔄 **Wire Format Support**: Stable serialization format
+- 🔄 **Codec Integration**: Automatic event type registration
+- 🔄 **Version Handling**: Protocol version management
+- 🔄 **Performance Improvements**: Optimized serialization pipeline
+
+---
+
+## [v0.11.0] - 2025-08-11
+
+### 🎯 Major Features
+
+#### Event Data Codec Registry
+- ✨ **Type-Safe Registration**: Register event types with compile-time safety
+- ✨ **Stable Wire Format**: Consistent serialization across all transports
+- ✨ **Version Management**: Handle multiple versions of event schemas
+- ✨ **HTTP Integration**: Seamless integration with HTTP transport
+- ✨ **Error Handling**: Comprehensive error reporting for codec operations
+
+### 🔧 Technical Implementations
+
+#### Codec System (`synckit/codec/`)
+- 🔄 **Generic Constraints**: Type-safe event registration using Go generics
+- 🔄 **Reflection-based Marshaling**: Efficient JSON serialization/deserialization
+- 🔄 **Registry Management**: Global codec registry with thread-safe operations
+- 🔄 **Error Recovery**: Graceful handling of unregistered or malformed events
+
+#### HTTP Transport Integration
+- 🔄 **Automatic Wire Format**: Seamless codec integration
+- 🔄 **Version Headers**: HTTP header-based version negotiation
+- 🔄 **Backward Compatibility**: Support for multiple wire format versions
+- 🔄 **Content-Type Management**: Proper MIME type handling for different formats
+
+---
+
+## [v0.10.0] - 2025-08-10
 
 ### 🎯 Major Features
 
