@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: go-sync-kit-postgres-test
+    environment:
+      POSTGRES_DB: eventstore_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Mount the migrations directory to automatically run SQL scripts on startup
+      - ./storage/postgres/migrations:/docker-entrypoint-initdb.d/
+      # Persistent data volume for development
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d eventstore_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sync-kit-network
+
+  # Optional: PostgreSQL Admin Interface for debugging
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: go-sync-kit-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - sync-kit-network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  sync-kit-network:
+    driver: bridge
+
+# Example connection string for the PostgreSQL instance:
+# postgres://testuser:testpass123@localhost:5432/eventstore_test?sslmode=disable
