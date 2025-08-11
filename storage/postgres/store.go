@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	stdSync "sync"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 
 	// PostgreSQL driver
@@ -202,7 +204,11 @@ func New(config *Config) (*PostgresEventStore, error) {
 		return nil, fmt.Errorf("ConnectionString is required")
 	}
 
-	config.Logger.Printf("[Postgres EventStore] Opening database: %s", maskConnectionString(config.ConnectionString))
+	logger := logging.WithComponent(logging.Component("postgres-store"))
+	logger.InfoContext(context.Background(), "Opening PostgreSQL database",
+		slog.String("data_source", maskConnectionString(config.ConnectionString)),
+		slog.String("table_name", config.TableName),
+	)
 
 	db, err := sql.Open("postgres", config.ConnectionString)
 	if err != nil {
@@ -215,8 +221,12 @@ func New(config *Config) (*PostgresEventStore, error) {
 	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
-	config.Logger.Printf("[Postgres EventStore] Connection pool configured: MaxOpen=%d, MaxIdle=%d",
-		config.MaxOpenConns, config.MaxIdleConns)
+	logger.InfoContext(context.Background(), "Connection pool configured",
+		slog.Int("max_open_conns", config.MaxOpenConns),
+		slog.Int("max_idle_conns", config.MaxIdleConns),
+		slog.Duration("conn_max_lifetime", config.ConnMaxLifetime),
+		slog.Duration("conn_max_idle_time", config.ConnMaxIdleTime),
+	)
 
 	if err := db.Ping(); err != nil {
 		db.Close()
@@ -242,7 +252,10 @@ func New(config *Config) (*PostgresEventStore, error) {
 		return nil, fmt.Errorf("failed to create notification listener: %w", err)
 	}
 
-	config.Logger.Printf("[Postgres EventStore] Successfully initialized with table: %s", config.TableName)
+	logger.InfoContext(context.Background(), "PostgreSQL EventStore successfully initialized",
+		slog.String("table_name", config.TableName),
+		slog.Bool("listen_notify_enabled", true),
+	)
 	return store, nil
 }
 

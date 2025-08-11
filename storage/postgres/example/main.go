@@ -134,7 +134,7 @@ func demonstrateBasicOperations(ctx context.Context, store *postgres.PostgresEve
 	} else {
 		logger.Printf("Loaded %d events", len(allEvents))
 		for _, ev := range allEvents {
-			logger.Printf("  - %s: %s (%s)", 
+			logger.Printf("  - %d: %s (%s)", 
 				ev.Version.(cursor.IntegerCursor).Seq, ev.Event.Type(), ev.Event.ID())
 		}
 	}
