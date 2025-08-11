@@ -6,11 +6,14 @@ import (
 
 var (
 	_ ConflictResolver = (*LastWriteWinsResolver)(nil)
+	_ ConflictResolver = (*FirstWriteWinsResolver)(nil)
 	_ ConflictResolver = (*AdditiveMergeResolver)(nil)
 	_ ConflictResolver = (*ManualReviewResolver)(nil)
 )
 
 type LastWriteWinsResolver struct{}
+
+type FirstWriteWinsResolver struct{}
 
 func (r *LastWriteWinsResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
 	if c.Local.Version == nil && c.Remote.Version == nil {
@@ -28,7 +31,27 @@ func (r *LastWriteWinsResolver) Resolve(ctx context.Context, c Conflict) (Resolv
 	case 1:
 		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"local newer"}}, nil
 	default:
-		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
+	return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
+	}
+}
+
+func (r *FirstWriteWinsResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
+	if c.Local.Version == nil && c.Remote.Version == nil {
+		return ResolvedConflict{Decision: "noop", Reasons: []string{"no versions"}}, nil
+	}
+	if c.Local.Version == nil {
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"local missing"}}, nil
+	}
+	if c.Remote.Version == nil {
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"remote missing"}}, nil
+	}
+	switch c.Local.Version.Compare(c.Remote.Version) {
+	case -1:
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"local is first"}}, nil
+	case 1:
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"remote is first"}}, nil
+	default:
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"equal versions, prefer local"}}, nil
 	}
 }
 
