@@ -1,0 +1,31 @@
+version: "1.0"
+name: "demo-config"
+description: "Dynamic rules for the offline-first demo"
+settings:
+  default_fallback: "last_write_wins"
+
+rules:
+  - name: "title-changes-field-merge"
+    conditions:
+      event_types: ["document_updated"]
+      fields: ["title"]
+    resolution:
+      strategy: "last_write_wins"
+
+  - name: "tags-additive-merge"
+    conditions:
+      event_types: ["document_updated"]
+      fields: ["tags"]
+    resolution:
+      strategy: "additive_merge"
+
+groups:
+  - name: "status-rules"
+    description: "Status progression gets special handling"
+    rules:
+      - name: "status-change-prefers-progress"
+        conditions:
+          event_types: ["document_updated"]
+          fields: ["status"]
+        resolution:
+          strategy: "manual_review"

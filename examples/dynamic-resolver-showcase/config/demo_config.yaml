@@ -1,0 +1,161 @@
+# Dynamic Resolver Showcase Configuration
+
+demo:
+  name: "Dynamic Resolver Showcase"
+  version: "1.0.0"
+  description: "Advanced conflict resolution demonstration with dynamic rule matching"
+
+display:
+  # Terminal colors and formatting
+  colors:
+    enabled: true
+    scheme: "auto" # auto, light, dark, disable
+  
+  # Animation and interactive elements
+  interactive:
+    enabled: true
+    clear_screen: true
+    pause_between_demos: true
+
+# Business rules configuration
+business_rules:
+  business_hours:
+    start: "09:00"
+    end: "17:00"
+    timezone: "America/New_York"
+    weekdays_only: true
+  
+  role_hierarchy:
+    admin: 4
+    manager: 3
+    editor: 2
+    viewer: 1
+  
+  priority_levels:
+    critical: 4
+    high: 3
+    medium: 2
+    low: 1
+
+# Resolution strategies configuration
+resolution_strategies:
+  document_conflicts:
+    - name: "LockedDocumentPreference"
+      priority: 100
+      confidence: 0.95
+      description: "Prefer locked documents over unlocked ones"
+      
+    - name: "IntelligentContentMerge"
+      priority: 90
+      confidence: 0.90
+      description: "Merge similar content intelligently"
+      
+    - name: "LastWriteWins"
+      priority: 70
+      confidence: 0.80
+      description: "Use most recent change for dissimilar content"
+
+  user_permission_conflicts:
+    - name: "HigherRolePreference"
+      priority: 95
+      confidence: 0.90
+      description: "Prefer user with higher role in hierarchy"
+      
+    - name: "PermissionMerge"
+      priority: 85
+      confidence: 0.85
+      description: "Merge permissions for same-level roles"
+
+  project_conflicts:
+    - name: "HigherPriorityPreference"
+      priority: 90
+      confidence: 0.90
+      description: "Prefer higher priority projects"
+      
+    - name: "SamePriorityMerge"
+      priority: 80
+      confidence: 0.85
+      description: "Merge projects with same priority level"
+
+  task_conflicts:
+    - name: "UrgentTaskPreference"
+      priority: 95
+      confidence: 0.85
+      description: "Always prefer urgent tasks"
+      
+    - name: "TaskMerge"
+      priority: 80
+      confidence: 0.80
+      description: "Merge non-urgent tasks intelligently"
+
+  time_based_conflicts:
+    - name: "BusinessHoursRecentPreference"
+      priority: 90
+      confidence: 0.90
+      description: "During business hours, prefer more recent changes"
+      
+    - name: "OfflineWorkPreference"
+      priority: 80
+      confidence: 0.80
+      description: "Outside business hours, prefer local/offline work"
+
+  field_specific_conflicts:
+    - name: "FieldSpecificMerge"
+      priority: 88
+      confidence: 0.88
+      description: "Apply different strategies per field type"
+
+# Demo scenarios configuration
+scenarios:
+  document_conflicts:
+    enabled: true
+    count: 3
+    types:
+      - version
+      - content
+      - field_specific
+  
+  user_permission_conflicts:
+    enabled: true
+    count: 2
+    types:
+      - role
+      - permission
+  
+  project_management_conflicts:
+    enabled: true
+    count: 2
+    types:
+      - priority
+      - assignment
+  
+  time_based_conflicts:
+    enabled: true
+    count: 2
+    types:
+      - business_hours
+      - offline_work
+  
+  field_specific_conflicts:
+    enabled: true
+    count: 2
+    types:
+      - document_fields
+      - user_settings
+
+# Logging and debugging
+logging:
+  level: "info" # debug, info, warn, error
+  format: "text" # text, json
+  file: "" # empty for stdout
+  
+debugging:
+  verbose_resolution: false
+  show_rule_matching: false
+  show_confidence_calculation: false
+
+# Performance settings
+performance:
+  max_conflicts_per_demo: 10
+  resolution_timeout: "30s"
+  interactive_timeout: "5m"
