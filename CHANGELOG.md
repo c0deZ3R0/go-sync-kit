@@ -2,6 +2,118 @@
 
 All notable changes to Go Sync Kit will be documented in this file.
 
+## [v0.15.0] - 2025-08-15
+
+### 🎯 Major Features
+
+#### Repository Structure Reorganization
+- ✨ **Professional Documentation Structure**: Complete reorganization with dedicated `docs/` directory
+- ✨ **Repository Cleanup**: Cleaned up build artifacts and organized project files
+- ✨ **Enhanced Examples Suite**: Comprehensive structured logging example with full documentation
+- ✨ **Internal Code Organization**: Proper separation of internal testing infrastructure
+
+### 🔧 Technical Improvements
+
+#### Documentation Organization
+- 📁 **Structured Documentation**: Created `docs/design/`, `docs/testing/`, `docs/implementation/` directories
+- 📁 **Documentation Guidelines**: Comprehensive `docs/README.md` with contribution guidelines
+- 📁 **User Navigation**: Enhanced main README with clear documentation discovery paths
+- 📁 **Professional Layout**: Follows open-source project conventions and standards
+
+#### Repository Structure
+- 🗂️ **Examples Enhancement**: Moved logging demo to `examples/intermediate/07-structured-logging/`
+- 🗂️ **Internal Separation**: Moved integration tests to `internal/integration-tests/`
+- 🗂️ **Artifact Cleanup**: Removed build artifacts and enhanced `.gitignore`
+- 🗂️ **Module Isolation**: Dedicated `go.mod` files for proper dependency management
+
+#### Content Organization
+- 🧹 **Obsolete Content Removal**: Removed redundant implementation summaries
+- 🧹 **Design Document Organization**: Moved PostgreSQL design to `docs/design/`
+- 🧹 **Testing Documentation**: Moved benchmarks and fuzzing docs to `docs/testing/`
+- 🧹 **Reduced Redundancy**: Eliminated duplication between specs and working code
+
+### 📚 Documentation & Examples
+
+#### Enhanced Example Suite
+- 📖 **Structured Logging Example**: Complete example with usage guide and sample output
+- 📖 **Progressive Learning**: Integrated with existing example numbering system
+- 📖 **Production Patterns**: Real-world structured logging implementation
+- 📖 **Module Documentation**: Individual README files with detailed explanations
+
+#### Improved Navigation
+- 📋 **Documentation Discovery**: Clear paths for different types of information
+- 📋 **User Journey**: From basic examples to advanced patterns
+- 📋 **Technical Reference**: Organized access to design and implementation docs
+- 📋 **Contribution Guidelines**: Clear documentation lifecycle management
+
+### 🏗️ Project Improvements
+
+#### Maintainability
+- 🔧 **Clean Structure**: Professional project layout following Go conventions
+- 🔧 **Separation of Concerns**: Clear boundaries between user and internal code
+- 🔧 **Future-Proof Organization**: Scalable structure for growing documentation
+- 🔧 **Contribution Ready**: Clear guidelines for documentation contributions
+
+#### User Experience
+- 🎨 **Professional Appearance**: Clean, organized repository structure
+- 🎨 **Easier Discovery**: Logical organization of all project resources
+- 🎨 **Reduced Clutter**: Focused root directory with essential files only
+- 🎨 **Better Examples**: Working code as primary documentation source
+
+---
+
+## [v0.14.0] - 2025-08-12
+
+### 🎯 Major Features
+
+#### Comprehensive Testing Infrastructure
+- ✨ **Benchmark Test Suite**: Complete benchmarking for HTTP transport compression, vector clock operations, and SQLite WAL concurrent performance
+- ✨ **Fuzzing Test Implementation**: Robust fuzzing tests for cursor unmarshaling and gzip request parsing
+- ✨ **Performance Analysis**: Detailed benchmarks for compression thresholds vs batch sizes
+- ✨ **Security Testing**: Fuzz tests for malformed input handling and DoS attack prevention
+
+### 🔧 Technical Implementations
+
+#### HTTP Transport Benchmarks
+- ⚡ **Compression Performance**: Benchmarks for different compression thresholds (0-8192 bytes)
+- ⚡ **Batch Size Optimization**: Performance testing across batch sizes (10-1000 events)
+- ⚡ **Safe Request Reader**: Benchmarks for gzip decompression with size limits
+- ⚡ **Throughput Analysis**: Comprehensive metrics for request processing performance
+
+#### Vector Clock Benchmarks
+- 🕐 **Core Operations**: Benchmarks for increment, compare, merge, clone, serialization
+- 🕐 **Scale Testing**: Performance testing with 1-250 node vector clocks
+- 🕐 **Real-world Scenarios**: Distributed system, event sourcing, and CRDT simulations
+- 🕐 **Concurrent Performance**: Parallel benchmark execution for realistic load
+
+#### SQLite WAL Benchmarks
+- 💾 **Concurrent Read/Write**: Performance testing with various reader/writer combinations
+- 💾 **Connection Pool Scaling**: Testing different pool configurations (5/2 to 100/20)
+- 💾 **Transaction Batching**: Benchmarks for different batch sizes (1-250 events)
+- 💾 **Read Pattern Analysis**: Sequential, random, aggregate-specific, and range reads
+
+#### Fuzzing Test Coverage
+- 🔍 **Cursor Robustness**: Fuzzing for `cursor.UnmarshalWire` with malformed input
+- 🔍 **Gzip Security**: Fuzzing for `createSafeRequestReader` against size bomb attacks
+- 🔍 **Edge Case Handling**: Comprehensive testing of boundary conditions
+- 🔍 **Data Integrity**: Round-trip fuzzing for serialization correctness
+
+### 🧪 Quality Assurance
+
+#### Testing Integration
+- 📊 **CI/CD Ready**: Integration instructions for continuous testing
+- 📊 **Performance Regression**: Baseline establishment and monitoring setup
+- 📊 **Coverage Analysis**: Comprehensive test coverage for critical paths
+- 📊 **Resource Safety**: Validation of size limits and resource protection
+
+#### Development Workflow
+- 🛠️ **Benchmark Execution**: Commands for running specific benchmark suites
+- 🛠️ **Fuzzing Workflow**: Instructions for extended fuzzing campaigns
+- 🛠️ **Performance Profiling**: CPU and memory profiling integration
+- 🛠️ **Monitoring Setup**: Guidelines for production performance monitoring
+
+---
+
 ## [v0.13.0] - 2025-08-11
 
 ### 🎯 Major Features
