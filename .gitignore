@@ -44,3 +44,18 @@ __debug_bin
 coverage.txt
 coverage.html
 *.db*
+# Temporary build artifacts
+*.exe
+*.out
+*.test
+test_*
+*_test_output
+temp_*
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+build/
+dist/
+target/
