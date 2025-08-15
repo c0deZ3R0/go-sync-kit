@@ -1016,6 +1016,30 @@ go test ./...
 - [ ] **Security** - Built-in encryption and access control
 - [ ] **Clustering** - Support for node discovery and gossip protocols
 
+## Documentation
+
+Go Sync Kit maintains organized documentation to help users and contributors:
+
+### 📖 User Documentation
+- **README.md** (this file) - Complete API documentation with examples
+- **CHANGELOG.md** - Version history and release notes
+- **examples/** - Progressive examples from basic to advanced usage
+
+### 📁 Technical Documentation
+- **docs/** - Organized technical documentation
+  - **docs/design/** - Architecture and design specifications
+  - **docs/testing/** - Testing strategies, benchmarks, and quality assurance
+  - **docs/implementation/** - Implementation guides and technical details
+
+### 🔍 Finding Information
+- **Getting Started**: Start with the examples in `examples/quickstart/`
+- **Advanced Usage**: See `examples/intermediate/` for production patterns
+- **API Reference**: Go doc comments throughout the codebase
+- **Architecture Details**: See `docs/design/` for system design documents
+- **Performance**: See `docs/testing/` for benchmarking information
+
+For the most current information, always refer to the working examples in the `examples/` directory, as they represent the current API and best practices.
+
 ## Contributing
 
 **We're actively seeking feedback and contributions!** As a project in active development (v0.6.0), your input is especially valuable.
