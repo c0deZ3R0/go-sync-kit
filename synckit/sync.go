@@ -10,26 +10,12 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/interfaces"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // Event represents a syncable event in the system.
 // This interface should be implemented by user's event types.
-type Event interface {
-	// ID returns a unique identifier for this event
-	ID() string
-
-	// Type returns the event type (e.g., "UserCreated", "OrderUpdated")
-	Type() string
-
-	// AggregateID returns the ID of the aggregate this event belongs to
-	AggregateID() string
-
-	// Data returns the event payload
-	Data() interface{}
-
-	// Metadata returns additional event metadata
-	Metadata() map[string]interface{}
-}
+type Event = types.Event
 
 // Version represents a point-in-time snapshot for sync operations.
 // Users can implement different versioning strategies (timestamps, hashes, vector clocks).
@@ -64,13 +50,7 @@ type EventWithVersion struct {
 	Version Version
 }
 
-// ConflictResolver handles conflicts when the same data is modified concurrently.
-// Different strategies can be plugged in (last-write-wins, merge, user-prompt, etc.).
-type ConflictResolver interface {
-	// Resolve handles a conflict between local and remote events
-	// Returns the resolved events to keep
-	Resolve(ctx context.Context, local, remote []EventWithVersion) ([]EventWithVersion, error)
-}
+// ConflictResolver is now defined in conflict.go
 
 // Transport handles the actual network communication between clients and servers.
 // Implementations can use HTTP, gRPC, WebSockets, NATS, etc.
@@ -227,6 +207,22 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 	// Set default metrics collector if none provided
 	if opts.MetricsCollector == nil {
 		opts.MetricsCollector = &NoOpMetricsCollector{}
+	}
+
+	// Set default DynamicResolver with LWW fallback if none provided
+	if opts.ConflictResolver == nil {
+		defaultResolver, err := NewDynamicResolver(
+			WithFallback(&LastWriteWinsResolver{}),
+			WithLogger(logger),
+		)
+		if err != nil {
+			// This should never happen with a simple LWW fallback,
+			// but we handle it gracefully
+			logger.Warn("Failed to create default DynamicResolver, using LWW directly", "error", err)
+			opts.ConflictResolver = &LastWriteWinsResolver{}
+		} else {
+			opts.ConflictResolver = defaultResolver
+		}
 	}
 
 	return &syncManager{

@@ -51,37 +51,165 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 go get github.com/c0deZ3R0/go-sync-kit
 ```
 
-## Basic Example
+## Examples
 
-Go Sync Kit includes a complete basic example that demonstrates core functionality with a real-time web dashboard. This example serves as a foundation for more complex implementations.
+Go Sync Kit provides a comprehensive example suite that demonstrates real-world usage patterns, from basic concepts to advanced techniques.
 
-![Example Dashboard](examples/basic/dashboard.png)
+### 📚 Example Structure
 
-### Running the Example
+```
+examples/
+├── quickstart/           # Get started quickly
+│   ├── local-only/       # Local synchronization basics
+│   └── http-client/      # HTTP client-server sync
+└── intermediate/         # Advanced concepts
+    ├── 03-events-and-storage/    # Event persistence with SQLite
+    ├── 04-conflict-resolution/   # Multiple resolution strategies
+    ├── 05-realtime-autosync/     # Background sync patterns
+    └── 06-custom-events-filters/ # Domain-specific filtering
+```
+
+### 🚀 Quickstart Examples
+
+**Local-Only Synchronization**
+```bash
+cd examples/quickstart/local-only
+go run main.go
+```
+Demonstrates basic event creation, storage, and local sync operations using SQLite.
+
+**HTTP Client-Server Sync**
+```bash
+cd examples/quickstart/http-client
+go run main.go
+```
+Shows client-server synchronization over HTTP with proper error handling.
+
+### 🎯 Intermediate Examples
+
+**Example 3: Events and Storage**
+- Custom event types with proper interface implementation
+- SQLite integration and event persistence
+- Version handling and aggregate loading
+- Comprehensive error handling
+
+**Example 4: Conflict Resolution**
+- Last-Write-Wins (LWW) strategy
+- First-Write-Wins (FWW) strategy  
+- Additive Merge strategy
+- Custom conflict resolver implementation
+- Multi-client conflict simulation
+
+**Example 5: Real-time Auto Sync**
+- Background synchronization with timers
+- Graceful shutdown handling
+- Sync statistics and monitoring
+- Multi-client scenarios with different intervals
+
+**Example 6: Custom Events and Filters**
+- Domain-specific event types (User, Product, Order)
+- Metadata-based filtering
+- Priority and tenant-based sync rules
+- Performance optimization through selective sync
+
+### 🏃‍♂️ Running the Examples
 
 ```bash
 # Clone the repository
 git clone https://github.com/c0deZ3R0/go-sync-kit
 cd go-sync-kit
 
-# Run the example
-cd examples/basic
-go run .
+# Run any example
+cd examples/quickstart/local-only
+go run main.go
 
-# Open the dashboard
-open http://localhost:8080
+# Or try an intermediate example
+cd examples/intermediate/04-conflict-resolution
+go run main.go
 ```
 
-The example includes:
-- Real-time event synchronization
-- Live monitoring dashboard
-- Event terminal with metadata
-- Metrics collection and display
-- Basic conflict resolution
-
-See the [example README](examples/basic/README.md) for more details about the implementation and how to extend it.
+Each example is self-contained with its own `go.mod` and includes detailed comments explaining the concepts and implementation patterns.
 
 ## Quick Start
+
+### ⚡ Functional Options API (New & Recommended)
+
+Go Sync Kit now provides a simplified functional options API that makes configuration cleaner and more discoverable:
+
+```go
+// Create a manager with functional options
+manager, err := synckit.NewManager(
+    synckit.WithStore(store),               // SQLite, BadgerDB, etc.
+    synckit.WithNullTransport(),           // Local-only (no network)
+    synckit.WithLWW(),                     // Last-Write-Wins conflict resolution
+    synckit.WithBatchSize(100),            // Batch size for sync operations
+    synckit.WithTimeout(30*time.Second),   // Operation timeout
+    synckit.WithFilter(myEventFilter),     // Custom event filter
+)
+```
+
+**Available Options:**
+- `WithStore(store)` - Set the event store (SQLite, BadgerDB, etc.)
+- `WithTransport(transport)` - Set network transport (HTTP, gRPC, etc.)
+- `WithNullTransport()` - Use null transport for local-only scenarios
+- `WithLWW()` - Last-Write-Wins conflict resolution
+- `WithFWW()` - First-Write-Wins conflict resolution  
+- `WithAdditiveMerge()` - Additive merge conflict resolution
+- `WithConflictResolver(resolver)` - Custom conflict resolver
+- `WithFilter(filter)` - Event filtering function
+- `WithBatchSize(size)` - Sync batch size
+- `WithTimeout(duration)` - Operation timeout
+- `WithValidation()` - Enable additional validation
+- `WithCompression(enabled)` - Enable/disable compression
+- `WithPushOnly()` - Push-only synchronization
+- `WithPullOnly()` - Pull-only synchronization
+
+### Using Functional Options (Recommended)
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+
+    "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
+    synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+    "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
+)
+
+func main() {
+    // Create SQLite store
+    store, err := sqlite.NewWithDataSource("app.db")
+    if err != nil {
+        log.Fatalf("Failed to create SQLite store: %v", err)
+    }
+    defer store.Close()
+
+    // Create HTTP transport
+    transport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
+
+    mgr, err := synckit.NewManager(
+        synckit.WithStore(store),
+        synckit.WithTransport(transport),
+        synckit.WithLWW(),
+        synckit.WithBatchSize(100),
+        synckit.WithTimeout(30*time.Second),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create manager: %v", err)
+    }
+
+    if err := mgr.Sync(context.Background()); err != nil {
+        log.Fatalf("Sync failed: %v", err)
+    }
+    
+    log.Println("Sync completed successfully!")
+}
+```
+
+### Using Builder Pattern
 
 ```go
 package main
@@ -94,7 +222,7 @@ import (
     "time"
 
     "github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
-    synckit "github.com/c0deZ3R0/go-sync-kit"
+    synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
     "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 )
 
