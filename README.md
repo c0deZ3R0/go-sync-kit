@@ -66,7 +66,8 @@ examples/
     ├── 03-events-and-storage/    # Event persistence with SQLite
     ├── 04-conflict-resolution/   # Multiple resolution strategies
     ├── 05-realtime-autosync/     # Background sync patterns
-    └── 06-custom-events-filters/ # Domain-specific filtering
+    ├── 06-custom-events-filters/ # Domain-specific filtering
+    └── 07-structured-logging/    # Production logging patterns
 ```
 
 ### 🚀 Quickstart Examples
