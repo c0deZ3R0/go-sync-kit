@@ -24,6 +24,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// Operation constants for consistent error reporting
+const (
+	opStore         = "sqlite.Store"
+	opStoreBatch    = "sqlite.StoreBatch"
+	opLoad          = "sqlite.Load"
+	opLoadByAggregate = "sqlite.LoadByAggregate"
+	opLatestVersion = "sqlite.LatestVersion"
+	opParseVersion  = "sqlite.ParseVersion"
+)
+
 // Custom errors for better error handling
 var (
 	ErrIncompatibleVersion = errors.New("incompatible version type: expected cursor.IntegerCursor")
@@ -275,7 +285,7 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, versi
 	// Begin transaction for atomicity
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to begin transaction: %w", err))
+		return syncErrors.WrapOpComponent(err, opStore, "storage/sqlite")
 	}
 	defer func() {
 		if err != nil {
@@ -285,22 +295,22 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, versi
 
 	dataJSON, err := json.Marshal(event.Data())
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event data: %w", err))
+		return syncErrors.WrapOpComponent(err, opStore, "storage/sqlite")
 	}
 
 	metadataJSON, err := json.Marshal(event.Metadata())
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to marshal event metadata: %w", err))
+		return syncErrors.WrapOpComponent(err, opStore, "storage/sqlite")
 	}
 
 	query := `INSERT INTO events (id, aggregate_id, event_type, data, metadata) VALUES (?, ?, ?, ?, ?)`
 	_, err = tx.ExecContext(ctx, query, event.ID(), event.AggregateID(), event.Type(), string(dataJSON), string(metadataJSON))
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to insert event: %w", err))
+		return syncErrors.WrapOpComponent(err, opStore, "storage/sqlite")
 	}
 
 	if err = tx.Commit(); err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpStore, "sqlite", fmt.Errorf("failed to commit transaction: %w", err))
+		return syncErrors.WrapOpComponent(err, opStore, "storage/sqlite")
 	}
 
 	return nil
@@ -323,7 +333,7 @@ func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]s
 	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ? ORDER BY version ASC`
 	rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events: %w", err))
+		return nil, syncErrors.WrapOpComponent(err, opLoad, "storage/sqlite")
 	}
 	defer rows.Close()
 
@@ -347,7 +357,7 @@ func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID stri
 	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ? ORDER BY version ASC`
 	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query events by aggregate: %w", err))
+		return nil, syncErrors.WrapOpComponent(err, opLoadByAggregate, "storage/sqlite")
 	}
 	defer rows.Close()
 
@@ -367,7 +377,7 @@ func (s *SQLiteEventStore) LatestVersion(ctx context.Context) (synckit.Version, 
 	query := `SELECT MAX(version) FROM events`
 	err := s.db.QueryRowContext(ctx, query).Scan(&maxVersion)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "sqlite", fmt.Errorf("failed to query latest version: %w", err))
+		return nil, syncErrors.WrapOpComponent(err, opLatestVersion, "storage/sqlite")
 	}
 
 	if !maxVersion.Valid {

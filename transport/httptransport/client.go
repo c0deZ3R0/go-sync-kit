@@ -234,14 +234,14 @@ func (c *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 
 	payload, err := json.Marshal(jsonData)
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
+		return syncErrors.WrapOpComponent(fmt.Errorf("failed to marshal events: %w", err), "httptransport.Push", "transport/httptransport")
 	}
 
 	// Prepare the request body (with optional compression)
 	var body io.Reader = bytes.NewReader(payload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/push", body)
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to create request: %w", err))
+		return syncErrors.WrapOpComponent(fmt.Errorf("failed to create request: %w", err), "httptransport.Push", "transport/httptransport")
 	}
 
 	// Set standard headers
@@ -260,12 +260,12 @@ func (c *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 			c.logger.Error("Failed to compress push request",
 				slog.String("error", err.Error()),
 				slog.Int("original_size", len(payload)))
-			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to compress request: %w", err))
+			return syncErrors.WrapOpComponent(fmt.Errorf("failed to compress request: %w", err), "httptransport.Push", "transport/httptransport")
 		}
 		if err := gw.Close(); err != nil {
 			c.logger.Error("Failed to close gzip writer for push request",
 				slog.String("error", err.Error()))
-			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to close gzip writer: %w", err))
+			return syncErrors.WrapOpComponent(fmt.Errorf("failed to close gzip writer: %w", err), "httptransport.Push", "transport/httptransport")
 		}
 		
 		req.Body = io.NopCloser(&buf)
@@ -295,7 +295,7 @@ func (c *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 		c.logger.Error("Push request failed",
 			slog.String("error", err.Error()),
 			slog.String("url", c.baseURL+"/push"))
-		return syncErrors.NewRetryable(syncErrors.OpPush, fmt.Errorf("network error: %w", err))
+		return syncErrors.WrapOpComponent(fmt.Errorf("network error: %w", err), "httptransport.Push", "transport/httptransport")
 	}
 	defer resp.Body.Close()
 
@@ -305,7 +305,7 @@ func (c *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 			slog.Int("status_code", resp.StatusCode),
 			slog.String("response_body", string(body)),
 			slog.String("url", c.baseURL+"/push"))
-		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
+		return syncErrors.WrapOpComponent(fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)), "httptransport.Push", "transport/httptransport")
 	}
 
 	c.logger.Debug("Push operation completed successfully",
@@ -322,7 +322,7 @@ func (c *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 	url := fmt.Sprintf("%s/pull?since=%s", c.baseURL, since.String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create request: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to create request: %w", err), "httptransport.Pull", "transport/httptransport")
 	}
 
 	// Set Accept-Encoding header if compression is enabled
@@ -341,7 +341,7 @@ func (c *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		c.logger.Error("Pull request failed",
 			slog.String("error", err.Error()),
 			slog.String("url", url))
-		return nil, syncErrors.NewRetryable(syncErrors.OpPull, fmt.Errorf("network error: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("network error: %w", err), "httptransport.Pull", "transport/httptransport")
 	}
 	defer resp.Body.Close()
 
@@ -351,13 +351,13 @@ func (c *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 			slog.Int("status_code", resp.StatusCode),
 			slog.String("response_body", string(body)),
 			slog.String("url", url))
-		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("server error (status %d): %s", resp.StatusCode, string(body)), "httptransport.Pull", "transport/httptransport")
 	}
 
 	// Handle compressed response and enforce size limits
 	reader, cleanup, err := createSafeResponseReader(resp, c.options)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to create safe response reader: %w", err), "httptransport.Pull", "transport/httptransport")
 	}
 	defer cleanup()
 
@@ -365,9 +365,9 @@ func (c *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 	if err := json.NewDecoder(reader).Decode(&jsonEvents); err != nil {
 		// Check if this is a size limit violation
 		if errors.Is(err, errResponseDecompressedTooLarge) {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+			return nil, syncErrors.WrapOpComponent(fmt.Errorf("response decompressed size exceeds limit: %w", err), "httptransport.Pull", "transport/httptransport")
 		}
-		return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("failed to decode response: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to decode response: %w", err), "httptransport.Pull", "transport/httptransport")
 	}
 
 	events := make([]synckit.EventWithVersion, len(jsonEvents))
@@ -375,7 +375,7 @@ func (c *HTTPTransport) Pull(ctx context.Context, since synckit.Version) ([]sync
 		// Use version parser to decode version
 		version, err := c.versionParser(ctx, jev.Version)
 		if err != nil {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpPull, "transport", fmt.Errorf("invalid version in response: %w", err))
+			return nil, syncErrors.WrapOpComponent(fmt.Errorf("invalid version in response: %w", err), "httptransport.Pull", "transport/httptransport")
 		}
 
 		event := &SimpleEvent{
@@ -403,24 +403,24 @@ func (c *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 	url := fmt.Sprintf("%s/latest-version", c.baseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create request for latest version: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to create request for latest version: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, syncErrors.NewRetryable(syncErrors.OpTransport, fmt.Errorf("network error while getting latest version: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("network error while getting latest version: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("server error while fetching latest version (status %d): %s", resp.StatusCode, string(body)), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 
 	// Handle compressed response and enforce size limits
 	reader, cleanup, err := createSafeResponseReader(resp, c.options)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to create safe response reader: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to create safe response reader: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 	defer cleanup()
 
@@ -428,14 +428,14 @@ func (c *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 	if err := json.NewDecoder(reader).Decode(&versionStr); err != nil {
 		// Check if this is a size limit violation
 		if errors.Is(err, errResponseDecompressedTooLarge) {
-			return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("response decompressed size exceeds limit: %w", err))
+			return nil, syncErrors.WrapOpComponent(fmt.Errorf("response decompressed size exceeds limit: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 		}
-		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("failed to decode latest version: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("failed to decode latest version: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 
 	version, err := c.versionParser(ctx, versionStr)
 	if err != nil {
-		return nil, syncErrors.NewWithComponent(syncErrors.OpTransport, "transport", fmt.Errorf("invalid version format: %w", err))
+		return nil, syncErrors.WrapOpComponent(fmt.Errorf("invalid version format: %w", err), "httptransport.GetLatestVersion", "transport/httptransport")
 	}
 
 	return version, nil
@@ -444,7 +444,7 @@ func (c *HTTPTransport) GetLatestVersion(ctx context.Context) (synckit.Version, 
 // Subscribe is not supported by this simple HTTP transport.
 // Real-time subscriptions would require WebSockets or gRPC streams.
 func (c *HTTPTransport) Subscribe(ctx context.Context, handler func([]synckit.EventWithVersion) error) error {
-	return syncErrors.New(syncErrors.OpTransport, fmt.Errorf("subscribe is not implemented for HTTP transport"))
+	return syncErrors.WrapOpComponent(fmt.Errorf("subscribe is not implemented for HTTP transport"), "httptransport.Subscribe", "transport/httptransport")
 }
 
 // Close does nothing for this transport, as the underlying http.Client is managed externally.

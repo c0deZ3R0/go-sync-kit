@@ -13,8 +13,20 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// Operation constants for consistent error reporting
+const (
+	opPush         = "httptransport.Push"
+	opPull         = "httptransport.Pull"
+	opLatestVersion = "httptransport.GetLatestVersion"
+	opSubscribe    = "httptransport.Subscribe"
+	opPushHandler  = "httptransport.handlePush"
+	opPullHandler  = "httptransport.handlePull"
+	opLatestHandler = "httptransport.handleLatestVersion"
+)
+
 // VersionParser converts a version string into synckit.Version.
 type VersionParser func(ctx context.Context, s string) (synckit.Version, error)
+
 // --- HTTP Sync Handler (Server) ---
 
 // SyncHandler is an http.Handler that serves sync requests.
@@ -154,14 +166,13 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		// The version from the client is ignored here, which is typical for
 		// server-authoritative versioning.
 		if err := h.store.Store(r.Context(), ev.Event, ev.Version); err != nil {
-			// This could be a unique constraint violation if the event already exists,
-			// which is often okay during sync. We log it but don't fail the whole batch.
-			// For other errors, we should fail.
+			// Log the error for diagnosis, but continue processing other events
 			h.logger.Warn("Failed to store event during push",
 				slog.String("error", err.Error()),
 				slog.String("event_id", ev.Event.ID()),
 				slog.String("remote_addr", r.RemoteAddr))
-			// In a real app, you might check for specific errors here.
+			// Note: Could check for specific store errors here and fail the batch if needed
+			// For now, we continue to be resilient to duplicate events during sync
 		}
 	}
 
