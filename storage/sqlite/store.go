@@ -165,6 +165,45 @@ func DefaultConfig(dataSourceName string) *Config {
 	return config
 }
 
+// applyPragmaSettings applies production-friendly PRAGMA settings to the database connection.
+// This centralizes all PRAGMA configuration for better maintainability.
+func applyPragmaSettings(ctx context.Context, db *sql.DB, cfg *Config) error {
+	// Apply WAL mode if enabled (ensures consistency with config)
+	if cfg.EnableWAL {
+		_, err := db.ExecContext(ctx, "PRAGMA journal_mode = WAL;")
+		if err != nil {
+			return fmt.Errorf("failed to set WAL mode: %w", err)
+		}
+	}
+
+	// Set busy timeout to 5 seconds for better concurrency handling
+	_, err := db.ExecContext(ctx, "PRAGMA busy_timeout = 5000;")
+	if err != nil {
+		return fmt.Errorf("failed to set busy timeout: %w", err)
+	}
+
+	// Set synchronous mode to NORMAL for better performance while maintaining durability
+	_, err = db.ExecContext(ctx, "PRAGMA synchronous = NORMAL;")
+	if err != nil {
+		return fmt.Errorf("failed to set synchronous mode: %w", err)
+	}
+
+	// Use memory for temporary storage to improve performance
+	_, err = db.ExecContext(ctx, "PRAGMA temp_store = MEMORY;")
+	if err != nil {
+		return fmt.Errorf("failed to set temp store: %w", err)
+	}
+
+	// Set cache size to 20MB (negative value means pages, positive means KB)
+	// -20000 pages ≈ 20MB with default 1KB page size
+	_, err = db.ExecContext(ctx, "PRAGMA cache_size = -20000;")
+	if err != nil {
+		return fmt.Errorf("failed to set cache size: %w", err)
+	}
+
+	return nil
+}
+
 // SQLiteEventStore implements the sync.EventStore interface for SQLite.
 type SQLiteEventStore struct {
 	db        *sql.DB
@@ -202,11 +241,34 @@ func New(config *Config) (*SQLiteEventStore, error) {
 		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 	}
 
+	// Apply production-friendly PRAGMA settings
+	ctx := context.Background()
+	if err := applyPragmaSettings(ctx, db, config); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to apply PRAGMA settings: %w", err)
+	}
+
 	// Configure connection pool
-	db.SetMaxOpenConns(config.MaxOpenConns)
-	db.SetMaxIdleConns(config.MaxIdleConns)
-	db.SetConnMaxLifetime(config.ConnMaxLifetime)
-	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
+	if config.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(config.MaxOpenConns)
+	} else {
+		db.SetMaxOpenConns(25)
+	}
+	if config.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(config.MaxIdleConns)
+	} else {
+		db.SetMaxIdleConns(5)
+	}
+	if config.ConnMaxLifetime > 0 {
+		db.SetConnMaxLifetime(config.ConnMaxLifetime)
+	} else {
+		db.SetConnMaxLifetime(time.Hour)
+	}
+	if config.ConnMaxIdleTime > 0 {
+		db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
+	} else {
+		db.SetConnMaxIdleTime(5 * time.Minute)
+	}
 
 	logger.InfoContext(context.Background(), "Connection pool configured",
 		slog.Int("max_open_conns", config.MaxOpenConns),
