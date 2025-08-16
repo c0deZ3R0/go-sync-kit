@@ -163,9 +163,9 @@ func TestAutoSyncRaceCondition(t *testing.T) {
 		t.Fatalf("First StartAutoSync failed: %v", err)
 	}
 
-	// Try starting again - should fail
-	if err := sm.StartAutoSync(ctx); err == nil {
-		t.Error("Second StartAutoSync should have failed but didn't")
+	// Try starting again - should be idempotent (no error)
+	if err := sm.StartAutoSync(ctx); err != nil {
+		t.Errorf("Second StartAutoSync should be idempotent but got error: %v", err)
 	}
 
 	// Test rapid start/stop cycles to stress test race condition fix
@@ -212,14 +212,11 @@ func TestAutoSyncRaceCondition(t *testing.T) {
 		errchan <- nil
 	}()
 
-	// Wait for all operations
+	// Wait for all operations - with idempotent behavior, we should not get errors
 	for i := 0; i < 3; i++ {
 		if err := <-errchan; err != nil {
-			// We expect some errors here since operations are racing,
-			// but they should be our expected error types
-			if err.Error() != "sync operation failed: auto sync is not running" &&
-				err.Error() != "sync operation failed: auto sync is already running" &&
-				err.Error() != "sync operation failed: sync manager is closed" {
+			// With idempotent behavior, the only acceptable error is sync manager closed
+			if err.Error() != "sync operation failed: sync manager is closed" {
 				t.Errorf("Unexpected error type: %v", err)
 			}
 		}

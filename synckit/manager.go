@@ -19,10 +19,11 @@ type syncManager struct {
 	logger    *slog.Logger
 
 	// Internal state
-	mu           sync.RWMutex
-	autoSyncStop chan struct{}
-	subscribers  []func(*SyncResult)
-	closed       bool
+	mu               sync.RWMutex
+	autoSyncCancel   context.CancelFunc // Cancel function for auto-sync context
+	autoSyncInterval time.Duration      // Current auto-sync interval
+	subscribers      []func(*SyncResult)
+	closed           bool
 }
 
 // Sync performs a bidirectional sync operation
@@ -542,18 +543,24 @@ func (sm *syncManager) withTimeout(ctx context.Context) (context.Context, contex
 	return context.WithTimeout(ctx, 30*time.Second)
 }
 
-// StartAutoSync begins automatic synchronization at the configured interval
+// StartAutoSync begins automatic synchronization at the configured interval.
+// This method is idempotent - calling it multiple times will not create duplicate goroutines.
 func (sm *syncManager) StartAutoSync(ctx context.Context) error {
-	sm.logger.Info("Starting automatic sync", "interval", sm.options.SyncInterval)
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
 	// Check context cancellation first
 	select {
 	case <-ctx.Done():
 		sm.logger.Warn("Auto sync start canceled by context", "error", ctx.Err())
 		return ctx.Err()
 	default:
+	}
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	// Idempotent check: if auto sync is already running, return nil
+	if sm.autoSyncCancel != nil {
+		sm.logger.Debug("Auto sync is already running, ignoring duplicate start request")
+		return nil
 	}
 
 	if sm.closed {
@@ -570,18 +577,17 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 		return err
 	}
 
-	if sm.autoSyncStop != nil {
-		err := syncErrors.New(syncErrors.OpSync, fmt.Errorf("auto sync is already running"))
-		sm.logger.Warn("Auto sync is already running", "error", err)
-		return err
-	}
+	// Create cancellable context for auto-sync goroutine
+	autoSyncCtx, cancel := context.WithCancel(ctx)
+	sm.autoSyncCancel = cancel
+	sm.autoSyncInterval = sm.options.SyncInterval
 
-	// FIXED: Create channel while holding lock
-	stopChan := make(chan struct{})
-	sm.autoSyncStop = stopChan
+	sm.logger.Info("Starting automatic sync", "interval", sm.autoSyncInterval)
 
+	// Start auto-sync goroutine
 	go func() {
-		sm.logger.Info("Auto sync goroutine started", "interval", sm.options.SyncInterval)
+		sm.logger.Info("Auto sync goroutine started", "interval", sm.autoSyncInterval)
+		// Use the configured interval from options, not the stored interval
 		ticker := time.NewTicker(sm.options.SyncInterval)
 		defer func() {
 			ticker.Stop()
@@ -590,16 +596,13 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-autoSyncCtx.Done():
 				sm.logger.Info("Auto sync stopping due to context cancellation")
-				return
-			case <-stopChan: // Use local copy to avoid race
-				sm.logger.Info("Auto sync stopping due to explicit stop")
 				return
 			case <-ticker.C:
 				sm.logger.Debug("Auto sync tick - starting sync operation")
-				// Create timeout context derived from parent context
-				syncCtx, cancel := sm.withTimeout(ctx)
+				// Create timeout context derived from auto-sync context
+				syncCtx, cancel := sm.withTimeout(autoSyncCtx)
 				_, err := sm.Sync(syncCtx)
 				cancel() // Always cancel to free resources
 
@@ -621,21 +624,25 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 	return nil
 }
 
-// StopAutoSync stops automatic synchronization
+// StopAutoSync stops automatic synchronization.
+// This method is idempotent - calling it multiple times will not cause errors.
 func (sm *syncManager) StopAutoSync() error {
-	sm.logger.Info("Stopping automatic sync")
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	if sm.autoSyncStop == nil {
-		err := syncErrors.New(syncErrors.OpSync, fmt.Errorf("auto sync is not running"))
-		sm.logger.Warn("Cannot stop auto sync: not running", "error", err)
-		return err
+	// Idempotent check: if auto sync is not running, return nil (no-op)
+	if sm.autoSyncCancel == nil {
+		sm.logger.Debug("Auto sync is not running, ignoring stop request")
+		return nil
 	}
 
-	// FIXED: Close channel safely
-	close(sm.autoSyncStop)
-	sm.autoSyncStop = nil
+	sm.logger.Info("Stopping automatic sync")
+	
+	// Cancel the auto-sync context to stop the goroutine
+	sm.autoSyncCancel()
+	sm.autoSyncCancel = nil
+	sm.autoSyncInterval = 0
+	
 	sm.logger.Info("Auto sync stopped successfully")
 	return nil
 }
@@ -670,10 +677,11 @@ func (sm *syncManager) Close() error {
 	sm.closed = true
 
 	// Stop auto sync if running
-	if sm.autoSyncStop != nil {
+	if sm.autoSyncCancel != nil {
 		sm.logger.Debug("Stopping auto sync as part of close")
-		close(sm.autoSyncStop)
-		sm.autoSyncStop = nil
+		sm.autoSyncCancel()
+		sm.autoSyncCancel = nil
+		sm.autoSyncInterval = 0
 	}
 
 	// Close transport and store
