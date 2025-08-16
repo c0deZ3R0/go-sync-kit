@@ -263,7 +263,7 @@ func main() {
     }()
 
     // Set up HTTP Client with HTTPTransport
-    clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
+    clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
     // Configure Sync Options
     syncOptions := &synckit.SyncOptions{
@@ -272,7 +272,16 @@ func main() {
     }
 
     // Create and start SyncManager
-    syncManager := synckit.NewSyncManager(store, clientTransport, syncOptions)
+    syncManager, err := synckit.NewManager(
+        synckit.WithStore(store),
+        synckit.WithTransport(clientTransport),
+        synckit.WithLWW(),
+        synckit.WithBatchSize(syncOptions.BatchSize),
+        synckit.WithSyncInterval(syncOptions.SyncInterval),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create sync manager: %v", err)
+    }
     ctx := context.Background()
 
     // Run synchronization
@@ -338,8 +347,17 @@ func main() {
         ConflictResolver: &LastWriteWinsResolver{},
     }
 
-    // Create sync manager
-    syncManager := synckit.NewSyncManager(store, transport, options)
+    // Create sync manager  
+    syncManager, err := synckit.NewManager(
+        synckit.WithStore(store),
+        synckit.WithTransport(transport),
+        synckit.WithConflictResolver(options.ConflictResolver),
+        synckit.WithBatchSize(options.BatchSize),
+        synckit.WithSyncInterval(options.SyncInterval),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create sync manager: %v", err)
+    }
 
     // Perform sync
     ctx := context.Background()
@@ -708,13 +726,20 @@ err := client.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
 #### Hybrid Transport Usage
 ```go
 // Use HTTP transport for Push/Pull operations
-httpTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
+httpTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
 // Use SSE transport for real-time Subscribe operations  
 sseTransport := sse.NewClient("http://localhost:8080", nil)
 
 // Create SyncManager with HTTP transport (SSE used separately for real-time)
-syncManager := synckit.NewSyncManager(store, httpTransport, options)
+syncManager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTransport(httpTransport),
+    synckit.WithLWW(),  // or your preferred conflict resolution
+)
+if err != nil {
+    log.Fatalf("Failed to create sync manager: %v", err)
+}
 
 // Run periodic sync via HTTP
 result, err := syncManager.Sync(ctx)
@@ -728,10 +753,17 @@ go sseTransport.Subscribe(ctx, eventHandler)
 import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 
 // Create HTTP transport client
-clientTransport := httptransport.NewTransport("http://localhost:8080", nil, nil, nil)
+clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
 // Use with SyncManager
-syncManager := synckit.NewSyncManager(store, clientTransport, options)
+syncManager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTransport(clientTransport),
+    synckit.WithLWW(),  // or your preferred options
+)
+if err != nil {
+    log.Fatalf("Failed to create sync manager: %v", err)
+}
 ```
 
 #### Server Setup
@@ -823,7 +855,7 @@ func main() {
     // 2. Start HTTP server
     logger := log.New(os.Stdout, "[SyncHandler] ", log.LstdFlags)
 // Use default version parser (store.ParseVersion)
-handler := transport.NewSyncHandler(store, logger, nil)
+handler := httptransport.NewSyncHandler(store, logger, nil, nil)
     server := &http.Server{Addr: ":8080", Handler: handler}
     
     go func() {
@@ -837,16 +869,19 @@ handler := transport.NewSyncHandler(store, logger, nil)
     time.Sleep(100 * time.Millisecond)
 
     // 3. Create HTTP client transport
-    clientTransport := transport.NewTransport("http://localhost:8080", nil)
+    clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
-    // 4. Configure sync options
-    syncOptions := &synckit.SyncOptions{
-        BatchSize: 10,
-        SyncInterval: 10 * time.Second,
+    // 4. Create sync manager using functional options
+    syncManager, err := synckit.NewManager(
+        synckit.WithStore(store),
+        synckit.WithTransport(clientTransport),
+        synckit.WithLWW(),
+        synckit.WithBatchSize(10),
+        synckit.WithSyncInterval(10*time.Second),
+    )
+    if err != nil {
+        log.Fatalf("Failed to create sync manager: %v", err)
     }
-
-    // 5. Create sync manager
-    syncManager := sync.NewSyncManager(store, clientTransport, syncOptions)
 
     // 6. Perform synchronization
     ctx := context.Background()
