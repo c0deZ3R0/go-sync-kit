@@ -487,8 +487,8 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Info("Successfully pushed events",
-			slog.Int("event_count", len(jsonEvents)),
-			slog.String("remote_addr", r.RemoteAddr))
+		slog.Int("event_count", len(jsonEvents)),
+		slog.String("remote_addr", r.RemoteAddr))
 		h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
 }
 
