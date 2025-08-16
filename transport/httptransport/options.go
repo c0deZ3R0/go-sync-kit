@@ -60,6 +60,13 @@ func WithClientCompression(enabled bool) ClientOption {
 	}
 }
 
+// WithGzipThreshold sets the minimum size for outbound gzip compression
+func WithGzipThreshold(threshold int) ClientOption {
+	return func(opts *ClientOptions) {
+		opts.GzipMinBytes = threshold
+	}
+}
+
 // WithDisableAutoDecompression disables Go's automatic response decompression
 func WithDisableAutoDecompression(disabled bool) ClientOption {
 	return func(opts *ClientOptions) {
@@ -174,6 +181,10 @@ func ValidateClientOptions(opts *ClientOptions) error {
 	// because that's when we can observe compressed bytes
 	if opts.DisableAutoDecompression && opts.MaxDecompressedResponseSize < opts.MaxResponseSize {
 		return fmt.Errorf("MaxDecompressedResponseSize must be >= MaxResponseSize when DisableAutoDecompression is true")
+	}
+
+	if opts.GzipMinBytes < 0 {
+		return fmt.Errorf("GzipMinBytes must be >= 0")
 	}
 
 	if opts.RequestTimeout < 0 {

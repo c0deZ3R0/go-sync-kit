@@ -127,6 +127,10 @@ type ClientOptions struct {
 	// When false (default), Go auto-decompresses responses transparently
 	DisableAutoDecompression bool
 
+	// GzipMinBytes is the minimum size in bytes before outbound requests are gzip compressed
+	// Only applies when CompressionEnabled is true. If 0, defaults to 1KB
+	GzipMinBytes int
+
 	// MaxResponseSize is the maximum allowed size of response bodies in bytes (compressed)
 	// If 0, defaults to 10MB
 	MaxResponseSize int64
@@ -161,6 +165,7 @@ type ClientOptions struct {
 func DefaultClientOptions() *ClientOptions {
 	return &ClientOptions{
 		CompressionEnabled:          true,
+		GzipMinBytes:                1024,              // 1KB
 		MaxResponseSize:             10 * 1024 * 1024, // 10MB
 		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
 		RequestTimeout:              30 * time.Second, // 30s
