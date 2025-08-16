@@ -19,6 +19,17 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// Operation constants for consistent error reporting
+const (
+	opPush         = "httptransport.Push"
+	opPull         = "httptransport.Pull"
+	opLatestVersion = "httptransport.GetLatestVersion"
+	opSubscribe    = "httptransport.Subscribe"
+	opPushHandler  = "httptransport.handlePush"
+	opPullHandler  = "httptransport.handlePull"
+	opLatestHandler = "httptransport.handleLatestVersion"
+)
+
 // --- HTTP Transport Client ---
 
 // VersionParser converts a version string into synckit.Version.
@@ -117,7 +128,7 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 
 	data, err := json.Marshal(jsonData)
 	if err != nil {
-		return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to marshal events: %w", err))
+		return syncErrors.WrapOpComponent(err, opPush, "transport/httptransport")
 	}
 
 	// Prepare the request body (with optional compression)
@@ -132,12 +143,12 @@ func (t *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 			t.logger.Error("Failed to compress push request",
 				slog.String("error", err.Error()),
 				slog.Int("original_size", len(data)))
-			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to compress request: %w", err))
+			return syncErrors.WrapOpComponent(err, opPush, "transport/httptransport")
 		}
 		if err := gzipWriter.Close(); err != nil {
 			t.logger.Error("Failed to close gzip writer for push request",
 				slog.String("error", err.Error()))
-			return syncErrors.NewWithComponent(syncErrors.OpPush, "transport", fmt.Errorf("failed to close gzip writer: %w", err))
+			return syncErrors.WrapOpComponent(err, opPush, "transport/httptransport")
 		}
 		requestBody = &compressed
 		contentEncoding = "gzip"
@@ -472,14 +483,13 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		// The version from the client is ignored here, which is typical for
 		// server-authoritative versioning.
 		if err := h.store.Store(r.Context(), ev.Event, ev.Version); err != nil {
-			// This could be a unique constraint violation if the event already exists,
-			// which is often okay during sync. We log it but don't fail the whole batch.
-			// For other errors, we should fail.
+			// Log the error for diagnosis, but continue processing other events
 			h.logger.Warn("Failed to store event during push",
 				slog.String("error", err.Error()),
 				slog.String("event_id", ev.Event.ID()),
 				slog.String("remote_addr", r.RemoteAddr))
-			// In a real app, you might check for specific errors here.
+			// Note: Could check for specific store errors here and fail the batch if needed
+			// For now, we continue to be resilient to duplicate events during sync
 		}
 	}
 
