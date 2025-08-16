@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
@@ -19,7 +18,10 @@ type Event = types.Event
 
 // Version represents a point-in-time snapshot for sync operations.
 // Users can implement different versioning strategies (timestamps, hashes, vector clocks).
-type Version = interfaces.Version
+type Version = types.Version
+
+// EventWithVersion pairs an event with its version information
+type EventWithVersion = types.EventWithVersion
 
 // EventStore provides persistence for events.
 // Implementations can use any storage backend (SQLite, BadgerDB, PostgreSQL, etc.).
@@ -42,12 +44,6 @@ type EventStore interface {
 
 	// Close closes the store and releases resources
 	Close() error
-}
-
-// EventWithVersion pairs an event with its version information
-type EventWithVersion struct {
-	Event   Event
-	Version Version
 }
 
 // ConflictResolver is now defined in conflict.go

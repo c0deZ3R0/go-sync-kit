@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 )
 
 // TestPhase3Integration tests the Phase 3 integration of DynamicResolver
@@ -152,7 +150,7 @@ type Phase3TestVersion struct {
 }
 
 func (v *Phase3TestVersion) String() string                    { return v.version }
-func (v *Phase3TestVersion) Compare(other interfaces.Version) int {
+func (v *Phase3TestVersion) Compare(other Version) int {
 	if other == nil {
 		return 1
 	}

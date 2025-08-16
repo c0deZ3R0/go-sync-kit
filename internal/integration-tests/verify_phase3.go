@@ -9,7 +9,6 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/dynres"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 )
 
 // Simple test event
@@ -32,7 +31,7 @@ type TestVersion struct {
 }
 
 func (v *TestVersion) String() string                    { return v.version }
-func (v *TestVersion) Compare(other interfaces.Version) int {
+func (v *TestVersion) Compare(other types.Version) int {
 	if other == nil {
 		return 1
 	}

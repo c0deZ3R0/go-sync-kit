@@ -2,8 +2,6 @@
 // This package exists to prevent import cycles between synckit and its subpackages.
 package types
 
-import "github.com/c0deZ3R0/go-sync-kit/interfaces"
-
 // Event represents a syncable event in the system.
 type Event interface {
 	// ID returns a unique identifier for this event
@@ -23,7 +21,17 @@ type Event interface {
 }
 
 // Version represents a point-in-time snapshot for sync operations.
-type Version = interfaces.Version
+// Users can implement different versioning strategies (timestamps, hashes, vector clocks).
+type Version interface {
+	// Compare returns -1 if this version is before other, 0 if equal, 1 if after
+	Compare(other Version) int
+
+	// String returns a string representation of the version
+	String() string
+
+	// IsZero returns true if this is the zero/initial version
+	IsZero() bool
+}
 
 // EventWithVersion pairs an event with its version information.
 type EventWithVersion struct {

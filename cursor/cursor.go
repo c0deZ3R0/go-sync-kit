@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync" // NEW
 
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 const (
@@ -99,8 +99,8 @@ type IntegerCursor struct {
 
 func (IntegerCursor) Kind() string { return KindInteger }
 
-// Compare implements interfaces.Version
-func (ic IntegerCursor) Compare(other interfaces.Version) int {
+// Compare implements types.Version
+func (ic IntegerCursor) Compare(other types.Version) int {
 	// Handle nil case first
 	if other == nil {
 		return 1 // non-nil is greater than nil
@@ -119,12 +119,12 @@ func (ic IntegerCursor) Compare(other interfaces.Version) int {
 	return 0
 }
 
-// String implements interfaces.Version
+// String implements types.Version
 func (ic IntegerCursor) String() string {
 	return fmt.Sprintf("%d", ic.Seq)
 }
 
-// IsZero implements interfaces.Version
+// IsZero implements types.Version
 func (ic IntegerCursor) IsZero() bool {
 	return ic.Seq == 0
 }
@@ -157,8 +157,8 @@ type VectorCursor struct {
 
 func (VectorCursor) Kind() string { return KindVector }
 
-// Compare implements interfaces.Version
-func (vc VectorCursor) Compare(other interfaces.Version) int {
+// Compare implements types.Version
+func (vc VectorCursor) Compare(other types.Version) int {
 	// Handle nil case first
 	if other == nil {
 		return 1 // non-nil is greater than nil
@@ -178,13 +178,13 @@ func (vc VectorCursor) Compare(other interfaces.Version) int {
 	return bytes.Compare(vcJSON, ocJSON)
 }
 
-// String implements interfaces.Version
+// String implements types.Version
 func (vc VectorCursor) String() string {
 	data, _ := json.Marshal(vc.Counters)
 	return string(data)
 }
 
-// IsZero implements interfaces.Version
+// IsZero implements types.Version
 func (vc VectorCursor) IsZero() bool {
 	// Nil map or empty map is considered zero
 	return vc.Counters == nil || len(vc.Counters) == 0
