@@ -46,6 +46,9 @@ func newHTTPClient(opts *ClientOptions) *http.Client {
 
 // NewTransport creates a new HTTPTransport client.
 // If a custom http.Client is not provided, one will be created based on the options.
+//
+// Deprecated: Use NewClient instead for better API design with functional options.
+// This function is kept for backward compatibility and delegates to NewClient.
 func NewTransport(baseURL string, client *http.Client, parser VersionParser, options *ClientOptions) *HTTPTransport {
 	return NewTransportWithLogger(baseURL, client, parser, options, logging.Default().Logger)
 }
