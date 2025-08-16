@@ -35,7 +35,7 @@ func TestNewClientDefaults(t *testing.T) {
 		MaxBodyBytes:         8 << 20,  // 8MB
 		MaxDecompressedBytes: 64 << 20, // 64MB
 		EnableGzip:           true,
-		GzipMinBytes:         2 << 20, // 2MB
+		GzipMinBytes:         1024, // 1KB (updated default)
 	}
 
 	if limits.MaxBodyBytes != expectedLimits.MaxBodyBytes {
