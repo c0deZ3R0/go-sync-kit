@@ -80,9 +80,13 @@ func createSafeRequestReader(w http.ResponseWriter, r *http.Request, options *Se
 	// Create compressed size limited reader using http.MaxBytesReader (handles 413 automatically)
 	limitedReader := http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	// Check if request is gzip compressed
-	contentEncoding := r.Header.Get("Content-Encoding")
-	if contentEncoding == "" || !strings.Contains(contentEncoding, "gzip") {
+	// Check Content-Encoding strictly - only allow empty or "gzip" (case-insensitive)
+	contentEncoding := strings.TrimSpace(strings.ToLower(r.Header.Get("Content-Encoding")))
+	if contentEncoding != "" && contentEncoding != "gzip" {
+		return nil, func() {}, fmt.Errorf("unsupported content encoding: %s (only gzip is supported)", contentEncoding)
+	}
+
+	if contentEncoding == "" {
 		// No compression - enforce decompressed size limit (same as request size for uncompressed)
 		// Use the stricter of the two limits
 		maxSize := maxRequestSize
@@ -142,6 +146,11 @@ func mapErrorToHTTPStatus(err error) int {
 
 	// Unsupported media type → 415
 	if strings.Contains(errMsg, "unsupported media type") {
+		return http.StatusUnsupportedMediaType
+	}
+
+	// Unsupported content encoding → 415
+	if strings.Contains(errMsg, "unsupported content encoding") {
 		return http.StatusUnsupportedMediaType
 	}
 
