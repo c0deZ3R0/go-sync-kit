@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 )
 
 func TestPhase6CompositePattern(t *testing.T) {
@@ -422,7 +420,7 @@ type testVersion struct {
 }
 
 func (v *testVersion) String() string { return fmt.Sprintf("v%d", v.v) }
-func (v *testVersion) Compare(other interfaces.Version) int {
+func (v *testVersion) Compare(other Version) int {
 	if other == nil { return 1 }
 	if otherV, ok := other.(*testVersion); ok {
 		if v.v < otherV.v { return -1 }

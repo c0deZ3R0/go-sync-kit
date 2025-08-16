@@ -7,8 +7,8 @@ import (
 	syncLib "sync"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	"github.com/c0deZ3R0/go-sync-kit/interfaces"
 	"github.com/c0deZ3R0/go-sync-kit/logging"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -16,15 +16,15 @@ import (
 // This allows different versioning strategies to be plugged in.
 type VersionManager interface {
 	// CurrentVersion returns the current version state
-	CurrentVersion() interfaces.Version
+	CurrentVersion() types.Version
 
 	// NextVersion generates the next version for a new event
 	// The nodeID parameter allows node-specific versioning (e.g., for vector clocks)
-	NextVersion(nodeID string) interfaces.Version
+	NextVersion(nodeID string) types.Version
 
 	// UpdateFromVersion updates the internal state based on an observed version
 	// This is used when loading events from the store or receiving from peers
-	UpdateFromVersion(version interfaces.Version) error
+	UpdateFromVersion(version types.Version) error
 
 	// Clone creates a copy of the version manager
 	Clone() VersionManager
@@ -44,7 +44,7 @@ func NewVectorClockManager() *VectorClockManager {
 }
 
 // NewVectorClockManagerFromVersion creates a vector clock manager from an existing version.
-func NewVectorClockManagerFromVersion(version interfaces.Version) (*VectorClockManager, error) {
+func NewVectorClockManagerFromVersion(version types.Version) (*VectorClockManager, error) {
 	if version == nil || version.IsZero() {
 		return NewVectorClockManager(), nil
 	}
@@ -60,14 +60,14 @@ func NewVectorClockManagerFromVersion(version interfaces.Version) (*VectorClockM
 }
 
 // CurrentVersion returns the current vector clock state.
-func (vm *VectorClockManager) CurrentVersion() interfaces.Version {
+func (vm *VectorClockManager) CurrentVersion() types.Version {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 	return vm.clock.Clone()
 }
 
 // NextVersion increments the clock for the given node and returns the new version.
-func (vm *VectorClockManager) NextVersion(nodeID string) interfaces.Version {
+func (vm *VectorClockManager) NextVersion(nodeID string) types.Version {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -79,7 +79,7 @@ func (vm *VectorClockManager) NextVersion(nodeID string) interfaces.Version {
 }
 
 // UpdateFromVersion merges the observed version into the current state.
-func (vm *VectorClockManager) UpdateFromVersion(version interfaces.Version) error {
+func (vm *VectorClockManager) UpdateFromVersion(version types.Version) error {
 	if version == nil || version.IsZero() {
 		return nil
 	}
@@ -190,7 +190,7 @@ func NewVersionedStoreWithLogger(store synckit.EventStore, nodeID string, versio
 }
 
 // Store generates the next version and stores the event with that version.
-func (s *VersionedStore) Store(ctx context.Context, event synckit.Event, version interfaces.Version) error {
+func (s *VersionedStore) Store(ctx context.Context, event synckit.Event, version types.Version) error {
 	s.logger.Debug("Storing event with version",
 		slog.String("node_id", s.nodeID),
 		slog.String("event_type", fmt.Sprintf("%T", event)))
