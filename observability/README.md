@@ -50,9 +50,11 @@ tracer := tracing.NewTracer("my-sync-service",
 )
 
 // Create sync manager with tracing
-manager, err := synckit.NewBuilder().
-    WithTracer(tracer).
-    Build()
+manager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTracing(tracer),
+    synckit.WithLWW(),
+)
 ```
 
 ### HTTP Middleware
@@ -275,9 +277,12 @@ func main() {
     tracer := tracing.NewTracer("sync-service")
     
     // Create sync manager with tracing
-    manager, err := synckit.NewBuilder().
-        WithTracer(tracer).
-        Build()
+    manager, err := synckit.NewManager(
+        synckit.WithStore(store),
+        synckit.WithTracing(tracer),
+        synckit.WithLWW(),
+        synckit.WithBatchSize(100),
+    )
     if err != nil {
         log.Fatal(err)
     }
