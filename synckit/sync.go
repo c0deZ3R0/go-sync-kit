@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
@@ -131,6 +132,22 @@ type SyncOptions struct {
 
 	// MetricsCollector for observability hooks (optional)
 	MetricsCollector MetricsCollector
+
+	// Tracer for distributed tracing (optional)
+	Tracer interface {
+		// StartSyncOperation starts a new span for a sync operation
+		StartSyncOperation(ctx context.Context, operation string) (context.Context, trace.Span)
+		// StartTransportOperation starts a new span for transport operations
+		StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span)
+		// StartStorageOperation starts a new span for storage operations
+		StartStorageOperation(ctx context.Context, operation, storageType string) (context.Context, trace.Span)
+		// StartConflictResolution starts a new span for conflict resolution
+		StartConflictResolution(ctx context.Context, strategy string) (context.Context, trace.Span)
+		// RecordError records an error on a span
+		RecordError(span trace.Span, err error, description string)
+		// SetSyncResult sets sync result attributes on a span
+		SetSyncResult(span trace.Span, eventsPushed, eventsPulled, conflictsResolved int)
+	}
 }
 
 // SyncManager coordinates the synchronization process between local and remote stores.
