@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/yourusername/go-sync-kit/observability/health"
-	"github.com/yourusername/go-sync-kit/observability/metrics"
-	"github.com/yourusername/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/observability/health"
+	"github.com/c0deZ3R0/go-sync-kit/observability/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // Enterprise observability example demonstrating production-ready configuration

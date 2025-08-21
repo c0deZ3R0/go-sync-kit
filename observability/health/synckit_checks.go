@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourusername/go-sync-kit/synckit"
-	"github.com/yourusername/go-sync-kit/storage"
-	"github.com/yourusername/go-sync-kit/transport"
+	"github.com/c0deZ3R0/go-sync-kit/storage"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/transport"
 )
 
 // SyncManagerCheck performs health checks on the SyncManager.

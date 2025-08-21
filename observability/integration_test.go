@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/go-sync-kit/observability/health"
-	"github.com/yourusername/go-sync-kit/observability/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/observability/health"
+	"github.com/c0deZ3R0/go-sync-kit/observability/metrics"
 )
 
 // TestObservabilityIntegration tests that metrics and health checks work together

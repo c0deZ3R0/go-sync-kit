@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yourusername/go-sync-kit/observability/health"
-	"github.com/yourusername/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/observability/health"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // This example demonstrates how to integrate health checking with sync-kit
