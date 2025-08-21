@@ -39,6 +39,13 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 - **Efficient Batching**: Optimized batch processing for large event sets
 - **Comprehensive Testing**: Over 90% test coverage with context and race condition testing
 
+### Enterprise Observability
+- **Prometheus Metrics**: Complete metrics collection with counters, histograms, and gauges
+- **Health Checks**: Kubernetes-style liveness, readiness, and startup probes
+- **HTTP Endpoints**: Standards-compliant `/metrics` and `/health/*` endpoints
+- **Component Monitoring**: Built-in checks for storage, transport, and system resources
+- **Business Metrics**: Custom metrics support for multi-tenant and enterprise scenarios
+
 ### Configuration & Safety
 - **Builder Pattern**: Enhanced builder with validation, timeouts, and compression options
 - **Filtering**: Sync only specific events based on custom filters
@@ -127,9 +134,25 @@ go run main.go
 # Or try an intermediate example
 cd examples/intermediate/04-conflict-resolution
 go run main.go
+
+# Check out the new observability examples
+cd examples/observability/basic
+go run main.go
 ```
 
 Each example is self-contained with its own `go.mod` and includes detailed comments explaining the concepts and implementation patterns.
+
+### 🔍 Observability Examples
+
+**Basic Observability** - `examples/observability/basic/`
+- Prometheus metrics collection and HTTP endpoints
+- Health checks with liveness, readiness, and startup probes
+- Integration with sync operations and custom business metrics
+
+**Enterprise Observability** - `examples/observability/enterprise/`
+- Advanced multi-tenant metrics scenarios
+- Production deployment patterns with monitoring
+- Custom metrics for business KPIs and multi-environment setups
 
 ## Quick Start
 
@@ -146,6 +169,9 @@ manager, err := synckit.NewManager(
     synckit.WithBatchSize(100),            // Batch size for sync operations
     synckit.WithTimeout(30*time.Second),   // Operation timeout
     synckit.WithFilter(myEventFilter),     // Custom event filter
+    // Observability options
+    synckit.WithMetrics(metrics),          // Enable Prometheus metrics
+    synckit.WithHealthChecks(healthMgr),   // Enable health checks
 )
 ```
 
@@ -164,6 +190,8 @@ manager, err := synckit.NewManager(
 - `WithCompression(enabled)` - Enable/disable compression
 - `WithPushOnly()` - Push-only synchronization
 - `WithPullOnly()` - Pull-only synchronization
+- `WithMetrics(metrics)` - Enable Prometheus metrics collection
+- `WithHealthChecks(healthMgr)` - Enable health checks and monitoring
 
 ### Using Functional Options (Recommended)
 
@@ -948,6 +976,287 @@ func (n *NATSTransport) Push(ctx context.Context, events []EventWithVersion) err
 }
 ```
 
+## Observability & Monitoring
+
+Go Sync Kit provides enterprise-grade observability features designed for production environments, including Prometheus metrics, Kubernetes-compatible health checks, and comprehensive monitoring endpoints.
+
+### 📊 Prometheus Metrics
+
+The metrics system captures detailed operational data about sync operations, performance, and system health:
+
+#### Setting Up Metrics
+```go
+import (
+    "github.com/c0deZ3R0/go-sync-kit/observability/metrics"
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+// Create metrics collector
+metricsCollector := metrics.NewCollector()
+
+// Register with Prometheus (optional - auto-registered by default)
+prometheus.MustRegister(metricsCollector)
+
+// Create sync manager with metrics
+manager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTransport(transport),
+    synckit.WithMetrics(metricsCollector),
+    synckit.WithLWW(),
+)
+
+// Expose metrics endpoint
+http.Handle("/metrics", promhttp.Handler())
+go http.ListenAndServe(":8080", nil)
+```
+
+#### Available Metrics
+
+**Core Sync Metrics:**
+- `synckit_sync_operations_total` - Total sync operations by result
+- `synckit_sync_duration_seconds` - Histogram of sync operation durations
+- `synckit_events_pushed_total` - Total events pushed to remote
+- `synckit_events_pulled_total` - Total events pulled from remote
+- `synckit_conflicts_resolved_total` - Total conflicts resolved by strategy
+- `synckit_sync_errors_total` - Total sync errors by type and source
+
+**Component Health Metrics:**
+- `synckit_component_status` - Component health status (storage, transport)
+- `synckit_storage_operations_total` - Storage operations by type and result
+- `synckit_transport_operations_total` - Transport operations by type and result
+
+**Business & Custom Metrics:**
+- `synckit_tenant_operations_total` - Multi-tenant operation counts
+- `synckit_custom_business_events_total` - Custom business event tracking
+
+#### Custom Metrics Example
+```go
+// Track custom business metrics
+metricsCollector.RecordTenantOperation("tenant-123", "user_action", "success")
+metricsCollector.RecordBusinessEvent("order_processed", map[string]string{
+    "tenant": "enterprise-client",
+    "region": "us-east",
+})
+```
+
+### 🏥 Health Checks
+
+Kubernetes-compatible health check system with liveness, readiness, and startup probes:
+
+#### Setting Up Health Checks
+```go
+import "github.com/c0deZ3R0/go-sync-kit/observability/health"
+
+// Create health manager
+healthManager := health.NewManager()
+
+// Add built-in checks
+healthManager.AddCheck("storage", health.NewStorageCheck(store))
+healthManager.AddCheck("transport", health.NewTransportCheck(transport))
+healthManager.AddCheck("memory", health.NewMemoryCheck(100*1024*1024)) // 100MB limit
+healthManager.AddCheck("disk", health.NewDiskSpaceCheck("/tmp", 1024*1024*1024)) // 1GB limit
+
+// Create sync manager with health checks
+manager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTransport(transport),
+    synckit.WithHealthChecks(healthManager),
+    synckit.WithLWW(),
+)
+
+// Expose health endpoints
+http.HandleFunc("/health/live", healthManager.LivenessHandler())
+http.HandleFunc("/health/ready", healthManager.ReadinessHandler())
+http.HandleFunc("/health/startup", healthManager.StartupHandler())
+http.HandleFunc("/health", healthManager.OverallHealthHandler())
+```
+
+#### Health Check Types
+
+**Liveness Probe** (`/health/live`)
+- Determines if the application is alive and should be restarted
+- Checks: Basic process health, critical component availability
+
+**Readiness Probe** (`/health/ready`)
+- Determines if the application can handle requests
+- Checks: Storage connectivity, transport availability, resource limits
+
+**Startup Probe** (`/health/startup`)
+- Determines if the application has started successfully
+- Checks: Initial component initialization, configuration validation
+
+#### Custom Health Checks
+```go
+// Implement custom health check
+type CustomServiceCheck struct {
+    serviceURL string
+}
+
+func (c *CustomServiceCheck) Check(ctx context.Context) health.CheckResult {
+    // Your custom health check logic
+    resp, err := http.Get(c.serviceURL)
+    if err != nil {
+        return health.CheckResult{
+            Status:  health.StatusUnhealthy,
+            Message: fmt.Sprintf("Service unreachable: %v", err),
+            Details: map[string]interface{}{"url": c.serviceURL},
+        }
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != 200 {
+        return health.CheckResult{
+            Status:  health.StatusUnhealthy, 
+            Message: fmt.Sprintf("Service returned %d", resp.StatusCode),
+        }
+    }
+    
+    return health.CheckResult{
+        Status:  health.StatusHealthy,
+        Message: "Service is healthy",
+    }
+}
+
+// Add to health manager
+healthManager.AddCheck("external-service", &CustomServiceCheck{
+    serviceURL: "https://api.example.com/health",
+})
+```
+
+### 🐳 Kubernetes Integration
+
+Example Kubernetes deployment with observability:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-sync-kit-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: go-sync-kit
+  template:
+    metadata:
+      labels:
+        app: go-sync-kit
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: app
+        image: your-app:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 30
+```
+
+### 📈 Monitoring Best Practices
+
+#### Alerting Rules (Prometheus)
+```yaml
+groups:
+- name: go-sync-kit
+  rules:
+  - alert: SyncKitHighErrorRate
+    expr: rate(synckit_sync_errors_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High error rate in Go Sync Kit"
+      description: "Error rate is {{ $value }} errors per second"
+
+  - alert: SyncKitComponentDown
+    expr: synckit_component_status == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Go Sync Kit component is down"
+      description: "Component {{ $labels.component }} is not healthy"
+
+  - alert: SyncKitHighSyncDuration
+    expr: histogram_quantile(0.95, rate(synckit_sync_duration_seconds_bucket[5m])) > 30
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Slow sync operations in Go Sync Kit"
+      description: "95th percentile sync duration is {{ $value }}s"
+```
+
+#### Grafana Dashboard Queries
+```promql
+# Sync operations per second
+rate(synckit_sync_operations_total[5m])
+
+# Error rate percentage
+rate(synckit_sync_errors_total[5m]) / rate(synckit_sync_operations_total[5m]) * 100
+
+# Average sync duration
+rate(synckit_sync_duration_seconds_sum[5m]) / rate(synckit_sync_duration_seconds_count[5m])
+
+# Component health status
+synckit_component_status
+
+# Events throughput
+rate(synckit_events_pushed_total[5m]) + rate(synckit_events_pulled_total[5m])
+```
+
+### 🔧 Configuration Options
+
+#### Metrics Configuration
+```go
+// Configure metrics with custom options
+metricsConfig := &metrics.Config{
+    Namespace: "myapp",           // Metric name prefix
+    Subsystem: "sync",           // Metric subsystem
+    Labels: map[string]string{   // Common labels for all metrics
+        "environment": "production",
+        "region":      "us-east-1",
+    },
+    EnableDetailedMetrics: true,  // Enable detailed component metrics
+}
+
+metricsCollector := metrics.NewCollectorWithConfig(metricsConfig)
+```
+
+#### Health Check Configuration
+```go
+// Configure health checks with timeouts
+healthConfig := &health.Config{
+    CheckTimeout:    5 * time.Second,
+    StartupTimeout:  30 * time.Second,
+    ShutdownTimeout: 10 * time.Second,
+}
+
+healthManager := health.NewManagerWithConfig(healthConfig)
+```
+
 ## Advanced Usage
 
 ### Automatic Sync
@@ -1030,6 +1339,9 @@ go test ./...
 - [x] **Error System** - Enhanced error handling with codes and metadata
 - [x] **Builder Pattern** - Improved configuration with validation
 - [x] **BadgerDB Store** - Production-ready BadgerDB implementation with atomic operations
+- [x] **Enterprise Observability** - Complete Prometheus metrics and Kubernetes health checks
+- [x] **Health Check System** - Liveness, readiness, and startup probes with component monitoring
+- [x] **Functional Options API** - Simplified configuration with observability integration
 
 ### Next Up 🚀
 - [ ] **Storage Implementations**

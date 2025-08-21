@@ -122,6 +122,21 @@ func (b *SyncManagerBuilder) WithTracer(tracer interface {
 	return b
 }
 
+// WithMetricsCollector sets a metrics collector for observability.
+func (b *SyncManagerBuilder) WithMetricsCollector(collector MetricsCollector) *SyncManagerBuilder {
+	b.options.MetricsCollector = collector
+	return b
+}
+
+// WithHealthChecker sets a health checker for monitoring sync-kit component health.
+func (b *SyncManagerBuilder) WithHealthChecker(checker interface{}) *SyncManagerBuilder {
+	// In a real implementation, you would store this in SyncOptions or
+	// configure the SyncManager with health checking capabilities
+	// For now, we'll store it as a generic interface
+	// TODO: Implement health checker integration
+	return b
+}
+
 // Build creates a new SyncManager instance with the configured options.
 func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 	// Validate required components

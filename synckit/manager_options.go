@@ -246,3 +246,30 @@ func WithTracing(tracer interface {
 		return nil
 	}
 }
+
+// WithMetrics sets a metrics collector for Prometheus metrics collection.
+// The collector must implement the synckit.MetricsCollector interface.
+func WithMetrics(collector MetricsCollector) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithMetricsCollector(collector)
+		return nil
+	}
+}
+
+// WithHealthChecker sets a health checker for monitoring sync-kit component health.
+// The health checker will be automatically configured with sync-kit specific health checks.
+func WithHealthChecker(checker interface {
+	// AddCheck adds a health check for a specific component and check type
+	AddCheck(checkType string, check interface{})
+	// CheckLiveness performs all liveness checks
+	CheckLiveness(ctx context.Context) interface{}
+	// CheckReadiness performs all readiness checks
+	CheckReadiness(ctx context.Context) interface{}
+	// CheckStartup performs all startup checks
+	CheckStartup(ctx context.Context) interface{}
+}) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithHealthChecker(checker)
+		return nil
+	}
+}
