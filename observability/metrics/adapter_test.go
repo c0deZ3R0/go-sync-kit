@@ -66,7 +66,7 @@ func TestPrometheusAdapter_RecordSyncEvent(t *testing.T) {
 
 	// Test different event types
 	adapter.RecordSyncEvent("push_start")
-	adapter.RecordSyncEvent("pull_complete") 
+	adapter.RecordSyncEvent("pull_complete")
 	adapter.RecordSyncEvent("sync_success")
 
 	// Verify event counters

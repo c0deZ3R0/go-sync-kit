@@ -708,6 +708,12 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 					}
 				}
 				
+				// Check transport health if transport supports state awareness
+				if !sm.isTransportHealthyForSync() {
+					sm.logger.Debug("Auto sync skipped - transport not healthy for sync operations")
+					continue // Skip this tick and wait for next one
+				}
+				
 				sm.logger.Debug("Auto sync tick - starting sync operation")
 				// Create timeout context derived from auto-sync context
 				syncCtx, cancel := sm.withTimeout(autoSyncCtx)
@@ -934,6 +940,51 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 	return conflicts
 }
 
+
+// isTransportHealthyForSync checks if the transport is healthy enough for sync operations
+// This method supports state-aware transports and falls back to always allowing sync
+// for non-stateful transports to maintain backward compatibility
+func (sm *syncManager) isTransportHealthyForSync() bool {
+	// Check if transport implements state awareness
+	if statefulTransport, ok := sm.transport.(interface {
+		IsHealthy() bool
+	}); ok {
+		isHealthy := statefulTransport.IsHealthy()
+		if !isHealthy {
+			sm.logger.Debug("Transport is not healthy for sync operations")
+			return false
+		}
+		sm.logger.Debug("Transport is healthy for sync operations")
+		return true
+	}
+	
+	// Check if it's a StatefulTransportWrapper from statemachine package
+	if statefulWrapper, ok := sm.transport.(interface {
+		GetConnectionState() interface{}
+		CanSendData() bool
+		CanReceiveData() bool
+	}); ok {
+		// For sync operations, we need both send and receive capabilities
+		canSend := statefulWrapper.CanSendData()
+		canReceive := statefulWrapper.CanReceiveData()
+		
+		if !canSend || !canReceive {
+			sm.logger.Debug("Transport state does not allow sync operations",
+				"can_send", canSend,
+				"can_receive", canReceive)
+			return false
+		}
+		
+		sm.logger.Debug("Transport state allows sync operations",
+			"can_send", canSend,
+			"can_receive", canReceive)
+		return true
+	}
+	
+	// For non-stateful transports, always allow sync (backward compatibility)
+	sm.logger.Debug("Transport does not support state awareness, allowing sync")
+	return true
+}
 
 // detectChangedFields attempts to detect which fields changed between two events.
 // This is a basic implementation that could be enhanced with more sophisticated
