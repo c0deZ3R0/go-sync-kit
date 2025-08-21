@@ -105,9 +105,7 @@ func (c *Config) Validate() error {
 		c.PrefetchCount = 10 // Default prefetch
 	}
 
-	if c.Priority > 255 {
-		return fmt.Errorf("Priority cannot exceed 255")
-	}
+	// Priority is uint8, so Go's type system ensures it's <= 255
 
 	// If QueueName is set for consumer, ensure we have binding keys
 	if c.QueueName != "" && len(c.BindingKeys) == 0 {
