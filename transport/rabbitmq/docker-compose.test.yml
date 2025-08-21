@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq-integration-test
+    ports:
+      # AMQP port
+      - "5672:5672"
+      # Management UI port
+      - "15672:15672"
+    environment:
+      # Default user credentials
+      RABBITMQ_DEFAULT_USER: synckit_user
+      RABBITMQ_DEFAULT_PASS: synckit_pass
+      # Enable management plugin
+      RABBITMQ_PLUGINS: rabbitmq_management
+      # Optional: Enable shovel plugin for advanced testing
+      # RABBITMQ_PLUGINS: rabbitmq_management,rabbitmq_shovel,rabbitmq_shovel_management
+    volumes:
+      # Persist data between runs
+      - rabbitmq_data:/var/lib/rabbitmq
+      # Optional: Custom config
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    networks:
+      - synckit-test
+
+  # Test environment with wait-for-it utility
+  test-runner:
+    image: golang:1.21-alpine
+    container_name: synckit-test-runner
+    working_dir: /app
+    volumes:
+      - ../../:/app
+      - go_mod_cache:/go/pkg/mod
+    environment:
+      - RABBITMQ_URL=amqp://synckit_user:synckit_pass@rabbitmq:5672/
+      - CGO_ENABLED=0
+      - GOOS=linux
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - synckit-test
+    # Override command for testing
+    command: ["sh", "-c", "echo 'Test runner ready. Use docker-compose exec test-runner go test ./transport/rabbitmq/...'"]
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  go_mod_cache:
+    driver: local
+
+networks:
+  synckit-test:
+    driver: bridge

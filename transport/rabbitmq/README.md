@@ -11,7 +11,7 @@ A production-ready RabbitMQ transport implementation for go-sync-kit that provid
 - **Subscribe Operations**: Manual-ack consumer with error handling and requeuing
 - **Configuration**: Comprehensive config with validation and sensible defaults
 - **Thread Safety**: Concurrent operations with RWMutex protection
-- **Observability**: Structured logging integration
+- **Observability**: Structured logging, OpenTelemetry tracing, and Prometheus metrics
 
 ### 🚧 Planned (Phase 2)
 - Dead letter queues (DLQ) and retry policies
@@ -233,7 +233,9 @@ The transport uses manual acknowledgments with intelligent error handling:
 - **Handler errors**: NACK with requeue (temporary failure, retry)
 - **Connection issues**: Automatic cleanup and proper error propagation
 
-### Logging Integration
+### Observability Integration
+
+#### Logging
 
 ```go
 cfg.Logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -241,7 +243,72 @@ cfg.Logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 }))
 ```
 
+#### OpenTelemetry Tracing
+
+```go
+import (
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/trace"
+)
+
+// Custom tracer that implements SyncKitTracer interface
+type CustomTracer struct {
+    tracer trace.Tracer
+}
+
+func (t *CustomTracer) StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span) {
+    return t.tracer.Start(ctx, fmt.Sprintf("%s.%s", transport, operation))
+}
+
+func (t *CustomTracer) RecordError(span trace.Span, err error, description string) {
+    span.RecordError(err)
+    span.SetStatus(codes.Error, description)
+}
+
+// Configure transport with tracing
+cfg.Tracer = &CustomTracer{
+    tracer: otel.Tracer("go-sync-kit/rabbitmq"),
+}
+```
+
+#### Prometheus Metrics
+
+```go
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "time"
+)
+
+// Custom metrics collector
+type CustomMetrics struct {
+    duration prometheus.HistogramVec
+    errors   prometheus.CounterVec
+}
+
+func (m *CustomMetrics) RecordSyncDuration(operation string, duration time.Duration) {
+    m.duration.WithLabelValues(operation).Observe(duration.Seconds())
+}
+
+func (m *CustomMetrics) RecordSyncErrors(operation string, errorType string) {
+    m.errors.WithLabelValues(operation, errorType).Inc()
+}
+
+// Configure transport with metrics
+cfg.Metrics = &CustomMetrics{
+    duration: *prometheus.NewHistogramVec(prometheus.HistogramOpts{
+        Name: "rabbitmq_operation_duration_seconds",
+        Help: "Duration of RabbitMQ operations",
+    }, []string{"operation"}),
+    errors: *prometheus.NewCounterVec(prometheus.CounterOpts{
+        Name: "rabbitmq_operation_errors_total",
+        Help: "Total number of RabbitMQ operation errors",
+    }, []string{"operation", "error_type"}),
+}
+```
+
 ## Testing
+
+### Unit Tests
 
 ```bash
 # Run unit tests
@@ -250,6 +317,69 @@ go test ./transport/rabbitmq/
 # With verbose output
 go test -v ./transport/rabbitmq/
 ```
+
+### Integration Tests with Docker
+
+The package includes comprehensive Docker Compose setup for integration testing:
+
+#### Linux/macOS
+
+```bash
+# Run all integration tests (auto-start/stop RabbitMQ)
+./transport/rabbitmq/test-integration.sh test
+
+# Start RabbitMQ for manual testing
+./transport/rabbitmq/test-integration.sh start
+
+# Run tests against existing RabbitMQ
+./transport/rabbitmq/test-integration.sh test-local
+
+# View RabbitMQ logs
+./transport/rabbitmq/test-integration.sh logs
+
+# Clean up everything
+./transport/rabbitmq/test-integration.sh cleanup
+```
+
+#### Windows PowerShell
+
+```powershell
+# Run all integration tests
+.\transport\rabbitmq\test-integration.ps1 test
+
+# Start RabbitMQ for manual testing
+.\transport\rabbitmq\test-integration.ps1 start
+
+# Run tests against existing RabbitMQ
+.\transport\rabbitmq\test-integration.ps1 test-local
+
+# View logs and cleanup
+.\transport\rabbitmq\test-integration.ps1 logs
+.\transport\rabbitmq\test-integration.ps1 cleanup
+```
+
+#### Manual Docker Setup
+
+```bash
+# Start RabbitMQ with management UI
+docker-compose -f transport/rabbitmq/docker-compose.test.yml up -d
+
+# Run integration tests
+RABBITMQ_URL="amqp://synckit_user:synckit_pass@localhost:5672/" go test -v -tags=integration ./transport/rabbitmq -run TestIntegration
+
+# Clean up
+docker-compose -f transport/rabbitmq/docker-compose.test.yml down -v
+```
+
+#### Integration Test Features
+
+- **Connection lifecycle testing**
+- **Push/Subscribe message flow verification**
+- **Multiple publisher concurrency testing**
+- **Error handling and retry behavior**
+- **Handler failure simulation with requeue testing**
+- **Automatic RabbitMQ health checks**
+- **Management UI access** (http://localhost:15672, synckit_user/synckit_pass)
 
 ## Local Development
 

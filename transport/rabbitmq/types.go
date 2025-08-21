@@ -1,11 +1,13 @@
 package rabbitmq
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -39,9 +41,9 @@ type Config struct {
 	DeadLetterQueue string
 
 	// Observability
-	Tracer  interface{}
-	Metrics interface{}
-	Logger  *slog.Logger
+	Tracer        SyncKitTracer
+	Metrics       MetricsCollector
+	Logger        *slog.Logger
 }
 
 // DefaultConfig returns a RabbitMQ config with sensible defaults.
@@ -125,4 +127,22 @@ func (c *Config) Validate() error {
 // DefaultRoutingKey is a simple routing key function that uses event type.
 func DefaultRoutingKey(event synckit.Event) string {
 	return fmt.Sprintf("events.%s", event.Type())
+}
+
+// SyncKitTracer interface matches the tracer expected by SyncOptions.
+// This allows RabbitMQ transport to work with the existing tracing infrastructure.
+type SyncKitTracer interface {
+	// StartTransportOperation starts a new span for transport operations
+	StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span)
+	// RecordError records an error on a span
+	RecordError(span trace.Span, err error, description string)
+}
+
+// MetricsCollector interface matches the metrics expected by SyncOptions.
+// This allows RabbitMQ transport to work with the existing metrics infrastructure.
+type MetricsCollector interface {
+	// RecordSyncDuration records how long a transport operation took
+	RecordSyncDuration(operation string, duration time.Duration)
+	// RecordSyncErrors records transport operation errors by type
+	RecordSyncErrors(operation string, errorType string)
 }
