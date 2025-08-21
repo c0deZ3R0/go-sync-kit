@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/go-sync-kit/observability/health"
-	"github.com/yourusername/go-sync-kit/observability/metrics"
+	"github.com/c0deZ3R0/go-sync-kit/observability/health"
+	"github.com/c0deZ3R0/go-sync-kit/observability/metrics"
 )
 
 // TestObservabilityIntegration tests that metrics and health checks work together
@@ -313,7 +313,7 @@ type mockHealthCheck struct {
 	duration  time.Duration
 }
 
-func (m *mockHealthCheck) Name() string     { return m.name }
+func (m *mockHealthCheck) Name() string      { return m.name }
 func (m *mockHealthCheck) Component() string { return m.component }
 
 func (m *mockHealthCheck) Check(ctx context.Context) health.CheckResult {
