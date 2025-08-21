@@ -6,6 +6,14 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 Go Sync Kit is a generic, event-driven synchronization library for distributed Go applications. It enables offline-first architectures with conflict resolution and pluggable storage backends. The project follows clean architecture principles with clear separation of concerns across transport, storage, versioning, and conflict resolution layers.
 
+## Repository Workflow & Guardrails
+
+- Default branch: main
+- Always do work on a feature branch (e.g., feature/<short-desc>). For transport work, feature/transport-<name> is recommended.
+- Do not commit or push changes unless explicitly instructed. Do not rebase, pull, or merge unless directed.
+- Use non-interactive Git commands and --no-pager to avoid paginated output.
+- Prefer absolute paths with -C when running git from scripts.
+
 ## Development Commands
 
 ### Build and Test Commands
@@ -79,22 +87,24 @@ make docker-down
 
 ### Example Applications
 
+The examples are organized under examples/quickstart and examples/intermediate. Here are common entry points:
+
 ```bash
-# Basic example with dashboard
-cd examples/basic
-go run .
+# Quickstart: local-only
+cd examples/quickstart/local-only
+go run main.go
 
-# Conflict resolution showcase
-cd examples/conflict-resolution
-go run .
+# Quickstart: HTTP client
+cd examples/quickstart/http-client
+go run main.go
 
-# Real-time sync example
-cd examples/real-time-sync
-go run .
+# Intermediate: conflict resolution
+cd examples/intermediate/04-conflict-resolution
+go run main.go
 
-# Dynamic resolver showcase
-cd examples/dynamic-resolver-showcase
-go run .
+# Intermediate: events and storage
+cd examples/intermediate/03-events-and-storage
+go run main.go
 ```
 
 ## Architecture Overview
@@ -120,6 +130,7 @@ Go Sync Kit follows a layered, plugin-based architecture with these core compone
 - **HTTP Transport** (transport/httptransport/): RESTful HTTP client/server with compression, validation, security hardening
 - **SSE Transport** (transport/sse/): Server-Sent Events for real-time streaming with cursor-based pagination
 - Custom transports can be implemented for gRPC, WebSockets, NATS, etc.
+- Planned: **RabbitMQ Transport** (transport/rabbitmq/): Durable messaging with publish/subscribe, routing (direct, topic, fanout), publisher confirms, dead-letter queues, retries, priorities, TTL, and consumer prefetch. See RABBITMQ_ROADMAP.md.
 
 ### Versioning Strategies (version/)
 
