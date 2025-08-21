@@ -1,10 +1,12 @@
 package synckit
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
@@ -104,6 +106,34 @@ func (b *SyncManagerBuilder) WithCompression(enabled bool) *SyncManagerBuilder {
 // WithLogger sets a custom logger for the SyncManager.
 func (b *SyncManagerBuilder) WithLogger(logger *slog.Logger) *SyncManagerBuilder {
 	b.logger = logger
+	return b
+}
+
+// WithTracer sets a tracer for distributed tracing.
+func (b *SyncManagerBuilder) WithTracer(tracer interface {
+	StartSyncOperation(ctx context.Context, operation string) (context.Context, trace.Span)
+	StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span)
+	StartStorageOperation(ctx context.Context, operation, storageType string) (context.Context, trace.Span)
+	StartConflictResolution(ctx context.Context, strategy string) (context.Context, trace.Span)
+	RecordError(span trace.Span, err error, description string)
+	SetSyncResult(span trace.Span, eventsPushed, eventsPulled, conflictsResolved int)
+}) *SyncManagerBuilder {
+	b.options.Tracer = tracer
+	return b
+}
+
+// WithMetricsCollector sets a metrics collector for observability.
+func (b *SyncManagerBuilder) WithMetricsCollector(collector MetricsCollector) *SyncManagerBuilder {
+	b.options.MetricsCollector = collector
+	return b
+}
+
+// WithHealthChecker sets a health checker for monitoring sync-kit component health.
+func (b *SyncManagerBuilder) WithHealthChecker(checker interface{}) *SyncManagerBuilder {
+	// In a real implementation, you would store this in SyncOptions or
+	// configure the SyncManager with health checking capabilities
+	// For now, we'll store it as a generic interface
+	// TODO: Implement health checker integration
 	return b
 }
 

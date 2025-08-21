@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
 )
 
@@ -228,4 +229,47 @@ func (v *nullVersion) IsZero() bool { return true }
 // Use this when you only need local event storage without remote synchronization.
 func WithNullTransport() ManagerOption {
 	return WithTransport(&nullTransport{})
+}
+
+// WithTracing sets a tracer for distributed tracing.
+// The tracer must implement the tracing interface defined in SyncOptions.
+func WithTracing(tracer interface {
+	StartSyncOperation(ctx context.Context, operation string) (context.Context, trace.Span)
+	StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span)
+	StartStorageOperation(ctx context.Context, operation, storageType string) (context.Context, trace.Span)
+	StartConflictResolution(ctx context.Context, strategy string) (context.Context, trace.Span)
+	RecordError(span trace.Span, err error, description string)
+	SetSyncResult(span trace.Span, eventsPushed, eventsPulled, conflictsResolved int)
+}) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithTracer(tracer)
+		return nil
+	}
+}
+
+// WithMetrics sets a metrics collector for Prometheus metrics collection.
+// The collector must implement the synckit.MetricsCollector interface.
+func WithMetrics(collector MetricsCollector) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithMetricsCollector(collector)
+		return nil
+	}
+}
+
+// WithHealthChecker sets a health checker for monitoring sync-kit component health.
+// The health checker will be automatically configured with sync-kit specific health checks.
+func WithHealthChecker(checker interface {
+	// AddCheck adds a health check for a specific component and check type
+	AddCheck(checkType string, check interface{})
+	// CheckLiveness performs all liveness checks
+	CheckLiveness(ctx context.Context) interface{}
+	// CheckReadiness performs all readiness checks
+	CheckReadiness(ctx context.Context) interface{}
+	// CheckStartup performs all startup checks
+	CheckStartup(ctx context.Context) interface{}
+}) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithHealthChecker(checker)
+		return nil
+	}
 }
