@@ -163,7 +163,7 @@ func (srsm *StatefulRealtimeSyncManager) onTransportFailed(transition statemachi
 		errorMsg = e
 	}
 	
-	srsm.updateConnectionStatus(false, time.Time{}, fmt.Errorf(errorMsg))
+	srsm.updateConnectionStatus(false, time.Time{}, fmt.Errorf("%s", errorMsg))
 	
 	// Start fallback polling if not disabled
 	if !srsm.realtimeOptions.DisablePolling {

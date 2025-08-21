@@ -146,7 +146,7 @@ func (tsm *TransportStateManager) OnTransition(transition StateTransition[Transp
 	case TransportFailed:
 		if errorMsg, ok := transition.Metadata["error"]; ok {
 			if errorStr, ok := errorMsg.(string); ok {
-				tsm.lastError = fmt.Errorf(errorStr)
+				tsm.lastError = fmt.Errorf("%s", errorStr)
 			}
 		}
 		

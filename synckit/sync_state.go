@@ -87,8 +87,8 @@ func SyncStateTransitionRules() statemachine.TransitionRules[SyncState] {
 		// From Pushing, can proceed to pull, complete, or fail/cancel
 		SyncPushing: {SyncPulling, SyncCompleted, SyncFailed, SyncCancelled},
 		
-		// From Pulling, can resolve conflicts, complete, or fail/cancel
-		SyncPulling: {SyncResolvingConflicts, SyncCompleted, SyncFailed, SyncCancelled},
+		// From Pulling, can proceed to push, resolve conflicts, complete, or fail/cancel
+		SyncPulling: {SyncPushing, SyncResolvingConflicts, SyncCompleted, SyncFailed, SyncCancelled},
 		
 		// From Resolving Conflicts, can complete or fail/cancel
 		SyncResolvingConflicts: {SyncCompleted, SyncFailed, SyncCancelled},
@@ -106,7 +106,7 @@ func NewSyncStateMachine() (statemachine.StateMachine[SyncState], error) {
 		Allow(SyncIdle, SyncInitializing).
 		Allow(SyncInitializing, SyncPushing, SyncPulling, SyncFailed, SyncCancelled).
 		Allow(SyncPushing, SyncPulling, SyncCompleted, SyncFailed, SyncCancelled).
-		Allow(SyncPulling, SyncResolvingConflicts, SyncCompleted, SyncFailed, SyncCancelled).
+		Allow(SyncPulling, SyncPushing, SyncResolvingConflicts, SyncCompleted, SyncFailed, SyncCancelled).
 		Allow(SyncResolvingConflicts, SyncCompleted, SyncFailed, SyncCancelled).
 		Allow(SyncCompleted, SyncIdle).
 		Allow(SyncFailed, SyncIdle).
