@@ -9,6 +9,7 @@ import (
 	"time"
 
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/statemachine"
 )
 
 // syncManager implements the SyncManager interface
@@ -18,6 +19,9 @@ type syncManager struct {
 	options   SyncOptions
 	logger    *slog.Logger
 
+	// State machine for operation tracking
+	stateMachine statemachine.StateMachine[SyncState]
+
 	// Internal state
 	mu               sync.RWMutex
 	autoSyncCancel   context.CancelFunc // Cancel function for auto-sync context
@@ -26,11 +30,12 @@ type syncManager struct {
 	closed           bool
 }
 
-// Sync performs a bidirectional sync operation
+// Sync performs a bidirectional sync operation with state machine tracking
 func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	start := time.Now()
 	sm.logger.Info("Starting bidirectional sync operation")
 	
+	// Check if manager is closed
 	sm.mu.RLock()
 	if sm.closed {
 		sm.mu.RUnlock()
@@ -40,11 +45,66 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	}
 	sm.mu.RUnlock()
 
+	// Check if sync is already in progress (state machine validation)
+	if sm.stateMachine != nil {
+		currentState := sm.stateMachine.Current()
+		if !currentState.CanAutoSync() {
+			err := syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync operation already in progress: %s", currentState))
+			sm.logger.Warn("Sync operation rejected: already in progress", 
+				"current_state", currentState.String(),
+				"error", err)
+			return nil, err
+		}
+		
+		// Transition to initializing state
+		if err := sm.stateMachine.TransitionWithContext(SyncInitializing, map[string]interface{}{
+			"operation": "full_sync",
+			"started_at": start.Format(time.RFC3339),
+		});
+		 err != nil {
+			sm.logger.Error("Failed to transition to initializing state", "error", err)
+			return nil, syncErrors.NewWithComponent(syncErrors.OpSync, "state_machine", err)
+		}
+	}
+
 	result := &SyncResult{
 		StartTime: time.Now(),
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
+		
+		// Transition to final state based on result
+		if sm.stateMachine != nil {
+			finalState := SyncCompleted
+			finalMetadata := map[string]interface{}{
+				"operation": "full_sync",
+				"duration_ms": result.Duration.Milliseconds(),
+				"events_pushed": result.EventsPushed,
+				"events_pulled": result.EventsPulled,
+				"conflicts_resolved": result.ConflictsResolved,
+			}
+			
+			if len(result.Errors) > 0 {
+				finalState = SyncFailed
+				finalMetadata["error_count"] = len(result.Errors)
+				finalMetadata["errors"] = result.Errors
+			}
+			
+			if err := sm.stateMachine.TransitionWithContext(finalState, finalMetadata); err != nil {
+				sm.logger.Error("Failed to transition to final state", 
+					"target_state", finalState.String(),
+					"error", err)
+			}
+			
+			// Always transition back to idle after completion or failure
+			if err := sm.stateMachine.TransitionWithContext(SyncIdle, map[string]interface{}{
+				"operation_completed": true,
+				"final_state": finalState.String(),
+			}); err != nil {
+				sm.logger.Error("Failed to transition back to idle state", "error", err)
+			}
+		}
+		
 		sm.notifySubscribers(result)
 
 		// Record metrics and log completion
@@ -70,6 +130,18 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 
 	// Pull first to get latest remote changes
 	if !sm.options.PushOnly {
+		// Transition to pulling state
+		if sm.stateMachine != nil {
+			if err := sm.stateMachine.TransitionWithContext(SyncPulling, map[string]interface{}{
+				"operation": "pull",
+				"push_only": false,
+			}); err != nil {
+				sm.logger.Error("Failed to transition to pulling state", "error", err)
+				result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpSync, "state_machine", err))
+				return result, nil // Defer will handle final state transition
+			}
+		}
+		
 		sm.logger.Debug("Starting pull phase of sync operation")
 		pullResult, err := sm.pull(ctx)
 		if err != nil {
@@ -87,6 +159,18 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 
 	// Then push local changes
 	if !sm.options.PullOnly {
+		// Transition to pushing state
+		if sm.stateMachine != nil {
+			if err := sm.stateMachine.TransitionWithContext(SyncPushing, map[string]interface{}{
+				"operation": "push",
+				"pull_only": false,
+			}); err != nil {
+				sm.logger.Error("Failed to transition to pushing state", "error", err)
+				result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpSync, "state_machine", err))
+				return result, nil // Defer will handle final state transition
+			}
+		}
+		
 		sm.logger.Debug("Starting push phase of sync operation")
 		pushResult, err := sm.push(ctx)
 		if err != nil {
@@ -454,6 +538,18 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 			if len(conflicts) > 0 {
 				sm.logger.Info("Found conflicts, starting resolution", "conflict_count", len(conflicts))
 				
+				// Transition to conflict resolution state
+				if sm.stateMachine != nil {
+					if err := sm.stateMachine.TransitionWithContext(SyncResolvingConflicts, map[string]interface{}{
+						"operation": "conflict_resolution",
+						"conflict_count": len(conflicts),
+					}); err != nil {
+						sm.logger.Error("Failed to transition to conflict resolution state", "error", err)
+						result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpSync, "state_machine", err))
+						return result, nil // Defer will handle final state transition
+					}
+				}
+				
 				// Check context before starting conflict resolution
 				select {
 				case <-ctx.Done():
@@ -600,6 +696,24 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 				sm.logger.Info("Auto sync stopping due to context cancellation")
 				return
 			case <-ticker.C:
+				sm.logger.Debug("Auto sync tick - checking if sync is possible")
+				
+				// Check state machine to prevent overlapping sync operations
+				if sm.stateMachine != nil {
+					currentState := sm.stateMachine.Current()
+					if !currentState.CanAutoSync() {
+						sm.logger.Debug("Auto sync skipped - sync operation already in progress",
+							"current_state", currentState.String())
+						continue // Skip this tick and wait for next one
+					}
+				}
+				
+				// Check transport health if transport supports state awareness
+				if !sm.isTransportHealthyForSync() {
+					sm.logger.Debug("Auto sync skipped - transport not healthy for sync operations")
+					continue // Skip this tick and wait for next one
+				}
+				
 				sm.logger.Debug("Auto sync tick - starting sync operation")
 				// Create timeout context derived from auto-sync context
 				syncCtx, cancel := sm.withTimeout(autoSyncCtx)
@@ -826,6 +940,51 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 	return conflicts
 }
 
+
+// isTransportHealthyForSync checks if the transport is healthy enough for sync operations
+// This method supports state-aware transports and falls back to always allowing sync
+// for non-stateful transports to maintain backward compatibility
+func (sm *syncManager) isTransportHealthyForSync() bool {
+	// Check if transport implements state awareness
+	if statefulTransport, ok := sm.transport.(interface {
+		IsHealthy() bool
+	}); ok {
+		isHealthy := statefulTransport.IsHealthy()
+		if !isHealthy {
+			sm.logger.Debug("Transport is not healthy for sync operations")
+			return false
+		}
+		sm.logger.Debug("Transport is healthy for sync operations")
+		return true
+	}
+	
+	// Check if it's a StatefulTransportWrapper from statemachine package
+	if statefulWrapper, ok := sm.transport.(interface {
+		GetConnectionState() interface{}
+		CanSendData() bool
+		CanReceiveData() bool
+	}); ok {
+		// For sync operations, we need both send and receive capabilities
+		canSend := statefulWrapper.CanSendData()
+		canReceive := statefulWrapper.CanReceiveData()
+		
+		if !canSend || !canReceive {
+			sm.logger.Debug("Transport state does not allow sync operations",
+				"can_send", canSend,
+				"can_receive", canReceive)
+			return false
+		}
+		
+		sm.logger.Debug("Transport state allows sync operations",
+			"can_send", canSend,
+			"can_receive", canReceive)
+		return true
+	}
+	
+	// For non-stateful transports, always allow sync (backward compatibility)
+	sm.logger.Debug("Transport does not support state awareness, allowing sync")
+	return true
+}
 
 // detectChangedFields attempts to detect which fields changed between two events.
 // This is a basic implementation that could be enhanced with more sophisticated

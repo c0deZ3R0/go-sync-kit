@@ -41,7 +41,7 @@ func main() {
 
 	// Test health checks
 	fmt.Println("=== Testing Health Checks ===")
-	
+
 	// Test liveness checks
 	fmt.Println("\n--- Liveness Checks ---")
 	livenessResult := healthChecker.CheckLiveness(ctx)
@@ -115,11 +115,11 @@ func printHealthResult(checkType string, result health.OverallResult) {
 	fmt.Printf("  Summary: %d total, %d up, %d down, %d degraded, %d unknown\n",
 		result.Summary.Total, result.Summary.Up, result.Summary.Down,
 		result.Summary.Degraded, result.Summary.Unknown)
-	
+
 	if len(result.Results) > 0 {
 		fmt.Printf("  Individual Results:\n")
 		for name, checkResult := range result.Results {
-			fmt.Printf("    - %s: %s (%v) - %s\n", 
+			fmt.Printf("    - %s: %s (%v) - %s\n",
 				name, checkResult.Status, checkResult.Duration, checkResult.Message)
 		}
 	}
@@ -128,11 +128,11 @@ func printHealthResult(checkType string, result health.OverallResult) {
 func startHealthCheckServer(checker *health.HealthChecker) {
 	// Create HTTP handler for health checks
 	handler := health.NewHTTPHandler(checker, 30*time.Second)
-	
+
 	// Create a new ServeMux for health endpoints
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
-	
+
 	// Add a simple index handler
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -239,5 +239,5 @@ func (m *MockTransport) Close() error {
 type mockVersion struct{}
 
 func (v *mockVersion) Compare(other synckit.Version) int { return 0 }
-func (v *mockVersion) String() string                   { return "0" }
-func (v *mockVersion) IsZero() bool                     { return true }
+func (v *mockVersion) String() string                    { return "0" }
+func (v *mockVersion) IsZero() bool                      { return true }

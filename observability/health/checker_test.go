@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Mock health check for testing
@@ -20,16 +19,16 @@ type mockHealthCheck struct {
 	shouldErr bool
 }
 
-func (m *mockHealthCheck) Name() string     { return m.name }
+func (m *mockHealthCheck) Name() string      { return m.name }
 func (m *mockHealthCheck) Component() string { return m.component }
 
 func (m *mockHealthCheck) Check(ctx context.Context) CheckResult {
 	start := time.Now()
-	
+
 	if m.duration > 0 {
 		time.Sleep(m.duration)
 	}
-	
+
 	return CheckResult{
 		Status:    m.status,
 		Component: m.component,
@@ -69,7 +68,7 @@ func TestNewHealthChecker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := NewHealthChecker(tt.config)
-			
+
 			assert.NotNil(t, checker)
 			assert.NotNil(t, checker.checks)
 			assert.NotZero(t, checker.config.Timeout)
@@ -79,7 +78,7 @@ func TestNewHealthChecker(t *testing.T) {
 
 func TestHealthChecker_AddCheck(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	check1 := &mockHealthCheck{name: "check1", component: "component1", status: StatusUp}
 	check2 := &mockHealthCheck{name: "check2", component: "component1", status: StatusUp}
 	check3 := &mockHealthCheck{name: "check3", component: "component2", status: StatusUp}
@@ -97,7 +96,7 @@ func TestHealthChecker_AddCheck(t *testing.T) {
 
 func TestHealthChecker_RemoveCheck(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	check1 := &mockHealthCheck{name: "check1", component: "component1", status: StatusUp}
 	check2 := &mockHealthCheck{name: "check2", component: "component1", status: StatusUp}
 
@@ -166,7 +165,7 @@ func TestHealthChecker_CheckLiveness(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			checker := NewHealthChecker(DefaultConfig())
-			
+
 			for _, check := range tt.checks {
 				checker.AddCheck(CheckTypeLiveness, check)
 			}
@@ -186,7 +185,7 @@ func TestHealthChecker_CheckLiveness(t *testing.T) {
 
 func TestHealthChecker_CheckReadiness(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	check1 := &mockHealthCheck{name: "check1", component: "comp1", status: StatusUp, message: "Ready"}
 	check2 := &mockHealthCheck{name: "check2", component: "comp2", status: StatusDown, message: "Not ready"}
 
@@ -205,7 +204,7 @@ func TestHealthChecker_CheckReadiness(t *testing.T) {
 
 func TestHealthChecker_CheckStartup(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	check1 := &mockHealthCheck{name: "startup_check", component: "app", status: StatusUp, message: "Started"}
 
 	checker.AddCheck(CheckTypeStartup, check1)
@@ -221,7 +220,7 @@ func TestHealthChecker_CheckStartup(t *testing.T) {
 
 func TestHealthChecker_CheckAll(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	livenessCheck := &mockHealthCheck{name: "liveness", component: "app", status: StatusUp}
 	readinessCheck := &mockHealthCheck{name: "readiness", component: "app", status: StatusDegraded}
 	startupCheck := &mockHealthCheck{name: "startup", component: "app", status: StatusUp}
@@ -245,7 +244,7 @@ func TestHealthChecker_CheckAll(t *testing.T) {
 
 func TestHealthChecker_GetComponentStatus(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	livenessCheck := &mockHealthCheck{name: "liveness", component: "database", status: StatusUp}
 	readinessCheck := &mockHealthCheck{name: "readiness", component: "database", status: StatusDown}
 
@@ -266,7 +265,7 @@ func TestHealthChecker_GetComponentStatus(t *testing.T) {
 
 func TestHealthChecker_ListComponents(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	check1 := &mockHealthCheck{name: "check1", component: "database"}
 	check2 := &mockHealthCheck{name: "check2", component: "cache"}
 	check3 := &mockHealthCheck{name: "check3", component: "database"} // Same component
@@ -276,7 +275,7 @@ func TestHealthChecker_ListComponents(t *testing.T) {
 	checker.AddCheck(CheckTypeReadiness, check3)
 
 	components := checker.ListComponents()
-	
+
 	assert.Len(t, components, 2)
 	assert.Contains(t, components, "database")
 	assert.Contains(t, components, "cache")
@@ -287,7 +286,7 @@ func TestHealthChecker_Timeout(t *testing.T) {
 		Timeout: 50 * time.Millisecond,
 	}
 	checker := NewHealthChecker(config)
-	
+
 	// Add a slow check
 	slowCheck := &mockHealthCheck{
 		name:      "slow_check",
@@ -295,7 +294,7 @@ func TestHealthChecker_Timeout(t *testing.T) {
 		status:    StatusUp,
 		duration:  100 * time.Millisecond, // Longer than timeout
 	}
-	
+
 	checker.AddCheck(CheckTypeLiveness, slowCheck)
 
 	ctx := context.Background()
@@ -305,14 +304,14 @@ func TestHealthChecker_Timeout(t *testing.T) {
 
 	// Should complete around the timeout duration
 	assert.True(t, duration < 200*time.Millisecond, "Check should respect timeout")
-	
+
 	// The check itself should still complete and be included in results
 	assert.Equal(t, 1, result.Summary.Total)
 }
 
 func TestHealthChecker_ConcurrentChecks(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	// Add multiple checks that will run concurrently
 	for i := 0; i < 10; i++ {
 		check := &mockHealthCheck{
@@ -325,11 +324,11 @@ func TestHealthChecker_ConcurrentChecks(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Run multiple checks concurrently
 	const numConcurrent = 5
 	done := make(chan OverallResult, numConcurrent)
-	
+
 	for i := 0; i < numConcurrent; i++ {
 		go func() {
 			result := checker.CheckLiveness(ctx)
@@ -353,14 +352,14 @@ func TestHealthChecker_ConcurrentChecks(t *testing.T) {
 
 func TestHealthChecker_ContextCancellation(t *testing.T) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	longCheck := &mockHealthCheck{
 		name:      "long_check",
 		component: "slow",
 		status:    StatusUp,
 		duration:  200 * time.Millisecond,
 	}
-	
+
 	checker.AddCheck(CheckTypeLiveness, longCheck)
 
 	// Create a context that will be cancelled
@@ -373,14 +372,14 @@ func TestHealthChecker_ContextCancellation(t *testing.T) {
 
 	// Should return quickly due to context cancellation
 	assert.True(t, duration < 150*time.Millisecond, "Should respect context cancellation")
-	
+
 	// But should still have some results
 	assert.Equal(t, 1, result.Summary.Total)
 }
 
 func BenchmarkHealthChecker_CheckLiveness(b *testing.B) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	// Add several fast checks
 	for i := 0; i < 10; i++ {
 		check := &mockHealthCheck{
@@ -392,7 +391,7 @@ func BenchmarkHealthChecker_CheckLiveness(b *testing.B) {
 	}
 
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		checker.CheckLiveness(ctx)
@@ -401,7 +400,7 @@ func BenchmarkHealthChecker_CheckLiveness(b *testing.B) {
 
 func BenchmarkHealthChecker_ConcurrentChecks(b *testing.B) {
 	checker := NewHealthChecker(DefaultConfig())
-	
+
 	// Add several fast checks
 	for i := 0; i < 10; i++ {
 		check := &mockHealthCheck{
@@ -413,7 +412,7 @@ func BenchmarkHealthChecker_ConcurrentChecks(b *testing.B) {
 	}
 
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

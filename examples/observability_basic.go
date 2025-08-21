@@ -62,14 +62,14 @@ func main() {
 	// Perform sync operations
 	for i := 0; i < 3; i++ {
 		fmt.Printf("Performing sync operation %d...\n", i+1)
-		
+
 		result, err := manager.Sync(ctx)
 		if err != nil {
 			fmt.Printf("❌ Sync failed: %v\n", err)
 			// Record error in metrics
 			metricsCollector.RecordError("sync_failed")
 		} else {
-			fmt.Printf("✅ Sync completed: pushed=%d, pulled=%d, conflicts=%d\n", 
+			fmt.Printf("✅ Sync completed: pushed=%d, pulled=%d, conflicts=%d\n",
 				result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
 		}
 
@@ -90,7 +90,7 @@ func main() {
 
 	fmt.Println("\n=== Server Running ===")
 	fmt.Println("Press Ctrl+C to exit")
-	
+
 	// Keep the server running
 	select {}
 }
@@ -189,7 +189,7 @@ func startObservabilityServer(registry *prometheus.Registry, healthChecker *heal
     <div class="endpoint">✅ <a href="/health/ready">Readiness Probe</a> - Kubernetes readiness check</div>
     <div class="endpoint">🚀 <a href="/health/startup">Startup Probe</a> - Kubernetes startup check</div>
     <div class="endpoint">🧩 <a href="/health/components">Component List</a> - Available components</div>
-    
+
     <h2>Quick Status:</h2>
     <p>This basic example shows how to integrate Prometheus metrics and health checks with go-sync-kit.</p>
     <p>View the metrics endpoint to see real-time sync operation data.</p>
@@ -283,7 +283,7 @@ type mockEvent struct {
 	id string
 }
 
-func (e *mockEvent) ID() string                        { return e.id }
+func (e *mockEvent) ID() string                       { return e.id }
 func (e *mockEvent) AggregateID() string              { return "test_aggregate" }
 func (e *mockEvent) Type() string                     { return "test_event" }
 func (e *mockEvent) Data() interface{}                { return map[string]string{"test": "data"} }

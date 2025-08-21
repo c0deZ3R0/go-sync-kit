@@ -25,7 +25,7 @@ func main() {
 
 	// Load configuration from environment
 	config := loadConfig()
-	fmt.Printf("📋 Configuration loaded: environment=%s, metrics_port=%d, health_port=%d\n", 
+	fmt.Printf("📋 Configuration loaded: environment=%s, metrics_port=%d, health_port=%d\n",
 		config.Environment, config.MetricsPort, config.HealthPort)
 
 	// Create enterprise-grade observability setup
@@ -38,7 +38,7 @@ func main() {
 
 	// Setup comprehensive health checks
 	setupEnterpriseHealthChecks(observability.HealthChecker, storage, transport, config)
-	fmt.Printf("✅ Enterprise health checks configured (%d components)\n", 
+	fmt.Printf("✅ Enterprise health checks configured (%d components)\n",
 		len(observability.HealthChecker.ListComponents()))
 
 	// Create sync manager with full observability
@@ -63,7 +63,7 @@ func main() {
 
 	// Start metrics server
 	go startEnterpriseMetricsServer(observability.Registry, config.MetricsPort)
-	
+
 	// Start dedicated health server
 	go startEnterpriseHealthServer(observability.HealthChecker, config.HealthPort)
 
@@ -222,7 +222,7 @@ func startEnterpriseMetricsServer(registry *prometheus.Registry, port int) {
 	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics:   true,
 		MaxRequestsInFlight: 10,
-		Timeout:            10 * time.Second,
+		Timeout:             10 * time.Second,
 	}))
 
 	// Metrics endpoint with additional metadata
@@ -325,7 +325,7 @@ func runEnterpriseWorkload(ctx context.Context, manager synckit.SyncManager, met
 			if err != nil {
 				fmt.Printf("❌ Sync failed for tenant %s: %v\n", tenant, err)
 				metricsAdapter.RecordError("tenant_sync_failed")
-				
+
 				errorLabels := map[string]string{
 					"tenant":      tenant,
 					"error_type":  "sync_failure",
@@ -454,12 +454,16 @@ type enterpriseEvent struct {
 	env string
 }
 
-func (e *enterpriseEvent) ID() string                        { return e.id }
-func (e *enterpriseEvent) AggregateID() string              { return "enterprise_aggregate" }
-func (e *enterpriseEvent) Type() string                     { return "enterprise_event" }
-func (e *enterpriseEvent) Data() interface{}                { return map[string]string{"env": e.env, "enterprise": "true"} }
-func (e *enterpriseEvent) Timestamp() time.Time             { return time.Now() }
-func (e *enterpriseEvent) Metadata() map[string]interface{} { return map[string]interface{}{"environment": e.env} }
+func (e *enterpriseEvent) ID() string          { return e.id }
+func (e *enterpriseEvent) AggregateID() string { return "enterprise_aggregate" }
+func (e *enterpriseEvent) Type() string        { return "enterprise_event" }
+func (e *enterpriseEvent) Data() interface{} {
+	return map[string]string{"env": e.env, "enterprise": "true"}
+}
+func (e *enterpriseEvent) Timestamp() time.Time { return time.Now() }
+func (e *enterpriseEvent) Metadata() map[string]interface{} {
+	return map[string]interface{}{"environment": e.env}
+}
 
 type enterpriseVersion struct {
 	v int64

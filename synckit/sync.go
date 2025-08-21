@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/statemachine"
 )
 
 // Event represents a syncable event in the system.
@@ -238,10 +239,73 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 		}
 	}
 
-	return &syncManager{
-		store:     store,
-		transport: transport,
-		options:   *opts,
-		logger:    logger,
+	// Create state machine with observability integration
+	stateMachine, err := createSyncStateMachine(opts.MetricsCollector, opts.Tracer, logger)
+	if err != nil {
+		// Log the error but don't fail - state machine is optional enhancement
+		logger.Warn("Failed to create sync state machine, continuing without state tracking", "error", err)
 	}
+	
+	return &syncManager{
+		store:        store,
+		transport:    transport,
+		options:      *opts,
+		logger:       logger,
+		stateMachine: stateMachine,
+	}
+}
+
+// createSyncStateMachine creates a state machine with observability integration
+func createSyncStateMachine(metricsCollector MetricsCollector, tracer interface{}, logger *slog.Logger) (statemachine.StateMachine[SyncState], error) {
+	// Create the basic state machine
+	basicStateMachine, err := NewSyncStateMachine()
+	if err != nil {
+		return nil, err
+	}
+	
+	// If no observability components provided, return basic state machine
+	if metricsCollector == nil && tracer == nil {
+		return basicStateMachine, nil
+	}
+	
+	// Create observability adapters
+	var stateMetrics statemachine.StateMetricsCollector
+	var stateTracer statemachine.StateTracer
+	var healthUpdater statemachine.StateHealthUpdater
+	
+	// Setup metrics adapter
+	if metricsCollector != nil {
+		stateMetrics = statemachine.NewSyncKitMetricsAdapter(metricsCollector)
+	}
+	
+	// Setup tracing adapter if available
+	if tracer != nil {
+		// Try to cast to the expected tracer interface
+		if syncTracer, ok := tracer.(interface {
+			StartSyncOperation(ctx context.Context, operation string) (context.Context, trace.Span)
+			RecordError(span trace.Span, err error, description string)
+			SetSyncResult(span trace.Span, eventsPushed, eventsPulled, conflictsResolved int)
+		}); ok {
+			stateTracer = statemachine.NewSyncKitTracerAdapter(syncTracer)
+		}
+	}
+	
+	// Create default health updater (placeholder for future health check integration)
+	if logger != nil {
+		healthUpdater = statemachine.NewDefaultStateHealthUpdater(nil) // nil for now, can be enhanced later
+	}
+	
+	// Create observability hooks
+	hooks := statemachine.NewObservabilityHooks[SyncState](
+		stateMetrics,
+		stateTracer,
+		healthUpdater,
+		logger,
+		"sync_manager",
+	)
+	
+	// Subscribe observability hooks to the state machine
+	basicStateMachine.Subscribe(hooks)
+	
+	return basicStateMachine, nil
 }
