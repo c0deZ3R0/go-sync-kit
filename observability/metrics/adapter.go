@@ -53,6 +53,11 @@ func (a *MetricsCollectorAdapter) RecordConflicts(resolved int) {
 	a.metrics.RecordSyncOperation(operation, duration, true, 0, 0, resolved)
 }
 
+// Metrics returns the underlying SyncKitMetrics for direct access.
+func (a *MetricsCollectorAdapter) Metrics() *SyncKitMetrics {
+	return a.metrics
+}
+
 // ExtendedMetricsCollector provides additional methods beyond the basic synckit.MetricsCollector interface.
 // This can be used when you need more detailed metrics collection while still being compatible with
 // the existing interface.

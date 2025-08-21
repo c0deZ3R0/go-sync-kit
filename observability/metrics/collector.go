@@ -454,3 +454,33 @@ func (m *SyncKitMetrics) SetMemoryUsage(bytes int64) {
 func (m *SyncKitMetrics) SetGoroutines(count int) {
 	m.goroutines.Set(float64(count))
 }
+
+// NewSyncKitMetrics is an alias for NewMetrics for backward compatibility.
+func NewSyncKitMetrics(serviceName string, opts ...MetricsOption) *SyncKitMetrics {
+	return NewMetrics(serviceName, opts...)
+}
+
+// NewPrometheusAdapter creates a new Prometheus metrics adapter.
+// This function creates both the metrics collector and the adapter that
+// implements the synckit.MetricsCollector interface.
+func NewPrometheusAdapter(serviceName string, opts ...MetricsOption) *MetricsCollectorAdapter {
+	metrics := NewSyncKitMetrics(serviceName, opts...)
+	return NewAdapter(metrics)
+}
+
+// Getter methods for testing
+
+// SyncOperationsTotal returns the sync operations counter for testing.
+func (m *SyncKitMetrics) SyncOperationsTotal() *prometheus.CounterVec {
+	return m.syncOpsTotal
+}
+
+// TransportOperationsTotal returns the transport operations counter for testing.
+func (m *SyncKitMetrics) TransportOperationsTotal() *prometheus.CounterVec {
+	return m.transportOpsTotal
+}
+
+// StorageOperationsTotal returns the storage operations counter for testing.
+func (m *SyncKitMetrics) StorageOperationsTotal() *prometheus.CounterVec {
+	return m.storageOpsTotal
+}

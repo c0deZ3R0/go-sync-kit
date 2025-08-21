@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourusername/go-sync-kit/synckit"
-	"github.com/yourusername/go-sync-kit/storage"
-	"github.com/yourusername/go-sync-kit/transport"
+	"github.com/c0deZ3R0/go-sync-kit/storage"
+	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/transport"
 )
 
 // SyncManagerCheck performs health checks on the SyncManager.
@@ -24,7 +24,7 @@ func NewSyncManagerCheck(name string, manager *synckit.SyncManager) *SyncManager
 	}
 }
 
-func (s *SyncManagerCheck) Name() string     { return s.name }
+func (s *SyncManagerCheck) Name() string      { return s.name }
 func (s *SyncManagerCheck) Component() string { return "syncmanager" }
 
 func (s *SyncManagerCheck) Check(ctx context.Context) CheckResult {
@@ -84,7 +84,7 @@ func WithStorageTestKey(key string) StorageCheckOption {
 	}
 }
 
-func (s *StorageCheck) Name() string     { return s.name }
+func (s *StorageCheck) Name() string      { return s.name }
 func (s *StorageCheck) Component() string { return "storage" }
 
 func (s *StorageCheck) Check(ctx context.Context) CheckResult {
@@ -105,7 +105,7 @@ func (s *StorageCheck) Check(ctx context.Context) CheckResult {
 
 	// Test basic storage operations
 	testData := []byte("health_check_data_" + fmt.Sprint(time.Now().Unix()))
-	
+
 	// Test Put operation
 	if err := s.storage.Put(ctx, s.testKey, testData); err != nil {
 		result.Status = StatusDown
@@ -182,7 +182,7 @@ func WithTransportTestPeer(peer string) TransportCheckOption {
 	}
 }
 
-func (t *TransportCheck) Name() string     { return t.name }
+func (t *TransportCheck) Name() string      { return t.name }
 func (t *TransportCheck) Component() string { return "transport" }
 
 func (t *TransportCheck) Check(ctx context.Context) CheckResult {
@@ -223,7 +223,7 @@ func NewConflictResolverCheck(name string) *ConflictResolverCheck {
 	}
 }
 
-func (c *ConflictResolverCheck) Name() string     { return c.name }
+func (c *ConflictResolverCheck) Name() string      { return c.name }
 func (c *ConflictResolverCheck) Component() string { return "conflict_resolver" }
 
 func (c *ConflictResolverCheck) Check(ctx context.Context) CheckResult {
@@ -284,7 +284,7 @@ func WithSyncOperationTimeout(timeout time.Duration) SyncOperationCheckOption {
 	}
 }
 
-func (s *SyncOperationCheck) Name() string     { return s.name }
+func (s *SyncOperationCheck) Name() string      { return s.name }
 func (s *SyncOperationCheck) Component() string { return "sync_operations" }
 
 func (s *SyncOperationCheck) Check(ctx context.Context) CheckResult {
@@ -338,9 +338,9 @@ func (s *SyncOperationCheck) Check(ctx context.Context) CheckResult {
 
 // NetworkConnectivityCheck performs network connectivity checks for sync-kit.
 type NetworkConnectivityCheck struct {
-	name      string
-	peers     []string
-	timeout   time.Duration
+	name    string
+	peers   []string
+	timeout time.Duration
 }
 
 // NewNetworkConnectivityCheck creates a new network connectivity health check.
@@ -368,7 +368,7 @@ func WithNetworkTimeout(timeout time.Duration) NetworkConnectivityCheckOption {
 	}
 }
 
-func (n *NetworkConnectivityCheck) Name() string     { return n.name }
+func (n *NetworkConnectivityCheck) Name() string      { return n.name }
 func (n *NetworkConnectivityCheck) Component() string { return "network" }
 
 func (n *NetworkConnectivityCheck) Check(ctx context.Context) CheckResult {
