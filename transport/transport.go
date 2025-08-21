@@ -3,7 +3,6 @@
 package transport
 
 import (
-	"context"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
