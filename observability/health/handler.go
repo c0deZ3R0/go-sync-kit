@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -105,7 +104,7 @@ func (h *HTTPHandler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	if component != "" {
 		results := h.checker.GetComponentStatus(ctx, component)
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		// Determine overall status
 		overallStatus := StatusUp
 		for _, result := range results {
@@ -171,7 +170,7 @@ func (h *HTTPHandler) ComponentsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	components := h.checker.ListComponents()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -187,7 +186,7 @@ func (h *HTTPHandler) ComponentsHandler(w http.ResponseWriter, r *http.Request) 
 // writeHealthResponse writes a standardized health check response.
 func (h *HTTPHandler) writeHealthResponse(w http.ResponseWriter, result OverallResult) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	statusCode := h.getStatusCode(result.Status)
 	w.WriteHeader(statusCode)
 
@@ -232,11 +231,11 @@ func (h *HTTPHandler) HealthMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Health-Endpoint", "/health")
 
 		// Check if service is healthy for non-health endpoints
-		if r.URL.Path != "/health" && 
-		   r.URL.Path != "/health/live" && 
-		   r.URL.Path != "/health/ready" && 
-		   r.URL.Path != "/health/startup" {
-			
+		if r.URL.Path != "/health" &&
+			r.URL.Path != "/health/live" &&
+			r.URL.Path != "/health/ready" &&
+			r.URL.Path != "/health/startup" {
+
 			// Quick liveness check
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
