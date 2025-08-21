@@ -1,8 +1,10 @@
 package statemachine
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"crypto/rand"
@@ -23,6 +25,12 @@ type machine[T comparable] struct {
 	// Metrics and validation
 	validator StateValidator[T]
 	metrics   StateMetrics[T]
+	
+	// Persistence support
+	persistence      StatePersistence[T]
+	machineID        string
+	persistenceEnabled bool
+	persistenceConfig PersistenceConfig
 }
 
 // New creates a new state machine with the given configuration.
@@ -128,6 +136,16 @@ func (m *machine[T]) TransitionWithContext(to T, metadata map[string]interface{}
 		m.metrics.RecordStateDuration(from, duration)
 	}
 	
+	// Auto-save state if persistence is enabled
+	if m.persistenceEnabled && m.persistenceConfig.AutoSave && m.persistence != nil {
+		go func() {
+			// Save state asynchronously to avoid blocking transition
+			if snapshot := m.createSnapshot(); snapshot != nil {
+				m.persistence.SaveState(context.Background(), m.machineID, *snapshot)
+			}
+		}()
+	}
+	
 	return nil
 }
 
@@ -184,6 +202,150 @@ func (m *machine[T]) Reset() error {
 	return m.TransitionWithContext(m.config.InitialState, map[string]interface{}{
 		"reset": true,
 	})
+}
+
+// ExportDOT generates a DOT format representation of the state machine for visualization.
+// The output can be used with Graphviz tools to create visual diagrams of the state machine.
+func (m *machine[T]) ExportDOT() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var builder strings.Builder
+	
+	// DOT graph header
+	graphName := m.config.Name
+	if graphName == "" {
+		graphName = "StateMachine"
+	}
+	
+	builder.WriteString(fmt.Sprintf("digraph \"%s\" {\n", graphName))
+	builder.WriteString("\trankdir=LR;\n")
+	builder.WriteString("\tnode [shape=circle, style=filled];\n\n")
+	
+	// Current state highlighting
+	currentState := m.state.Load()
+	
+	// Collect all states from transition rules
+	statesMap := make(map[T]bool)
+	statesMap[m.config.InitialState] = true
+	statesMap[currentState] = true
+	
+	for from, targets := range m.config.TransitionRules {
+		statesMap[from] = true
+		for _, to := range targets {
+			statesMap[to] = true
+		}
+	}
+	
+	// Define state nodes with styling
+	for state := range statesMap {
+		stateStr := fmt.Sprintf("%v", state)
+		
+		// Determine node styling based on state type
+		var color, fillColor string
+		switch {
+		case state == currentState:
+			color = "red"
+			fillColor = "lightcoral"
+		case state == m.config.InitialState:
+			color = "green"
+			fillColor = "lightgreen"
+		default:
+			color = "black"
+			fillColor = "lightblue"
+		}
+		
+		builder.WriteString(fmt.Sprintf("\t\"%s\" [color=%s, fillcolor=%s, label=\"%s\"];\n", 
+			stateStr, color, fillColor, stateStr))
+	}
+	
+	builder.WriteString("\n")
+	
+	// Define transitions (edges)
+	for from, targets := range m.config.TransitionRules {
+		fromStr := fmt.Sprintf("%v", from)
+		for _, to := range targets {
+			toStr := fmt.Sprintf("%v", to)
+			builder.WriteString(fmt.Sprintf("\t\"%s\" -> \"%s\";\n", fromStr, toStr))
+		}
+	}
+	
+	// Add legend
+	builder.WriteString("\n\t// Legend\n")
+	builder.WriteString("\tsubgraph cluster_legend {\n")
+	builder.WriteString("\t\tlabel=\"Legend\";\n")
+	builder.WriteString("\t\tstyle=filled;\n")
+	builder.WriteString("\t\tcolor=lightgrey;\n")
+	builder.WriteString("\t\t\"Current State\" [color=red, fillcolor=lightcoral, shape=circle];\n")
+	builder.WriteString("\t\t\"Initial State\" [color=green, fillcolor=lightgreen, shape=circle];\n")
+	builder.WriteString("\t\t\"Other States\" [color=black, fillcolor=lightblue, shape=circle];\n")
+	builder.WriteString("\t}\n")
+	
+	builder.WriteString("}")
+	
+	return builder.String()
+}
+
+// createSnapshot creates a snapshot of the current state machine state.
+func (m *machine[T]) createSnapshot() *StateMachineSnapshot[T] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	return &StateMachineSnapshot[T]{
+		MachineID:     m.machineID,
+		CurrentState:  m.state.Load(),
+		InitialState:  m.config.InitialState,
+		StateEnteredAt: m.stateStart,
+		Config:        m.config,
+		History:       m.history,
+		SnapshotTime:  time.Now(),
+		Version:       1, // Basic versioning
+	}
+}
+
+// EnablePersistence enables state persistence for the state machine
+func (m *machine[T]) EnablePersistence(persistence StatePersistence[T], machineID string, config PersistenceConfig) error {
+	m.mu.Lock()
+	m.persistence = persistence
+	m.machineID = machineID
+	m.persistenceConfig = config
+	m.persistenceEnabled = true
+	m.mu.Unlock()
+
+	// Attempt to load and restore previous state if present
+	if m.persistence != nil {
+		if snapshot, err := m.persistence.LoadState(context.Background(), machineID); err == nil && snapshot != nil {
+			m.restoreFromSnapshot(*snapshot)
+		}
+	}
+
+	return nil
+}
+
+// DisablePersistence disables state persistence for the state machine
+func (m *machine[T]) DisablePersistence() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.persistence = nil
+	m.machineID = ""
+	m.persistenceConfig = PersistenceConfig{}
+	m.persistenceEnabled = false
+}
+
+// CreateSnapshot creates and returns a snapshot of the current state machine state
+func (m *machine[T]) CreateSnapshot() *StateMachineSnapshot[T] {
+	return m.createSnapshot()
+}
+
+// restoreFromSnapshot restores the state machine from a snapshot.
+func (m *machine[T]) restoreFromSnapshot(snapshot StateMachineSnapshot[T]) {
+	// This is a simplified restore - a real implementation would need more logic
+	// to handle potential inconsistencies, especially with observers and metrics.
+	m.config = snapshot.Config
+	m.state.Store(snapshot.CurrentState)
+	m.stateStart = snapshot.StateEnteredAt
+	m.history = snapshot.History
 }
 
 // addToHistory adds a transition to the history, maintaining size limit.
