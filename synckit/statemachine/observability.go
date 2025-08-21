@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -107,23 +106,13 @@ func (h *ObservabilityHooks[T]) OnTransition(transition StateTransition[T]) {
 	
 	// Structured logging
 	if h.Logger != nil {
-		logAttrs := []slog.Attr{
+		h.Logger.Info("State transition completed",
 			slog.String("component", h.ComponentName),
 			slog.String("from_state", fromStr),
 			slog.String("to_state", toStr),
 			slog.Duration("duration", transition.Duration),
 			slog.String("transition_id", transition.TransitionID),
-			slog.Time("timestamp", transition.Timestamp),
-		}
-		
-		// Add metadata as log attributes
-		if transition.Metadata != nil {
-			for key, value := range transition.Metadata {
-				logAttrs = append(logAttrs, slog.Any(fmt.Sprintf("meta_%s", key), value))
-			}
-		}
-		
-		h.Logger.Info("State transition completed", logAttrs...)
+			slog.Time("timestamp", transition.Timestamp))
 	}
 }
 
@@ -151,21 +140,11 @@ func (h *ObservabilityHooks[T]) OnTransitionFailed(from, to T, err error, metada
 	
 	// Error logging
 	if h.Logger != nil {
-		logAttrs := []slog.Attr{
+		h.Logger.Error("State transition failed",
 			slog.String("component", h.ComponentName),
 			slog.String("from_state", fromStr),
 			slog.String("to_state", toStr),
-			slog.String("error", err.Error()),
-		}
-		
-		// Add metadata as log attributes
-		if metadata != nil {
-			for key, value := range metadata {
-				logAttrs = append(logAttrs, slog.Any(fmt.Sprintf("meta_%s", key), value))
-			}
-		}
-		
-		h.Logger.Error("State transition failed", logAttrs...)
+			slog.String("error", err.Error()))
 	}
 }
 
