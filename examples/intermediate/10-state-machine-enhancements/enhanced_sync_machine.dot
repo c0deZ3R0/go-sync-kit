@@ -1,0 +1,41 @@
+digraph "EnhancedSyncMachine" {
+	rankdir=LR;
+	node [shape=circle, style=filled];
+
+	"initializing" [color=black, fillcolor=lightblue, label="initializing"];
+	"completed" [color=red, fillcolor=lightcoral, label="completed"];
+	"timeout" [color=black, fillcolor=lightblue, label="timeout"];
+	"failed" [color=black, fillcolor=lightblue, label="failed"];
+	"pulling" [color=black, fillcolor=lightblue, label="pulling"];
+	"pushing" [color=black, fillcolor=lightblue, label="pushing"];
+	"resolving_conflicts" [color=black, fillcolor=lightblue, label="resolving_conflicts"];
+	"idle" [color=green, fillcolor=lightgreen, label="idle"];
+
+	"initializing" -> "pulling";
+	"initializing" -> "failed";
+	"pulling" -> "pushing";
+	"pulling" -> "resolving_conflicts";
+	"pulling" -> "failed";
+	"pulling" -> "timeout";
+	"pushing" -> "completed";
+	"pushing" -> "failed";
+	"pushing" -> "timeout";
+	"resolving_conflicts" -> "pushing";
+	"resolving_conflicts" -> "failed";
+	"resolving_conflicts" -> "timeout";
+	"completed" -> "idle";
+	"failed" -> "idle";
+	"timeout" -> "failed";
+	"timeout" -> "idle";
+	"idle" -> "initializing";
+
+	// Legend
+	subgraph cluster_legend {
+		label="Legend";
+		style=filled;
+		color=lightgrey;
+		"Current State" [color=red, fillcolor=lightcoral, shape=circle];
+		"Initial State" [color=green, fillcolor=lightgreen, shape=circle];
+		"Other States" [color=black, fillcolor=lightblue, shape=circle];
+	}
+}

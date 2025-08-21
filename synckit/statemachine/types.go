@@ -29,13 +29,19 @@ type StateMachine[T comparable] interface {
 	// Unsubscribe removes a state change observer
 	Unsubscribe(observer StateObserver[T])
 	
-	// History returns recent state transition history
+	// History returns recent state transition history.
 	History() []StateTransition[T]
-	
-	// Reset resets the state machine to initial state
-	Reset() error
+
+	// ExportDOT generates a DOT format representation of the state machine for visualization.
+	ExportDOT() string
+
+	// Persistence operations
+	EnablePersistence(persistence StatePersistence[T], machineID string, config PersistenceConfig) error
+	DisablePersistence()
+	CreateSnapshot() *StateMachineSnapshot[T]
 }
 
+// StateObserver defines an interface for components that want to observe state changes.
 // StateObserver receives notifications about state transitions.
 // Implementations should be thread-safe and non-blocking.
 type StateObserver[T comparable] interface {
