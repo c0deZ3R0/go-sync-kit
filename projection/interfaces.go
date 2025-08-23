@@ -94,3 +94,4 @@ func NewRunner(store synckit.EventStore, offsets OffsetStore, proj Projector, op
 
 	return r
 }
+
