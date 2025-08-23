@@ -134,7 +134,7 @@ func TestMetricsCollection(t *testing.T) {
 			sm := NewSyncManager(store, transport, &SyncOptions{
 				MetricsCollector: metrics,
 				BatchSize:        100,
-			}, logging.Default().Logger)
+			}, logging.Default().Logger, nil)
 
 			err := tt.operation(sm)
 			if err != nil && tt.name != "failed sync records error metrics" {

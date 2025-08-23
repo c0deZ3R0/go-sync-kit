@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// TestPhase4Integration contains comprehensive integration tests for Phase 4
+// TestMultiUserIntegration contains comprehensive integration tests
 // covering multi-user scenarios, offline sync, and race conditions.
-func TestPhase4Integration(t *testing.T) {
+func TestMultiUserIntegration(t *testing.T) {
 	t.Run("MultiUserConflictResolution", testMultiUserConflictResolution)
 	t.Run("OfflineSync", testOfflineSync)
 	t.Run("ConcurrentResolverAccess", testConcurrentResolverAccess)
@@ -58,13 +58,13 @@ func testMultiUserConflictResolution(t *testing.T) {
 	ctx := context.Background()
 
 	// Scenario 1: Alice and Bob modify the same user simultaneously
-	userEvent1 := &Phase4TestEvent{
+	userEvent1 := &MultiUserTestEvent{
 		id:   "conflict-1",
 		typ:  "UserUpdated",
 		agg:  "user-123",
 		data: map[string]interface{}{"name": "Alice Update", "timestamp": time.Now().Unix()},
 	}
-	userEvent2 := &Phase4TestEvent{
+	userEvent2 := &MultiUserTestEvent{
 		id:   "conflict-2",
 		typ:  "UserUpdated",
 		agg:  "user-123",
@@ -99,7 +99,7 @@ func testMultiUserConflictResolution(t *testing.T) {
 	}
 
 	// Scenario 2: Charlie creates order with admin metadata (should trigger Bob's manual review)
-	orderEvent := &Phase4TestEvent{
+	orderEvent := &MultiUserTestEvent{
 		id:   "admin-order",
 		typ:  "OrderCreated",
 		agg:  "order-456",
@@ -151,7 +151,7 @@ func testOfflineSync(t *testing.T) {
 	ctx := context.Background()
 
 	// Initial sync - both users are online and synchronized
-	initialEvent := &Phase4TestEvent{
+	initialEvent := &MultiUserTestEvent{
 		id:   "initial",
 		typ:  "SystemInit",
 		agg:  "system",
@@ -174,7 +174,7 @@ func testOfflineSync(t *testing.T) {
 
 	// Alice creates events while offline
 	for i := 0; i < 3; i++ {
-		offlineEvent := &Phase4TestEvent{
+		offlineEvent := &MultiUserTestEvent{
 			id:   fmt.Sprintf("alice-offline-%d", i),
 			typ:  "OfflineWork",
 			agg:  fmt.Sprintf("work-%d", i),
@@ -187,7 +187,7 @@ func testOfflineSync(t *testing.T) {
 	}
 
 	// Meanwhile, Bob continues working online
-	bobOnlineEvent := &Phase4TestEvent{
+	bobOnlineEvent := &MultiUserTestEvent{
 		id:   "bob-online",
 		typ:  "OnlineWork",
 		agg:  "work-shared",
@@ -265,11 +265,11 @@ func testConcurrentResolverAccess(t *testing.T) {
 					AggregateID: fmt.Sprintf("agg-%d-%d", goroutineID, j),
 					Metadata:    map[string]interface{}{"priority": "high", "goroutine": goroutineID},
 			Local: EventWithVersion{
-				Event:   &Phase4TestEvent{id: fmt.Sprintf("local-%d-%d", goroutineID, j), typ: "TestEvent"},
+				Event:   &MultiUserTestEvent{id: fmt.Sprintf("local-%d-%d", goroutineID, j), typ: "TestEvent"},
 			Version: &testVersion{v: j},
 			},
 			Remote: EventWithVersion{
-				Event:   &Phase4TestEvent{id: fmt.Sprintf("remote-%d-%d", goroutineID, j), typ: "TestEvent"},
+				Event:   &MultiUserTestEvent{id: fmt.Sprintf("remote-%d-%d", goroutineID, j), typ: "TestEvent"},
 			Version: &testVersion{v: j + 1},
 			},
 				}
@@ -327,7 +327,7 @@ func testBranchingAndMerge(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a common starting point
-	baseEvent := &Phase4TestEvent{
+	baseEvent := &MultiUserTestEvent{
 		id:   "base",
 		typ:  "ProjectInit",
 		agg:  "project-1",
@@ -349,13 +349,13 @@ func testBranchingAndMerge(t *testing.T) {
 	}
 
 	// Now they diverge: Alice creates a feature branch
-	aliceFeature1 := &Phase4TestEvent{
+	aliceFeature1 := &MultiUserTestEvent{
 		id:   "alice-feat-1",
 		typ:  "FeatureAdded",
 		agg:  "project-1",
 		data: map[string]interface{}{"feature": "authentication", "author": "alice"},
 	}
-	aliceFeature2 := &Phase4TestEvent{
+	aliceFeature2 := &MultiUserTestEvent{
 		id:   "alice-feat-2",
 		typ:  "FeatureAdded",
 		agg:  "project-1",
@@ -363,13 +363,13 @@ func testBranchingAndMerge(t *testing.T) {
 	}
 
 	// Bob creates a different feature branch
-	bobFeature1 := &Phase4TestEvent{
+	bobFeature1 := &MultiUserTestEvent{
 		id:   "bob-feat-1",
 		typ:  "FeatureAdded",
 		agg:  "project-1",
 		data: map[string]interface{}{"feature": "payment-system", "author": "bob"},
 	}
-	bobFeature2 := &Phase4TestEvent{
+	bobFeature2 := &MultiUserTestEvent{
 		id:   "bob-feat-2",
 		typ:  "FeatureAdded",
 		agg:  "project-1",
@@ -506,11 +506,11 @@ func testDeterministicOutcomes(t *testing.T) {
 		EventType:   "TestEvent",
 		AggregateID: "test-agg",
 		Local: EventWithVersion{
-			Event:   &Phase4TestEvent{id: "local", typ: "TestEvent", data: "local-data"},
+			Event:   &MultiUserTestEvent{id: "local", typ: "TestEvent", data: "local-data"},
 			Version: &testVersion{v: 1},
 		},
 		Remote: EventWithVersion{
-			Event:   &Phase4TestEvent{id: "remote", typ: "TestEvent", data: "remote-data"},
+			Event:   &MultiUserTestEvent{id: "remote", typ: "TestEvent", data: "remote-data"},
 			Version: &testVersion{v: 2},
 		},
 	}
@@ -619,8 +619,8 @@ func (t *OfflineTransport) Close() error {
 	return nil
 }
 
-// Phase4TestEvent implementation with metadata support
-type Phase4TestEvent struct {
+// MultiUserTestEvent implementation with metadata support
+type MultiUserTestEvent struct {
 	id   string
 	typ  string
 	agg  string
@@ -628,8 +628,8 @@ type Phase4TestEvent struct {
 	meta map[string]interface{}
 }
 
-func (e *Phase4TestEvent) ID() string                        { return e.id }
-func (e *Phase4TestEvent) Type() string                      { return e.typ }
-func (e *Phase4TestEvent) AggregateID() string               { return e.agg }
-func (e *Phase4TestEvent) Data() interface{}                 { return e.data }
-func (e *Phase4TestEvent) Metadata() map[string]interface{} { return e.meta }
+func (e *MultiUserTestEvent) ID() string                        { return e.id }
+func (e *MultiUserTestEvent) Type() string                      { return e.typ }
+func (e *MultiUserTestEvent) AggregateID() string               { return e.agg }
+func (e *MultiUserTestEvent) Data() interface{}                 { return e.data }
+func (e *MultiUserTestEvent) Metadata() map[string]interface{} { return e.meta }

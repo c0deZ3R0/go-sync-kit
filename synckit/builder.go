@@ -20,6 +20,21 @@ type ProjectionRunner interface {
 	ApplyBatch(ctx context.Context, batch []EventWithVersion) error
 }
 
+// ProjectionConfig holds configuration for projection support in SyncManager.
+type ProjectionConfig struct {
+	// Runners are the projection runners to execute after successful sync
+	Runners []ProjectionRunner
+	
+	// RunOnSync enables automatic projection execution after sync
+	RunOnSync bool
+	
+	// MaxWorkers is the maximum number of concurrent projection workers
+	MaxWorkers int
+	
+	// Timeout is the timeout for projection operations
+	Timeout time.Duration
+}
+
 // SyncManagerBuilder provides a fluent interface for constructing SyncManager instances.
 type SyncManagerBuilder struct {
 	store       EventStore
@@ -201,8 +216,16 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 		return nil, fmt.Errorf("BatchSize must be positive, got %d", b.options.BatchSize)
 	}
 
-	// Create a new SyncManager instance
-	return NewSyncManager(b.store, b.transport, b.options, b.logger), nil
+	// Create projection configuration
+	projectionConfig := &ProjectionConfig{
+		Runners:     b.projectionRunners,
+		RunOnSync:   b.runProjectionsOnSync,
+		MaxWorkers:  b.projectionMaxWorkers,
+		Timeout:     b.projectionTimeout,
+	}
+	
+	// Create a new SyncManager instance with projection support
+	return NewSyncManager(b.store, b.transport, b.options, b.logger, projectionConfig), nil
 }
 
 // Reset clears the builder, allowing reuse.

@@ -169,7 +169,7 @@ The project has extensive testing with:
 - Integration tests for storage implementations
 - Fuzz tests for critical components (cursor/, transport/httptransport/)
 - Benchmark tests for performance validation
-- Phase-based integration testing (phase3_integration_test.go, phase4_integration_test.go)
+- Integration testing for conflict resolution and multiuser scenarios
 
 ### Configuration Patterns
 - SyncOptions struct for sync behavior configuration

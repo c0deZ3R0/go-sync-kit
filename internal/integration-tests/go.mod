@@ -1,4 +1,4 @@
-module test-phase3
+module test-conflict-resolution
 
 go 1.24.4
 
