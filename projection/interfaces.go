@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/c0deZ3R0/go-sync-kit/logging"
+	"github.com/c0deZ3R0/go-sync-kit/observability/metrics"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
@@ -71,6 +72,28 @@ func WithLogger(logger *slog.Logger) RunnerOption {
 	return func(r *runner) { 
 		if logger != nil {
 			r.logger = logger 
+		}
+	}
+}
+
+// WithMetrics enables metrics collection using the provided SyncKitMetrics instance.
+// This integrates the runner with the unified observability system.
+func WithMetrics(metricsCollector *metrics.SyncKitMetrics) RunnerOption {
+	return func(r *runner) { 
+		r.metricsEnabled = true
+		r.metrics = metricsCollector
+	}
+}
+
+// WithMetricsEnabled enables basic metrics collection using the legacy system.
+// For new code, prefer WithMetrics() with SyncKitMetrics for better integration.
+func WithMetricsEnabled(enabled bool) RunnerOption {
+	return func(r *runner) { 
+		r.metricsEnabled = enabled
+		// Try to use default projection metrics if available
+		if enabled && r.metrics == nil {
+			// Fallback to legacy projection metrics system
+			// Note: This maintains backward compatibility
 		}
 	}
 }

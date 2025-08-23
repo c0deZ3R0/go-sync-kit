@@ -238,13 +238,19 @@ func (h *HealthChecker) runChecks(ctx context.Context, checkType CheckType) Over
 		overallStatus = StatusUnknown
 	}
 
+	// Calculate total duration and ensure it's not zero for timer precision issues
+	duration := time.Since(start)
+	if duration == 0 {
+		duration = 1 * time.Nanosecond
+	}
+
 	return OverallResult{
 		Status:    overallStatus,
 		CheckType: checkType,
 		Results:   results,
 		Summary:   summary,
 		Timestamp: start,
-		Duration:  time.Since(start),
+		Duration:  duration,
 	}
 }
 
@@ -261,7 +267,20 @@ func (h *HealthChecker) executeCheck(ctx context.Context, check HealthCheck) Che
 
 	// Execute the check
 	result := check.Check(ctx)
-	result.Duration = time.Since(start)
+	
+	// Calculate the duration of this check
+	duration := time.Since(start)
+	
+	// Use the check's own duration if it set one and is greater, otherwise use our calculated duration
+	// Ensure there's always at least some measurable duration to avoid timer precision issues
+	if result.Duration == 0 || duration > result.Duration {
+		result.Duration = duration
+	}
+	
+	// Ensure minimum duration to avoid Windows timer precision issues in tests
+	if result.Duration == 0 {
+		result.Duration = 1 * time.Nanosecond
+	}
 	result.Timestamp = start
 
 	return result

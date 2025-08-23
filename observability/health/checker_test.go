@@ -26,7 +26,24 @@ func (m *mockHealthCheck) Check(ctx context.Context) CheckResult {
 	start := time.Now()
 
 	if m.duration > 0 {
-		time.Sleep(m.duration)
+		// Respect context cancellation by using a timer instead of just sleeping
+		timer := time.NewTimer(m.duration)
+		defer timer.Stop()
+		
+		select {
+		case <-timer.C:
+			// Duration completed normally
+		case <-ctx.Done():
+			// Context was cancelled, return early
+			return CheckResult{
+				Status:    StatusDown, // Context cancellation could indicate unhealthy state
+				Component: m.component,
+				Message:   "Health check cancelled due to context timeout",
+				Details:   make(map[string]interface{}),
+				Timestamp: start,
+				Duration:  time.Since(start),
+			}
+		}
 	}
 
 	return CheckResult{

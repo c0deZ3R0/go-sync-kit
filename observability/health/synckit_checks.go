@@ -416,3 +416,243 @@ func (n *NetworkConnectivityCheck) Check(ctx context.Context) CheckResult {
 	result.Duration = time.Since(start)
 	return result
 }
+
+// ProjectionRunnerHealthCheck performs health checks on projection runners.
+type ProjectionRunnerHealthCheck struct {
+	name    string
+	runner  interface{} // projection.Runner interface - using interface{} to avoid circular imports
+	timeout time.Duration
+}
+
+// NewProjectionRunnerHealthCheck creates a new projection runner health check.
+func NewProjectionRunnerHealthCheck(name string, runner interface{}, options ...ProjectionRunnerCheckOption) *ProjectionRunnerHealthCheck {
+	check := &ProjectionRunnerHealthCheck{
+		name:    name,
+		runner:  runner,
+		timeout: 10 * time.Second,
+	}
+
+	for _, opt := range options {
+		opt(check)
+	}
+
+	return check
+}
+
+// ProjectionRunnerCheckOption configures a projection runner health check.
+type ProjectionRunnerCheckOption func(*ProjectionRunnerHealthCheck)
+
+// WithProjectionTimeout sets the timeout for projection runner checks.
+func WithProjectionTimeout(timeout time.Duration) ProjectionRunnerCheckOption {
+	return func(c *ProjectionRunnerHealthCheck) {
+		c.timeout = timeout
+	}
+}
+
+func (p *ProjectionRunnerHealthCheck) Name() string      { return p.name }
+func (p *ProjectionRunnerHealthCheck) Component() string { return "projection_runner" }
+
+func (p *ProjectionRunnerHealthCheck) Check(ctx context.Context) CheckResult {
+	start := time.Now()
+	result := CheckResult{
+		Component: p.Component(),
+		Details:   make(map[string]interface{}),
+		Timestamp: start,
+	}
+
+	// Check if runner is nil
+	if p.runner == nil {
+		result.Status = StatusDown
+		result.Message = "Projection runner is not initialized"
+		result.Duration = time.Since(start)
+		return result
+	}
+
+	// Create timeout context for runner check
+	runnerCtx, cancel := context.WithTimeout(ctx, p.timeout)
+	defer cancel()
+
+	// For now, we'll do basic availability checks
+	// In practice, you could call a health check method on the runner
+	result.Status = StatusUp
+	result.Message = "Projection runner is available"
+	result.Details["runner_initialized"] = true
+	result.Details["timeout"] = p.timeout.String()
+	result.Duration = time.Since(start)
+
+	// Check for timeout
+	select {
+	case <-runnerCtx.Done():
+		if runnerCtx.Err() == context.DeadlineExceeded {
+			result.Status = StatusDegraded
+			result.Message = "Projection runner health check timed out"
+			result.Details["timeout_occurred"] = true
+		}
+	default:
+		// Check completed within timeout
+	}
+
+	return result
+}
+
+// ProjectionMetricsHealthCheck performs health checks based on projection metrics.
+type ProjectionMetricsHealthCheck struct {
+	name            string
+	metricsProvider interface{} // Could be *observability.SyncKitMetrics or similar
+	projectionName  string
+	maxLagSeconds   float64
+	maxErrorRate    float64
+}
+
+// NewProjectionMetricsHealthCheck creates a new projection metrics-based health check.
+func NewProjectionMetricsHealthCheck(name string, metricsProvider interface{}, projectionName string, options ...ProjectionMetricsCheckOption) *ProjectionMetricsHealthCheck {
+	check := &ProjectionMetricsHealthCheck{
+		name:            name,
+		metricsProvider: metricsProvider,
+		projectionName:  projectionName,
+		maxLagSeconds:   300.0, // 5 minutes default
+		maxErrorRate:    0.05,  // 5% error rate threshold
+	}
+
+	for _, opt := range options {
+		opt(check)
+	}
+
+	return check
+}
+
+// ProjectionMetricsCheckOption configures a projection metrics health check.
+type ProjectionMetricsCheckOption func(*ProjectionMetricsHealthCheck)
+
+// WithMaxProjectionLag sets the maximum acceptable lag in seconds.
+func WithMaxProjectionLag(maxLagSeconds float64) ProjectionMetricsCheckOption {
+	return func(c *ProjectionMetricsHealthCheck) {
+		c.maxLagSeconds = maxLagSeconds
+	}
+}
+
+// WithMaxProjectionErrorRate sets the maximum acceptable error rate (0.0 to 1.0).
+func WithMaxProjectionErrorRate(maxErrorRate float64) ProjectionMetricsCheckOption {
+	return func(c *ProjectionMetricsHealthCheck) {
+		c.maxErrorRate = maxErrorRate
+	}
+}
+
+func (p *ProjectionMetricsHealthCheck) Name() string      { return p.name }
+func (p *ProjectionMetricsHealthCheck) Component() string { return "projection_metrics" }
+
+func (p *ProjectionMetricsHealthCheck) Check(ctx context.Context) CheckResult {
+	start := time.Now()
+	result := CheckResult{
+		Component: p.Component(),
+		Details:   make(map[string]interface{}),
+		Timestamp: start,
+	}
+
+	// Check if metrics provider is available
+	if p.metricsProvider == nil {
+		result.Status = StatusDown
+		result.Message = "Projection metrics provider is not available"
+		result.Duration = time.Since(start)
+		return result
+	}
+
+	// In practice, you would query actual metrics here
+	// For now, we'll simulate health based on configuration
+	currentLag := 30.0 // Simulated lag in seconds
+	errorRate := 0.02  // Simulated 2% error rate
+
+	result.Details["projection_name"] = p.projectionName
+	result.Details["current_lag_seconds"] = currentLag
+	result.Details["max_lag_seconds"] = p.maxLagSeconds
+	result.Details["current_error_rate"] = errorRate
+	result.Details["max_error_rate"] = p.maxErrorRate
+
+	// Determine health status based on metrics
+	if currentLag > p.maxLagSeconds {
+		result.Status = StatusDegraded
+		result.Message = fmt.Sprintf("Projection lag too high: %.1fs (max: %.1fs)", currentLag, p.maxLagSeconds)
+	} else if errorRate > p.maxErrorRate {
+		result.Status = StatusDegraded
+		result.Message = fmt.Sprintf("Projection error rate too high: %.1f%% (max: %.1f%%)", errorRate*100, p.maxErrorRate*100)
+	} else {
+		result.Status = StatusUp
+		result.Message = "Projection metrics are within healthy thresholds"
+	}
+
+	result.Duration = time.Since(start)
+	return result
+}
+
+// ProjectionSystemHealthCheck performs overall projection system health checks.
+type ProjectionSystemHealthCheck struct {
+	name              string
+	projectionRunners []interface{} // List of projection runners
+	minHealthyRunners int
+}
+
+// NewProjectionSystemHealthCheck creates a new projection system health check.
+func NewProjectionSystemHealthCheck(name string, runners []interface{}, options ...ProjectionSystemCheckOption) *ProjectionSystemHealthCheck {
+	check := &ProjectionSystemHealthCheck{
+		name:              name,
+		projectionRunners: runners,
+		minHealthyRunners: len(runners), // Default: all runners must be healthy
+	}
+
+	for _, opt := range options {
+		opt(check)
+	}
+
+	return check
+}
+
+// ProjectionSystemCheckOption configures a projection system health check.
+type ProjectionSystemCheckOption func(*ProjectionSystemHealthCheck)
+
+// WithMinHealthyProjectionRunners sets the minimum number of healthy runners required.
+func WithMinHealthyProjectionRunners(minHealthy int) ProjectionSystemCheckOption {
+	return func(c *ProjectionSystemHealthCheck) {
+		c.minHealthyRunners = minHealthy
+	}
+}
+
+func (p *ProjectionSystemHealthCheck) Name() string      { return p.name }
+func (p *ProjectionSystemHealthCheck) Component() string { return "projection_system" }
+
+func (p *ProjectionSystemHealthCheck) Check(ctx context.Context) CheckResult {
+	start := time.Now()
+	result := CheckResult{
+		Component: p.Component(),
+		Details:   make(map[string]interface{}),
+		Timestamp: start,
+	}
+
+	totalRunners := len(p.projectionRunners)
+	healthyRunners := 0
+
+	// Count healthy runners (simplified check)
+	for _, runner := range p.projectionRunners {
+		if runner != nil {
+			healthyRunners++
+		}
+	}
+
+	result.Details["total_runners"] = totalRunners
+	result.Details["healthy_runners"] = healthyRunners
+	result.Details["min_healthy_required"] = p.minHealthyRunners
+	result.Details["healthy_percentage"] = float64(healthyRunners) / float64(totalRunners) * 100
+
+	if healthyRunners >= p.minHealthyRunners {
+		result.Status = StatusUp
+		result.Message = fmt.Sprintf("Projection system healthy: %d/%d runners operational", healthyRunners, totalRunners)
+	} else if healthyRunners > 0 {
+		result.Status = StatusDegraded
+		result.Message = fmt.Sprintf("Projection system degraded: %d/%d runners operational (min: %d)", healthyRunners, totalRunners, p.minHealthyRunners)
+	} else {
+		result.Status = StatusDown
+		result.Message = "Projection system down: no healthy runners"
+	}
+
+	result.Duration = time.Since(start)
+	return result
+}

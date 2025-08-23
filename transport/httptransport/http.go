@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
@@ -29,12 +30,22 @@ type VersionParser func(ctx context.Context, s string) (synckit.Version, error)
 
 // --- HTTP Sync Handler (Server) ---
 
+// SyncHooks provides extensibility points for the sync handler
+type SyncHooks struct {
+	// AfterCommit is called after events are successfully committed to storage
+	AfterCommit func(ctx context.Context, committed []synckit.EventWithVersion)
+	
+	// BeforePull is called before pulling events (for metrics, etc.)
+	BeforePull func(ctx context.Context, since synckit.Version)
+}
+
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
 	store         synckit.EventStore
 	logger        *slog.Logger
 	versionParser VersionParser
 	options       *ServerOptions
+	hooks         *SyncHooks
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
@@ -45,6 +56,11 @@ func NewSyncHandler(store synckit.EventStore, logger *slog.Logger, parser Versio
 
 // NewSyncHandlerWithLogger creates a new handler for serving sync endpoints with structured logging.
 func NewSyncHandlerWithLogger(store synckit.EventStore, logger *slog.Logger, parser VersionParser, options *ServerOptions) *SyncHandler {
+	return NewSyncHandlerWithHooks(store, logger, parser, options, nil)
+}
+
+// NewSyncHandlerWithHooks creates a new handler for serving sync endpoints with hooks support.
+func NewSyncHandlerWithHooks(store synckit.EventStore, logger *slog.Logger, parser VersionParser, options *ServerOptions, hooks *SyncHooks) *SyncHandler {
 	if logger == nil {
 		logger = logging.Default().Logger
 	}
@@ -60,6 +76,7 @@ func NewSyncHandlerWithLogger(store synckit.EventStore, logger *slog.Logger, par
 		logger:        logger,
 		versionParser: parser,
 		options:       options,
+		hooks:         hooks,
 	}
 }
 
@@ -153,6 +170,9 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track successfully committed events for hooks
+	var committedEvents []synckit.EventWithVersion
+	
 	for _, jev := range jsonEvents {
 		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
@@ -173,13 +193,34 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 				slog.String("remote_addr", r.RemoteAddr))
 			// Note: Could check for specific store errors here and fail the batch if needed
 			// For now, we continue to be resilient to duplicate events during sync
+		} else {
+			// Event was successfully stored, add to committed events
+			committedEvents = append(committedEvents, ev)
 		}
 	}
 
 	h.logger.Info("Successfully pushed events",
 		slog.Int("event_count", len(jsonEvents)),
+		slog.Int("committed_count", len(committedEvents)),
 		slog.String("remote_addr", r.RemoteAddr))
-		h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	
+	// Send response first
+	h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	
+	// Call AfterCommit hook asynchronously if there are committed events
+	if h.hooks != nil && h.hooks.AfterCommit != nil && len(committedEvents) > 0 {
+		go func() {
+			// Create timeout context for hook execution
+			hookCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			
+			h.logger.Debug("Calling AfterCommit hook",
+				slog.Int("committed_events", len(committedEvents)),
+				slog.String("remote_addr", r.RemoteAddr))
+			
+			h.hooks.AfterCommit(hookCtx, committedEvents)
+		}()
+	}
 }
 
 func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +280,14 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 			slog.String("remote_addr", r.RemoteAddr))
 		h.respondErr(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
 		return
+	}
+
+	// Call BeforePull hook if configured
+	if h.hooks != nil && h.hooks.BeforePull != nil {
+		h.logger.Debug("Calling BeforePull hook",
+			slog.String("since_version", sinceStr),
+			slog.String("remote_addr", r.RemoteAddr))
+		h.hooks.BeforePull(r.Context(), version)
 	}
 
 	events, err := h.store.Load(r.Context(), version)
