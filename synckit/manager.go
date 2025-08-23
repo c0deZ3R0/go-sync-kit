@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,10 @@ type syncManager struct {
 	autoSyncInterval time.Duration      // Current auto-sync interval
 	subscribers      []func(*SyncResult)
 	closed           bool
+
+	// Projection support
+	projectionConfig *ProjectionConfig
+	projectionPool   chan struct{} // Worker pool for concurrent projections
 }
 
 // Sync performs a bidirectional sync operation with state machine tracking
@@ -180,6 +185,14 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 			sm.logger.Debug("Push phase completed successfully",
 				"events_pushed", pushResult.EventsPushed)
 			result.EventsPushed = pushResult.EventsPushed
+		}
+	}
+
+	// Run projections if configured and sync was successful
+	if len(result.Errors) == 0 {
+		if err := sm.runProjectionsAfterSync(ctx, result); err != nil {
+			sm.logger.Error("Failed to run projections after sync", "error", err)
+			result.Errors = append(result.Errors, syncErrors.NewWithComponent(syncErrors.OpSync, "projections", err))
 		}
 	}
 
@@ -984,6 +997,103 @@ func (sm *syncManager) isTransportHealthyForSync() bool {
 	// For non-stateful transports, always allow sync (backward compatibility)
 	sm.logger.Debug("Transport does not support state awareness, allowing sync")
 	return true
+}
+
+// runProjectionsAfterSync executes all configured projection runners after a successful sync.
+// It uses a worker pool to limit concurrency and applies timeouts to prevent hanging.
+func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *SyncResult) error {
+	// Early return if no projections are configured
+	if sm.projectionConfig == nil || !sm.projectionConfig.RunOnSync || len(sm.projectionConfig.Runners) == 0 {
+		sm.logger.Debug("No projections configured to run after sync")
+		return nil
+	}
+
+	sm.logger.Info("Starting projection execution after successful sync",
+		"runner_count", len(sm.projectionConfig.Runners),
+		"max_workers", sm.projectionConfig.MaxWorkers,
+		"timeout", sm.projectionConfig.Timeout)
+
+	// Create context with timeout for projection execution
+	projectionCtx, cancel := context.WithTimeout(ctx, sm.projectionConfig.Timeout)
+	defer cancel()
+
+	// Create error group for coordinating projection execution
+	errorChan := make(chan error, len(sm.projectionConfig.Runners))
+	completedChan := make(chan struct{}, len(sm.projectionConfig.Runners))
+
+	// Execute each projection runner concurrently using the worker pool
+	for i, runner := range sm.projectionConfig.Runners {
+		go func(runnerIndex int, projRunner ProjectionRunner) {
+			// Acquire worker slot from pool
+			select {
+			case sm.projectionPool <- struct{}{}:
+				defer func() { <-sm.projectionPool }() // Release worker slot
+			case <-projectionCtx.Done():
+				errorChan <- fmt.Errorf("projection runner %d timed out waiting for worker slot", runnerIndex)
+				return
+			}
+
+			sm.logger.Debug("Starting projection runner", "runner_index", runnerIndex)
+			
+			// Execute projection with timeout context - use ApplySince to catch up projections
+			applied, lastVersion, err := projRunner.ApplySince(projectionCtx)
+			if err != nil {
+				sm.logger.Error("Projection runner failed", 
+					"runner_index", runnerIndex,
+					"error", err)
+				errorChan <- fmt.Errorf("projection runner %d failed: %w", runnerIndex, err)
+			} else {
+				sm.logger.Debug("Projection runner completed successfully", 
+					"runner_index", runnerIndex,
+					"applied_events", applied,
+					"last_version", lastVersion)
+				completedChan <- struct{}{}
+			}
+		}(i, runner)
+	}
+
+	// Wait for all projections to complete or timeout/error
+	var projectionErrors []error
+	completedCount := 0
+	totalRunners := len(sm.projectionConfig.Runners)
+
+	for completedCount < totalRunners {
+		select {
+		case <-completedChan:
+			completedCount++
+		case err := <-errorChan:
+			completedCount++
+			projectionErrors = append(projectionErrors, err)
+		case <-projectionCtx.Done():
+			// Timeout occurred - collect any remaining runners as errors
+			remainingRunners := totalRunners - completedCount
+			if remainingRunners > 0 {
+				timeoutErr := fmt.Errorf("projection execution timed out with %d runners still pending after %v", 
+					remainingRunners, sm.projectionConfig.Timeout)
+				projectionErrors = append(projectionErrors, timeoutErr)
+			}
+			break // Exit the waiting loop on timeout
+		}
+	}
+
+	// Log projection execution summary
+	if len(projectionErrors) == 0 {
+		sm.logger.Info("All projection runners completed successfully", 
+			"completed_count", completedCount)
+		return nil
+	} else {
+		sm.logger.Error("Projection execution completed with errors",
+			"completed_count", completedCount,
+			"error_count", len(projectionErrors),
+			"total_runners", totalRunners)
+		
+		// Combine all projection errors into a single error
+		errorMessages := make([]string, len(projectionErrors))
+		for i, err := range projectionErrors {
+			errorMessages[i] = err.Error()
+		}
+		return fmt.Errorf("projection execution failed: %s", strings.Join(errorMessages, "; "))
+	}
 }
 
 // detectChangedFields attempts to detect which fields changed between two events.

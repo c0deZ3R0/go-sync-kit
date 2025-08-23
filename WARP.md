@@ -144,6 +144,15 @@ Go Sync Kit follows a layered, plugin-based architecture with these core compone
 - **Dynamic Resolver**: Configurable resolver with multiple strategies
 - **Custom Resolvers**: Implement ConflictResolver interface for domain-specific logic
 
+### Read-Model Projections (projection/)
+
+- **Projection API**: Core interfaces for Projector, OffsetStore, and Runner
+- **BadgerDB Offset Store**: High-performance embedded offset persistence with 91.5% test coverage
+- **Projection Runner**: Batch processing with resumable execution and context cancellation
+- **Unified Observability**: Integrated metrics and health checks for projection monitoring
+- **Auto-execution**: Automatic projection running after sync operations
+- **CQRS/Event Sourcing**: Full support for read-model building patterns
+
 ### Key Design Patterns
 
 1. **Clean Architecture**: Clear separation between transport, storage, business logic
@@ -169,7 +178,7 @@ The project has extensive testing with:
 - Integration tests for storage implementations
 - Fuzz tests for critical components (cursor/, transport/httptransport/)
 - Benchmark tests for performance validation
-- Phase-based integration testing (phase3_integration_test.go, phase4_integration_test.go)
+- Integration testing for conflict resolution and multiuser scenarios
 
 ### Configuration Patterns
 - SyncOptions struct for sync behavior configuration

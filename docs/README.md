@@ -8,6 +8,13 @@ This directory contains organized technical documentation for the Go Sync Kit pr
 Design documents and architectural specifications:
 - **POSTGRES_EVENTSTORE_DESIGN.md** - PostgreSQL EventStore with LISTEN/NOTIFY design specification
 
+### Completed Projects (docs root)
+Completed implementation documentation and roadmaps:
+- **PROJECTION_IMPLEMENTATION_COMPLETE.md** - Complete status of read-model projections with unified observability
+- **READ_MODEL_PROJECTIONS_IMPLEMENTATION_PLAN.md** - Comprehensive implementation plan for CQRS/event sourcing projections
+- **RABBITMQ_ROADMAP.md** - RabbitMQ transport implementation roadmap with durable messaging
+- **STATE_MACHINE_ROADMAP.md** - State machine integration roadmap for sync operations
+
 ### `/implementation/`
 Implementation guides and technical details:
 - *Reserved for future implementation documentation*

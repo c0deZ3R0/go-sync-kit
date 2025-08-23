@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// TestPhase3Integration tests the Phase 3 integration of DynamicResolver
+// TestConflictResolutionIntegration tests the integration of DynamicResolver
 // with the sync engine, validating conflict detection and resolution.
-func TestPhase3Integration(t *testing.T) {
+func TestConflictResolutionIntegration(t *testing.T) {
 	// Create a test logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
@@ -24,7 +24,7 @@ func TestPhase3Integration(t *testing.T) {
 		}
 
 		// Create sync manager - should auto-create DynamicResolver
-		sm := NewSyncManager(store, transport, opts, logger)
+		sm := NewSyncManager(store, transport, opts, logger, nil)
 
 		// Verify that a ConflictResolver was set
 		syncMgr := sm.(*syncManager)
@@ -57,7 +57,7 @@ func TestPhase3Integration(t *testing.T) {
 		}
 
 		// Create sync manager with custom resolver
-		sm := NewSyncManager(store, transport, opts, logger)
+		sm := NewSyncManager(store, transport, opts, logger, nil)
 		syncMgr := sm.(*syncManager)
 
 		// Verify the resolver is set correctly
@@ -74,10 +74,10 @@ func TestPhase3Integration(t *testing.T) {
 
 		// Create test events for conflict detection
 		localEvents := []EventWithVersion{
-			{Event: &Phase3TestEvent{id: "1", eventType: "UserUpdated", aggregateID: "user-123", data: "local-data"}, Version: &Phase3TestVersion{version: "v1"}},
+			{Event: &ConflictResolutionTestEvent{id: "1", eventType: "UserUpdated", aggregateID: "user-123", data: "local-data"}, Version: &ConflictResolutionTestVersion{version: "v1"}},
 		}
 		remoteEvents := []EventWithVersion{
-			{Event: &Phase3TestEvent{id: "2", eventType: "UserUpdated", aggregateID: "user-123", data: "remote-data"}, Version: &Phase3TestVersion{version: "v2"}},
+			{Event: &ConflictResolutionTestEvent{id: "2", eventType: "UserUpdated", aggregateID: "user-123", data: "remote-data"}, Version: &ConflictResolutionTestVersion{version: "v2"}},
 		}
 
 		// Detect conflicts
@@ -113,10 +113,10 @@ func TestPhase3Integration(t *testing.T) {
 
 		// Create test events for different aggregates (should not conflict)
 		localEvents := []EventWithVersion{
-			{Event: &Phase3TestEvent{id: "1", eventType: "UserUpdated", aggregateID: "user-123", data: "local-data"}, Version: &Phase3TestVersion{version: "v1"}},
+			{Event: &ConflictResolutionTestEvent{id: "1", eventType: "UserUpdated", aggregateID: "user-123", data: "local-data"}, Version: &ConflictResolutionTestVersion{version: "v1"}},
 		}
 		remoteEvents := []EventWithVersion{
-			{Event: &Phase3TestEvent{id: "2", eventType: "UserUpdated", aggregateID: "user-456", data: "remote-data"}, Version: &Phase3TestVersion{version: "v2"}},
+			{Event: &ConflictResolutionTestEvent{id: "2", eventType: "UserUpdated", aggregateID: "user-456", data: "remote-data"}, Version: &ConflictResolutionTestVersion{version: "v2"}},
 		}
 
 		// Detect conflicts
@@ -129,8 +129,8 @@ func TestPhase3Integration(t *testing.T) {
 	})
 }
 
-// Phase3TestEvent implements the Event interface for testing
-type Phase3TestEvent struct {
+// ConflictResolutionTestEvent implements the Event interface for testing
+type ConflictResolutionTestEvent struct {
 	id          string
 	eventType   string
 	aggregateID string
@@ -138,23 +138,23 @@ type Phase3TestEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (e *Phase3TestEvent) ID() string                         { return e.id }
-func (e *Phase3TestEvent) Type() string                       { return e.eventType }
-func (e *Phase3TestEvent) AggregateID() string                { return e.aggregateID }
-func (e *Phase3TestEvent) Data() interface{}                  { return e.data }
-func (e *Phase3TestEvent) Metadata() map[string]interface{}   { return e.metadata }
+func (e *ConflictResolutionTestEvent) ID() string                         { return e.id }
+func (e *ConflictResolutionTestEvent) Type() string                       { return e.eventType }
+func (e *ConflictResolutionTestEvent) AggregateID() string                { return e.aggregateID }
+func (e *ConflictResolutionTestEvent) Data() interface{}                  { return e.data }
+func (e *ConflictResolutionTestEvent) Metadata() map[string]interface{}   { return e.metadata }
 
-// Phase3TestVersion implements the Version interface for testing
-type Phase3TestVersion struct {
+// ConflictResolutionTestVersion implements the Version interface for testing
+type ConflictResolutionTestVersion struct {
 	version string
 }
 
-func (v *Phase3TestVersion) String() string                    { return v.version }
-func (v *Phase3TestVersion) Compare(other Version) int {
+func (v *ConflictResolutionTestVersion) String() string                    { return v.version }
+func (v *ConflictResolutionTestVersion) Compare(other Version) int {
 	if other == nil {
 		return 1
 	}
-	otherTest, ok := other.(*Phase3TestVersion)
+	otherTest, ok := other.(*ConflictResolutionTestVersion)
 	if !ok {
 		return 0
 	}
@@ -167,7 +167,7 @@ func (v *Phase3TestVersion) Compare(other Version) int {
 	return 1
 }
 
-func (v *Phase3TestVersion) IsZero() bool {
+func (v *ConflictResolutionTestVersion) IsZero() bool {
 	return v.version == "" || v.version == "0"
 }
 
@@ -187,11 +187,11 @@ func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string
 }
 
 func (m *MockEventStore) LatestVersion(ctx context.Context) (Version, error) {
-	return &Phase3TestVersion{version: "v1"}, nil
+	return &ConflictResolutionTestVersion{version: "v1"}, nil
 }
 
 func (m *MockEventStore) ParseVersion(ctx context.Context, versionStr string) (Version, error) {
-	return &Phase3TestVersion{version: versionStr}, nil
+	return &ConflictResolutionTestVersion{version: versionStr}, nil
 }
 
 func (m *MockEventStore) Close() error {
@@ -210,7 +210,7 @@ func (m *MockTransport) Pull(ctx context.Context, since Version) ([]EventWithVer
 }
 
 func (m *MockTransport) GetLatestVersion(ctx context.Context) (Version, error) {
-	return &Phase3TestVersion{version: "v1"}, nil
+	return &ConflictResolutionTestVersion{version: "v1"}, nil
 }
 
 func (m *MockTransport) Subscribe(ctx context.Context, handler func([]EventWithVersion) error) error {

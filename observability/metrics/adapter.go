@@ -74,6 +74,12 @@ type ExtendedMetricsCollector interface {
 	RecordStorageOperation(backend, operation string, duration time.Duration, success bool)
 	RecordConflictResolution(strategy string, duration time.Duration, result string)
 
+	// Projection metrics
+	RecordProjectionOperation(projection, operation string, duration time.Duration, success bool, eventsProcessed int)
+	RecordProjectionError(projection, operation, errorType string)
+	UpdateProjectionLag(projection string, lag time.Duration)
+	SetProjectionHealth(projection string, healthy bool)
+
 	// System metrics
 	SetActiveConnections(count int)
 	SetMemoryUsage(bytes int64)
@@ -125,4 +131,24 @@ func (e *ExtendedAdapter) SetMemoryUsage(bytes int64) {
 // SetGoroutines updates goroutines count gauge.
 func (e *ExtendedAdapter) SetGoroutines(count int) {
 	e.metrics.SetGoroutines(count)
+}
+
+// RecordProjectionOperation records comprehensive projection operation metrics.
+func (e *ExtendedAdapter) RecordProjectionOperation(projection, operation string, duration time.Duration, success bool, eventsProcessed int) {
+	e.metrics.RecordProjectionOperation(projection, operation, duration, success, eventsProcessed)
+}
+
+// RecordProjectionError records projection operation error metrics.
+func (e *ExtendedAdapter) RecordProjectionError(projection, operation, errorType string) {
+	e.metrics.RecordProjectionError(projection, operation, errorType)
+}
+
+// UpdateProjectionLag updates projection lag metrics.
+func (e *ExtendedAdapter) UpdateProjectionLag(projection string, lag time.Duration) {
+	e.metrics.UpdateProjectionLag(projection, lag)
+}
+
+// SetProjectionHealth updates projection health status.
+func (e *ExtendedAdapter) SetProjectionHealth(projection string, healthy bool) {
+	e.metrics.SetProjectionHealth(projection, healthy)
 }

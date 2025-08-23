@@ -100,7 +100,7 @@ func (m *MockTransport) Close() error {
 }
 
 func main() {
-	fmt.Println("=== Phase 3 Integration Verification ===")
+	fmt.Println("=== Conflict Resolution Integration Verification ===")
 	
 	// Create logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -153,7 +153,7 @@ func main() {
 	fmt.Printf("✅ Conflict resolved successfully with decision: %s\n", resolved.Decision)
 	fmt.Printf("   Resolved events count: %d\n", len(resolved.ResolvedEvents))
 	
-	fmt.Println("\n🎉 Phase 3 Integration Verification PASSED!")
+	fmt.Println("\n🎉 Conflict Resolution Integration Verification PASSED!")
 	fmt.Println("   - Default resolver injection: ✅")
 	fmt.Println("   - Custom resolver creation: ✅") 
 	fmt.Println("   - Conflict resolution flow: ✅")

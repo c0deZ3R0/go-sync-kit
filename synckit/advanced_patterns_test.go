@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestPhase6CompositePattern(t *testing.T) {
+func TestAdvancedCompositePattern(t *testing.T) {
 	t.Run("RuleGroup_BasicOperations", func(t *testing.T) {
 		group := NewRuleGroup("test-group",
 			WithDescription("Test group for unit tests"),
@@ -164,7 +164,7 @@ func TestPhase6CompositePattern(t *testing.T) {
 	})
 }
 
-func TestPhase6MementoPattern(t *testing.T) {
+func TestAdvancedMementoPattern(t *testing.T) {
 	t.Run("InMemoryMementoCaretaker_BasicOperations", func(t *testing.T) {
 		caretaker := NewInMemoryMementoCaretaker()
 		ctx := context.Background()
@@ -313,7 +313,7 @@ func TestPhase6MementoPattern(t *testing.T) {
 	})
 }
 
-func TestPhase6ObserverPattern(t *testing.T) {
+func TestAdvancedObserverPattern(t *testing.T) {
 	t.Run("ObservableResolver_BasicMetrics", func(t *testing.T) {
 		collector := &mockExtendedMetricsCollector{}
 		baseResolver := &LastWriteWinsResolver{}

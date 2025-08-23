@@ -37,6 +37,16 @@ type SyncKitMetrics struct {
 	conflictOpsTotal     *prometheus.CounterVec
 	conflictDuration     *prometheus.HistogramVec
 
+	// Projection metrics
+	projectionOpsTotal         *prometheus.CounterVec
+	projectionOpsDuration      *prometheus.HistogramVec
+	projectionEventsProcessed  *prometheus.CounterVec
+	projectionBatchSize        *prometheus.HistogramVec
+	projectionErrorsTotal      *prometheus.CounterVec
+	projectionLastSuccess      *prometheus.GaugeVec
+	projectionLag              *prometheus.GaugeVec
+	projectionHealth           *prometheus.GaugeVec
+
 	// System metrics
 	activeConnections    prometheus.Gauge
 	memoryUsage         prometheus.Gauge
@@ -87,6 +97,7 @@ func NewMetrics(serviceName string, opts ...MetricsOption) *SyncKitMetrics {
 	m.initTransportMetrics()
 	m.initStorageMetrics()
 	m.initConflictMetrics()
+	m.initProjectionMetrics()
 	m.initSystemMetrics()
 
 	// Register all metrics
@@ -276,6 +287,99 @@ func (m *SyncKitMetrics) initConflictMetrics() {
 	)
 }
 
+// initProjectionMetrics initializes projection operation metrics.
+func (m *SyncKitMetrics) initProjectionMetrics() {
+	m.projectionOpsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "operations_total",
+			Help:        "Total number of projection operations.",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection", "operation", "status"},
+	)
+
+	m.projectionOpsDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "operation_duration_seconds",
+			Help:        "Duration of projection operations in seconds.",
+			ConstLabels: m.labels,
+			Buckets:     []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}, // Similar to sync operations
+		},
+		[]string{"projection", "operation"},
+	)
+
+	m.projectionEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "events_processed_total",
+			Help:        "Total number of events processed during projection operations.",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection", "operation"},
+	)
+
+	m.projectionBatchSize = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "batch_size",
+			Help:        "Size of projection batches.",
+			ConstLabels: m.labels,
+			Buckets:     []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000},
+		},
+		[]string{"projection"},
+	)
+
+	m.projectionErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "errors_total",
+			Help:        "Total number of projection errors.",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection", "operation", "error_type"},
+	)
+
+	m.projectionLastSuccess = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "last_success_timestamp",
+			Help:        "Timestamp of the last successful projection operation.",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection", "operation"},
+	)
+
+	m.projectionLag = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "lag_seconds",
+			Help:        "Lag between event creation and projection processing in seconds.",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection"},
+	)
+
+	m.projectionHealth = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace:   "synckit",
+			Subsystem:   "projection",
+			Name:        "health",
+			Help:        "Health status of projections (0=unhealthy, 1=healthy).",
+			ConstLabels: m.labels,
+		},
+		[]string{"projection"},
+	)
+}
+
 // initSystemMetrics initializes system-level metrics.
 func (m *SyncKitMetrics) initSystemMetrics() {
 	m.activeConnections = prometheus.NewGauge(
@@ -340,6 +444,18 @@ func (m *SyncKitMetrics) registerMetrics() {
 	m.registry.MustRegister(
 		m.conflictOpsTotal,
 		m.conflictDuration,
+	)
+
+	// Projection metrics
+	m.registry.MustRegister(
+		m.projectionOpsTotal,
+		m.projectionOpsDuration,
+		m.projectionEventsProcessed,
+		m.projectionBatchSize,
+		m.projectionErrorsTotal,
+		m.projectionLastSuccess,
+		m.projectionLag,
+		m.projectionHealth,
 	)
 
 	// System metrics
@@ -434,6 +550,47 @@ func (m *SyncKitMetrics) RecordConflictResolution(strategy string, duration time
 	m.conflictDuration.WithLabelValues(strategy).Observe(duration.Seconds())
 }
 
+// RecordProjectionOperation records metrics for a projection operation.
+func (m *SyncKitMetrics) RecordProjectionOperation(projection, operation string, duration time.Duration, success bool, eventsProcessed int) {
+	status := "success"
+	if !success {
+		status = "error"
+	}
+
+	m.projectionOpsTotal.WithLabelValues(projection, operation, status).Inc()
+	m.projectionOpsDuration.WithLabelValues(projection, operation).Observe(duration.Seconds())
+
+	if eventsProcessed > 0 {
+		m.projectionEventsProcessed.WithLabelValues(projection, operation).Add(float64(eventsProcessed))
+		m.projectionBatchSize.WithLabelValues(projection).Observe(float64(eventsProcessed))
+	}
+
+	if success {
+		m.projectionLastSuccess.WithLabelValues(projection, operation).SetToCurrentTime()
+		m.projectionHealth.WithLabelValues(projection).Set(1)
+	}
+}
+
+// RecordProjectionError records a projection operation error.
+func (m *SyncKitMetrics) RecordProjectionError(projection, operation, errorType string) {
+	m.projectionErrorsTotal.WithLabelValues(projection, operation, errorType).Inc()
+	m.projectionHealth.WithLabelValues(projection).Set(0)
+}
+
+// UpdateProjectionLag updates the projection lag metric.
+func (m *SyncKitMetrics) UpdateProjectionLag(projection string, lag time.Duration) {
+	m.projectionLag.WithLabelValues(projection).Set(lag.Seconds())
+}
+
+// SetProjectionHealth manually sets the health status of a projection.
+func (m *SyncKitMetrics) SetProjectionHealth(projection string, healthy bool) {
+	value := 0.0
+	if healthy {
+		value = 1.0
+	}
+	m.projectionHealth.WithLabelValues(projection).Set(value)
+}
+
 // UpdateSystemMetrics updates system-level metrics.
 func (m *SyncKitMetrics) UpdateSystemMetrics(ctx context.Context) {
 	// This would typically be called periodically to update system metrics
@@ -483,4 +640,9 @@ func (m *SyncKitMetrics) TransportOperationsTotal() *prometheus.CounterVec {
 // StorageOperationsTotal returns the storage operations counter for testing.
 func (m *SyncKitMetrics) StorageOperationsTotal() *prometheus.CounterVec {
 	return m.storageOpsTotal
+}
+
+// ProjectionOperationsTotal returns the projection operations counter for testing.
+func (m *SyncKitMetrics) ProjectionOperationsTotal() *prometheus.CounterVec {
+	return m.projectionOpsTotal
 }

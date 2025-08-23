@@ -25,6 +25,8 @@ If you're interested in **mentoring**, **contributing**, or **learning alongside
 - **Pluggable Components**: Interfaces for storage, transport, versioning, and conflict resolution
 - **Conflict Resolution**: Multiple strategies including last-write-wins, merge, and custom resolvers
 - **Concurrent Safe**: Thread-safe operations with proper synchronization
+- **Read-Model Projections**: CQRS/event sourcing with automatic projection execution and offset management
+- **Unified Observability**: Complete metrics and health monitoring integrated throughout
 
 ### Transport & Storage
 - **Transport Agnostic**: Works with HTTP, gRPC, WebSockets, NATS, or any custom transport
@@ -192,6 +194,8 @@ manager, err := synckit.NewManager(
 - `WithPullOnly()` - Pull-only synchronization
 - `WithMetrics(metrics)` - Enable Prometheus metrics collection
 - `WithHealthChecks(healthMgr)` - Enable health checks and monitoring
+- `WithProjections(runners...)` - Add projection runners for CQRS/event sourcing
+- `WithProjectionsOnSync(enabled)` - Auto-run projections after sync operations
 
 ### Using Functional Options (Recommended)
 
@@ -1342,6 +1346,7 @@ go test ./...
 - [x] **Enterprise Observability** - Complete Prometheus metrics and Kubernetes health checks
 - [x] **Health Check System** - Liveness, readiness, and startup probes with component monitoring
 - [x] **Functional Options API** - Simplified configuration with observability integration
+- [x] **Read-Model Projections** - Complete CQRS/event sourcing with automatic projection execution, BadgerDB offset persistence, and unified observability integration
 
 ### Next Up 🚀
 - [ ] **Storage Implementations**

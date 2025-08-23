@@ -10,6 +10,31 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/logging"
 )
 
+// ProjectionRunner is an interface that represents a projection runner.
+// This is an alias to avoid import cycles with the projection package.
+type ProjectionRunner interface {
+	// ApplySince applies all events since the last saved offset
+	ApplySince(ctx context.Context) (applied int, last Version, err error)
+	
+	// ApplyBatch applies a specific batch of events directly
+	ApplyBatch(ctx context.Context, batch []EventWithVersion) error
+}
+
+// ProjectionConfig holds configuration for projection support in SyncManager.
+type ProjectionConfig struct {
+	// Runners are the projection runners to execute after successful sync
+	Runners []ProjectionRunner
+	
+	// RunOnSync enables automatic projection execution after sync
+	RunOnSync bool
+	
+	// MaxWorkers is the maximum number of concurrent projection workers
+	MaxWorkers int
+	
+	// Timeout is the timeout for projection operations
+	Timeout time.Duration
+}
+
 // SyncManagerBuilder provides a fluent interface for constructing SyncManager instances.
 type SyncManagerBuilder struct {
 	store       EventStore
@@ -18,6 +43,12 @@ type SyncManagerBuilder struct {
 	logger      *slog.Logger
 	pushOnlySet bool // Track if PushOnly was explicitly set
 	pullOnlySet bool // Track if PullOnly was explicitly set
+	
+	// Projection support
+	projectionRunners     []ProjectionRunner
+	runProjectionsOnSync  bool
+	projectionMaxWorkers  int
+	projectionTimeout     time.Duration
 }
 
 // NewSyncManagerBuilder creates a new builder with default options.
@@ -29,7 +60,9 @@ func NewSyncManagerBuilder() *SyncManagerBuilder {
 			Timeout:           0, // No timeout by default
 			EnableCompression: false,
 		},
-		logger: logging.Default().Logger, // Use default logger
+		logger:               logging.Default().Logger, // Use default logger
+		projectionMaxWorkers: 3,                         // Default to 3 concurrent projections
+		projectionTimeout:    30 * time.Second,          // Default timeout for projections
 	}
 }
 
@@ -137,6 +170,32 @@ func (b *SyncManagerBuilder) WithHealthChecker(checker interface{}) *SyncManager
 	return b
 }
 
+// WithProjections adds projection runners to execute after successful sync.
+func (b *SyncManagerBuilder) WithProjections(runners ...ProjectionRunner) *SyncManagerBuilder {
+	b.projectionRunners = append(b.projectionRunners, runners...)
+	return b
+}
+
+// WithProjectionsOnSync enables automatic projection execution after sync.
+func (b *SyncManagerBuilder) WithProjectionsOnSync(enabled bool) *SyncManagerBuilder {
+	b.runProjectionsOnSync = enabled
+	return b
+}
+
+// WithProjectionMaxWorkers sets the maximum number of concurrent projection workers.
+func (b *SyncManagerBuilder) WithProjectionMaxWorkers(workers int) *SyncManagerBuilder {
+	if workers > 0 {
+		b.projectionMaxWorkers = workers
+	}
+	return b
+}
+
+// WithProjectionTimeout sets the timeout for projection operations.
+func (b *SyncManagerBuilder) WithProjectionTimeout(timeout time.Duration) *SyncManagerBuilder {
+	b.projectionTimeout = timeout
+	return b
+}
+
 // Build creates a new SyncManager instance with the configured options.
 func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 	// Validate required components
@@ -157,8 +216,16 @@ func (b *SyncManagerBuilder) Build() (SyncManager, error) {
 		return nil, fmt.Errorf("BatchSize must be positive, got %d", b.options.BatchSize)
 	}
 
-	// Create a new SyncManager instance
-	return NewSyncManager(b.store, b.transport, b.options, b.logger), nil
+	// Create projection configuration
+	projectionConfig := &ProjectionConfig{
+		Runners:     b.projectionRunners,
+		RunOnSync:   b.runProjectionsOnSync,
+		MaxWorkers:  b.projectionMaxWorkers,
+		Timeout:     b.projectionTimeout,
+	}
+	
+	// Create a new SyncManager instance with projection support
+	return NewSyncManager(b.store, b.transport, b.options, b.logger, projectionConfig), nil
 }
 
 // Reset clears the builder, allowing reuse.
@@ -174,5 +241,12 @@ func (b *SyncManagerBuilder) Reset() *SyncManagerBuilder {
 	b.logger = logging.Default().Logger
 	b.pushOnlySet = false
 	b.pullOnlySet = false
+	
+	// Reset projection fields
+	b.projectionRunners = nil
+	b.runProjectionsOnSync = false
+	b.projectionMaxWorkers = 3
+	b.projectionTimeout = 30 * time.Second
+	
 	return b
 }

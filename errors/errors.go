@@ -43,6 +43,10 @@ const (
 	OpConflictResolve Operation = "conflict_resolve"
 	OpTransport       Operation = "transport"
 	OpClose           Operation = "close"
+	// Projection operations
+	OpProjection      Operation = "projection"
+	OpProjectionApply Operation = "projection_apply"
+	OpOffsetStore     Operation = "offset_store"
 )
 
 // SyncError represents an error that occurred during synchronization

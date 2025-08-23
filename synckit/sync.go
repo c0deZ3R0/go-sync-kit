@@ -204,7 +204,7 @@ type SyncResult struct {
 }
 
 // NewSyncManager creates a new sync manager with the provided components
-func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, logger *slog.Logger) SyncManager {
+func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, logger *slog.Logger, projectionConfig *ProjectionConfig) SyncManager {
 	if opts == nil {
 		opts = &SyncOptions{
 			BatchSize: 100,
@@ -246,13 +246,26 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 		logger.Warn("Failed to create sync state machine, continuing without state tracking", "error", err)
 	}
 	
-	return &syncManager{
-		store:        store,
-		transport:    transport,
-		options:      *opts,
-		logger:       logger,
-		stateMachine: stateMachine,
+	sm := &syncManager{
+		store:            store,
+		transport:        transport,
+		options:          *opts,
+		logger:           logger,
+		stateMachine:     stateMachine,
+		projectionConfig: projectionConfig,
 	}
+	
+	// Initialize projection worker pool if projections are configured
+	if projectionConfig != nil && projectionConfig.RunOnSync && len(projectionConfig.Runners) > 0 {
+		sm.projectionPool = make(chan struct{}, projectionConfig.MaxWorkers)
+		logger.Info("Projection support enabled",
+			"runner_count", len(projectionConfig.Runners),
+			"max_workers", projectionConfig.MaxWorkers,
+			"timeout", projectionConfig.Timeout,
+		)
+	}
+	
+	return sm
 }
 
 // createSyncStateMachine creates a state machine with observability integration

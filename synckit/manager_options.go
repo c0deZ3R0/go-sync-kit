@@ -273,3 +273,37 @@ func WithHealthChecker(checker interface {
 		return nil
 	}
 }
+
+// WithProjections adds projection runners to execute after successful sync.
+func WithProjections(runners ...ProjectionRunner) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithProjections(runners...)
+		return nil
+	}
+}
+
+// WithProjectionsOnSync enables automatic projection execution after sync.
+func WithProjectionsOnSync(enabled bool) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithProjectionsOnSync(enabled)
+		return nil
+	}
+}
+
+// WithProjectionMaxWorkers sets the maximum number of concurrent projection workers.
+// Default is 3 workers.
+func WithProjectionMaxWorkers(workers int) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithProjectionMaxWorkers(workers)
+		return nil
+	}
+}
+
+// WithProjectionTimeout sets the timeout for projection operations.
+// Default is 30 seconds.
+func WithProjectionTimeout(timeout time.Duration) ManagerOption {
+	return func(b *SyncManagerBuilder) error {
+		b.WithProjectionTimeout(timeout)
+		return nil
+	}
+}

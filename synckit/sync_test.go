@@ -53,7 +53,7 @@ func TestSyncManager_Push_GetLatestVersion(t *testing.T) {
 	transport := &TestTransport{}
 
 	// Create sync manager
-	sm := NewSyncManager(store, transport, &SyncOptions{}, logging.Default().Logger)
+	sm := NewSyncManager(store, transport, &SyncOptions{}, logging.Default().Logger, nil)
 
 	ctx := context.Background()
 
@@ -99,7 +99,7 @@ func TestSyncManager_Sync(t *testing.T) {
 
 	sm := NewSyncManager(store, transport, &SyncOptions{
 		ConflictResolver: resolver,
-	}, logging.Default().Logger)
+	}, logging.Default().Logger, nil)
 
 	ctx := context.Background()
 
