@@ -22,6 +22,31 @@ type runner struct {
 	metrics        *metrics.SyncKitMetrics // Integrated metrics system
 }
 
+// getStartVersion determines the starting version for projection processing.
+// It handles the documented nil return from OffsetStore.Get gracefully by using
+// the event store's zero version when no offset has been stored yet.
+func (r *runner) getStartVersion(ctx context.Context) (synckit.Version, error) {
+	projectionName := r.projector.Name()
+	
+	offset, err := r.offsets.Get(ctx, projectionName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get offset for projection %s: %w", projectionName, err)
+	}
+	
+	if offset != nil {
+		return offset, nil
+	}
+	
+	// No stored offset - start from beginning
+	// Use store's ParseVersion with empty string to get zero version
+	zeroVersion, err := r.store.ParseVersion(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zero version for projection start: %w", err)
+	}
+	
+	return zeroVersion, nil
+}
+
 // ApplySince applies all events since the last saved offset.
 // Returns the number of events applied, the last processed version, and any error.
 func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Version, err error) {
@@ -39,8 +64,8 @@ func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Vers
 		}
 	}()
 	
-	// Get the last applied version from the offset store
-	lastVersion, err := r.offsets.Get(ctx, projectionName)
+	// Get the starting version, handling nil offset gracefully
+	startVersion, err := r.getStartVersion(ctx)
 	if err != nil {
 		if r.metricsEnabled && r.metrics != nil {
 			r.metrics.RecordProjectionError(projectionName, OperationApplySince, ErrorTypeOffset)
@@ -48,19 +73,19 @@ func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Vers
 		return 0, nil, errors.E(
 			errors.Op("runner.ApplySince"),
 			errors.Component("projection"),
-			fmt.Errorf("failed to get last offset for projection %s: %w", projectionName, err),
+			fmt.Errorf("failed to determine start version for projection %s: %w", projectionName, err),
 		)
 	}
 
-	r.logger.Debug("Starting projection from last offset",
+	r.logger.Debug("Starting projection from start version",
 		slog.String("projection", projectionName),
-		slog.Any("last_version", lastVersion),
+		slog.Any("start_version", startVersion),
 		slog.Int("batch_size", r.batchSize),
 	)
 
 	totalApplied := 0
 	var lastProcessed synckit.Version
-	currentAfter := lastVersion
+	currentAfter := startVersion
 
 	for {
 		// Load the next batch of events
