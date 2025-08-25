@@ -1,5 +1,7 @@
 # Read-Model Projections Implementation Plan for go-sync-kit
 
+> Maintenance update (2025-08-25): Added CONTRIBUTING.md and repository testing guidance. No changes to projection scope or milestones.
+
 ## Executive Summary
 
 This document outlines a comprehensive plan to add **read-model building/syncing capabilities** with CQRS, event sourcing, and offline-first support to the go-sync-kit library. The implementation maintains the server as the source of truth while enabling deterministic, idempotent projection execution on both clients and servers. The design is non-breaking and follows the existing architectural patterns in the codebase.
