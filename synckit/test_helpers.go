@@ -124,7 +124,11 @@ func (m *TestTransport) Close() error {
 }
 
 // MockMetricsCollector implements MetricsCollector interface for testing
+// Thread-safe: protects all internal slices with a mutex to avoid data races
+// when tests record metrics from multiple goroutines.
 type MockMetricsCollector struct {
+	mu sync.Mutex
+
 	DurationCalls []struct {
 		Operation string
 		Duration  time.Duration
@@ -141,6 +145,8 @@ type MockMetricsCollector struct {
 }
 
 func (m *MockMetricsCollector) RecordSyncDuration(operation string, duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.DurationCalls = append(m.DurationCalls, struct {
 		Operation string
 		Duration  time.Duration
@@ -148,19 +154,58 @@ func (m *MockMetricsCollector) RecordSyncDuration(operation string, duration tim
 }
 
 func (m *MockMetricsCollector) RecordSyncEvents(pushed, pulled int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.EventCalls = append(m.EventCalls, struct {
 		Pushed, Pulled int
 	}{pushed, pulled})
 }
 
 func (m *MockMetricsCollector) RecordSyncErrors(operation string, errorType string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ErrorCalls = append(m.ErrorCalls, struct {
 		Operation, ErrorType string
 	}{operation, errorType})
 }
 
 func (m *MockMetricsCollector) RecordConflicts(resolved int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ConflictCalls = append(m.ConflictCalls, struct {
 		Resolved int
 	}{resolved})
+}
+
+// Snapshot helpers for thread-safe reads in tests
+func (m *MockMetricsCollector) CopyDurationCalls() []struct{ Operation string; Duration time.Duration } {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]struct{ Operation string; Duration time.Duration }, len(m.DurationCalls))
+	copy(out, m.DurationCalls)
+	return out
+}
+
+func (m *MockMetricsCollector) CopyEventCalls() []struct{ Pushed, Pulled int } {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]struct{ Pushed, Pulled int }, len(m.EventCalls))
+	copy(out, m.EventCalls)
+	return out
+}
+
+func (m *MockMetricsCollector) CopyErrorCalls() []struct{ Operation, ErrorType string } {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]struct{ Operation, ErrorType string }, len(m.ErrorCalls))
+	copy(out, m.ErrorCalls)
+	return out
+}
+
+func (m *MockMetricsCollector) CopyConflictCalls() []struct{ Resolved int } {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]struct{ Resolved int }, len(m.ConflictCalls))
+	copy(out, m.ConflictCalls)
+	return out
 }

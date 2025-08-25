@@ -25,12 +25,14 @@ func TestMetricsCollection(t *testing.T) {
 				return err
 			},
 			assertions: func(t *testing.T, mc *MockMetricsCollector) {
-				if len(mc.DurationCalls) == 0 {
+				// Use thread-safe snapshots to avoid races under -race
+				durations := mc.CopyDurationCalls()
+				if len(durations) == 0 {
 					t.Error("Expected duration metric to be recorded")
 				}
 
 				foundFullSync := false
-				for _, call := range mc.DurationCalls {
+				for _, call := range durations {
 					if call.Operation == "full_sync" {
 						foundFullSync = true
 						break
@@ -78,7 +80,8 @@ func TestMetricsCollection(t *testing.T) {
 			},
 			assertions: func(t *testing.T, mc *MockMetricsCollector) {
 				foundPush := false
-				for _, call := range mc.DurationCalls {
+				durations := mc.CopyDurationCalls()
+				for _, call := range durations {
 					if call.Operation == "push" {
 						foundPush = true
 						break
@@ -89,7 +92,8 @@ func TestMetricsCollection(t *testing.T) {
 				}
 
 				foundEvents := false
-				for _, call := range mc.EventCalls {
+				events := mc.CopyEventCalls()
+				for _, call := range events {
 					if call.Pushed > 0 {
 						foundEvents = true
 						break
@@ -113,7 +117,8 @@ func TestMetricsCollection(t *testing.T) {
 			},
 			assertions: func(t *testing.T, mc *MockMetricsCollector) {
 				foundPull := false
-				for _, call := range mc.DurationCalls {
+				durations := mc.CopyDurationCalls()
+				for _, call := range durations {
 					if call.Operation == "pull" {
 						foundPull = true
 						break
