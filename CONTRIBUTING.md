@@ -95,15 +95,54 @@ Security: If you believe you’ve found a security issue, please avoid posting d
 
 ## Contributing Code
 
-### Workflow
-1. Create a feature branch:
+### Git Workflow (Git Flow)
+
+We use Git Flow with these main branches:
+- **`main`** - Production-ready, stable releases
+- **`develop`** - Integration branch for ongoing development
+- **`feature/*`** - Individual features (branched from `develop`)
+- **`hotfix/*`** - Emergency fixes to production (branched from `main`)
+
+#### For Feature Development:
+1. **Branch from develop**:
    ```bash
-   git checkout -b feature/your-feature
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/your-feature-name
    ```
-2. Make changes and add tests.
-3. Run tests (see “Testing” below).
-4. Commit using conventional commits (see below).
-5. Push and open a PR.
+
+2. **Make changes and add tests**
+   - Follow coding standards below
+   - Add comprehensive tests
+   - Update documentation if needed
+
+3. **Run tests** (see "Testing" section below)
+   ```bash
+   go test ./...
+   go test -race ./...
+   ```
+
+4. **Commit using conventional commits** (see format below)
+
+5. **Push and open a PR against `develop`**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+   - Open PR targeting `develop` branch
+   - Include tests and documentation
+   - Link related issues
+
+#### For Hotfixes:
+1. **Branch from main**:
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b hotfix/fix-critical-issue
+   ```
+
+2. **Make minimal fix, test thoroughly**
+
+3. **Open PR against `main`** (will be merged to both `main` and `develop`)
 
 ### Coding Standards
 - Use standard Go practices (gofmt, go vet).
