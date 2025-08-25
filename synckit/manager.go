@@ -39,7 +39,7 @@ type syncManager struct {
 func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	start := time.Now()
 	sm.logger.Info("Starting bidirectional sync operation")
-	
+
 	// Check if manager is closed
 	sm.mu.RLock()
 	if sm.closed {
@@ -55,18 +55,17 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 		currentState := sm.stateMachine.Current()
 		if !currentState.CanAutoSync() {
 			err := syncErrors.New(syncErrors.OpSync, fmt.Errorf("sync operation already in progress: %s", currentState))
-			sm.logger.Warn("Sync operation rejected: already in progress", 
+			sm.logger.Warn("Sync operation rejected: already in progress",
 				"current_state", currentState.String(),
 				"error", err)
 			return nil, err
 		}
-		
+
 		// Transition to initializing state
 		if err := sm.stateMachine.TransitionWithContext(SyncInitializing, map[string]interface{}{
-			"operation": "full_sync",
+			"operation":  "full_sync",
 			"started_at": start.Format(time.RFC3339),
-		});
-		 err != nil {
+		}); err != nil {
 			sm.logger.Error("Failed to transition to initializing state", "error", err)
 			return nil, syncErrors.NewWithComponent(syncErrors.OpSync, "state_machine", err)
 		}
@@ -77,39 +76,39 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 	}
 	defer func() {
 		result.Duration = time.Since(result.StartTime)
-		
+
 		// Transition to final state based on result
 		if sm.stateMachine != nil {
 			finalState := SyncCompleted
 			finalMetadata := map[string]interface{}{
-				"operation": "full_sync",
-				"duration_ms": result.Duration.Milliseconds(),
-				"events_pushed": result.EventsPushed,
-				"events_pulled": result.EventsPulled,
+				"operation":          "full_sync",
+				"duration_ms":        result.Duration.Milliseconds(),
+				"events_pushed":      result.EventsPushed,
+				"events_pulled":      result.EventsPulled,
 				"conflicts_resolved": result.ConflictsResolved,
 			}
-			
+
 			if len(result.Errors) > 0 {
 				finalState = SyncFailed
 				finalMetadata["error_count"] = len(result.Errors)
 				finalMetadata["errors"] = result.Errors
 			}
-			
+
 			if err := sm.stateMachine.TransitionWithContext(finalState, finalMetadata); err != nil {
-				sm.logger.Error("Failed to transition to final state", 
+				sm.logger.Error("Failed to transition to final state",
 					"target_state", finalState.String(),
 					"error", err)
 			}
-			
+
 			// Always transition back to idle after completion or failure
 			if err := sm.stateMachine.TransitionWithContext(SyncIdle, map[string]interface{}{
 				"operation_completed": true,
-				"final_state": finalState.String(),
+				"final_state":         finalState.String(),
 			}); err != nil {
 				sm.logger.Error("Failed to transition back to idle state", "error", err)
 			}
 		}
-		
+
 		sm.notifySubscribers(result)
 
 		// Record metrics and log completion
@@ -146,7 +145,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 				return result, nil // Defer will handle final state transition
 			}
 		}
-		
+
 		sm.logger.Debug("Starting pull phase of sync operation")
 		pullResult, err := sm.pull(ctx)
 		if err != nil {
@@ -175,7 +174,7 @@ func (sm *syncManager) Sync(ctx context.Context) (*SyncResult, error) {
 				return result, nil // Defer will handle final state transition
 			}
 		}
-		
+
 		sm.logger.Debug("Starting push phase of sync operation")
 		pushResult, err := sm.push(ctx)
 		if err != nil {
@@ -330,7 +329,7 @@ func (sm *syncManager) push(ctx context.Context) (*SyncResult, error) {
 			"batch_number", (i/batchSize)+1,
 			"batch_size", len(batch),
 			"total_batches", (len(localEvents)+batchSize-1)/batchSize)
-		
+
 		if err := sm.transport.Push(ctx, batch); err != nil {
 			sm.logger.Error("Failed to push event batch",
 				"batch_number", (i/batchSize)+1,
@@ -385,7 +384,7 @@ func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error
 		"initial_delay", config.InitialDelay,
 		"max_delay", config.MaxDelay,
 		"multiplier", config.Multiplier)
-		
+
 	eb := &exponentialBackoff{
 		initialDelay: config.InitialDelay,
 		maxDelay:     config.MaxDelay,
@@ -409,7 +408,7 @@ func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error
 	sm.logger.Warn("Operation failed with retryable error, starting retry sequence",
 		"error", err,
 		"max_attempts", config.MaxAttempts)
-		
+
 	for attempt := 1; attempt < config.MaxAttempts; attempt++ {
 		// Calculate and apply delay before retry
 		delay := eb.nextDelay(attempt - 1) // attempt-1 to start with initial delay
@@ -442,7 +441,7 @@ func (sm *syncManager) syncWithRetry(ctx context.Context, operation func() error
 				"error", err)
 			return err
 		}
-		
+
 		sm.logger.Debug("Retry attempt failed, will continue retrying",
 			"attempt", attempt+1,
 			"error", err)
@@ -545,16 +544,16 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 			sm.logger.Debug("Detecting conflicts between local and remote events",
 				"local_events", len(localEvents),
 				"remote_events", len(remoteEvents))
-			
+
 			// Detect actual conflicts by comparing events
 			conflicts := sm.detectConflicts(localEvents, remoteEvents)
 			if len(conflicts) > 0 {
 				sm.logger.Info("Found conflicts, starting resolution", "conflict_count", len(conflicts))
-				
+
 				// Transition to conflict resolution state
 				if sm.stateMachine != nil {
 					if err := sm.stateMachine.TransitionWithContext(SyncResolvingConflicts, map[string]interface{}{
-						"operation": "conflict_resolution",
+						"operation":      "conflict_resolution",
 						"conflict_count": len(conflicts),
 					}); err != nil {
 						sm.logger.Error("Failed to transition to conflict resolution state", "error", err)
@@ -562,7 +561,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 						return result, nil // Defer will handle final state transition
 					}
 				}
-				
+
 				// Check context before starting conflict resolution
 				select {
 				case <-ctx.Done():
@@ -571,7 +570,7 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 					return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", ctx.Err())
 				default:
 				}
-				
+
 				// Resolve each conflict using the new interface
 				var resolvedEvents []EventWithVersion
 				for _, conflict := range conflicts {
@@ -585,20 +584,20 @@ func (sm *syncManager) pull(ctx context.Context) (*SyncResult, error) {
 						}
 						return result, syncErrors.NewWithComponent(syncErrors.OpConflictResolve, "resolver", err)
 					}
-					
+
 					// Apply resolved events
 					resolvedEvents = append(resolvedEvents, resolvedConflict.ResolvedEvents...)
-					
+
 					// Log resolution details for audit
 					if len(resolvedConflict.Reasons) > 0 {
-						sm.logger.Info("Conflict resolved with reasons", 
+						sm.logger.Info("Conflict resolved with reasons",
 							"aggregate_id", conflict.AggregateID,
 							"event_type", conflict.EventType,
 							"decision", resolvedConflict.Decision,
 							"reasons", resolvedConflict.Reasons)
 					}
 				}
-				
+
 				// Replace remote events with resolved events
 				remoteEvents = resolvedEvents
 				result.ConflictsResolved = len(conflicts)
@@ -710,7 +709,7 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				sm.logger.Debug("Auto sync tick - checking if sync is possible")
-				
+
 				// Check state machine to prevent overlapping sync operations
 				if sm.stateMachine != nil {
 					currentState := sm.stateMachine.Current()
@@ -720,13 +719,13 @@ func (sm *syncManager) StartAutoSync(ctx context.Context) error {
 						continue // Skip this tick and wait for next one
 					}
 				}
-				
+
 				// Check transport health if transport supports state awareness
 				if !sm.isTransportHealthyForSync() {
 					sm.logger.Debug("Auto sync skipped - transport not healthy for sync operations")
 					continue // Skip this tick and wait for next one
 				}
-				
+
 				sm.logger.Debug("Auto sync tick - starting sync operation")
 				// Create timeout context derived from auto-sync context
 				syncCtx, cancel := sm.withTimeout(autoSyncCtx)
@@ -764,12 +763,12 @@ func (sm *syncManager) StopAutoSync() error {
 	}
 
 	sm.logger.Info("Stopping automatic sync")
-	
+
 	// Cancel the auto-sync context to stop the goroutine
 	sm.autoSyncCancel()
 	sm.autoSyncCancel = nil
 	sm.autoSyncInterval = 0
-	
+
 	sm.logger.Info("Auto sync stopped successfully")
 	return nil
 }
@@ -879,23 +878,23 @@ func findLatestVersion(events []EventWithVersion) Version {
 // 2. Different versions/timestamps indicating concurrent modifications
 func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVersion) []Conflict {
 	var conflicts []Conflict
-	
+
 	// Create a map of local events by aggregate+type for quick lookup
 	localByKey := make(map[string][]EventWithVersion)
 	for _, local := range localEvents {
 		key := local.Event.AggregateID() + ":" + local.Event.Type()
 		localByKey[key] = append(localByKey[key], local)
 	}
-	
+
 	// Check each remote event for conflicts with local events
 	for _, remote := range remoteEvents {
 		key := remote.Event.AggregateID() + ":" + remote.Event.Type()
 		localMatches, exists := localByKey[key]
-		
+
 		if !exists {
 			continue // No local event with same aggregate+type, no conflict
 		}
-		
+
 		// For each matching local event, check if there's a version conflict
 		for _, local := range localMatches {
 			// Simple conflict detection: if we have both local and remote events
@@ -909,17 +908,17 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 					Remote:      remote,
 					Metadata:    make(map[string]any),
 				}
-				
+
 				// Add metadata for enhanced conflict resolution
 				conflict.Metadata["local_version"] = local.Version.String()
 				conflict.Metadata["remote_version"] = remote.Version.String()
 				conflict.Metadata["version_comparison"] = local.Version.Compare(remote.Version)
-				
+
 				// Try to detect changed fields by comparing event data
 				if changedFields := sm.detectChangedFields(local.Event, remote.Event); len(changedFields) > 0 {
 					conflict.ChangedFields = changedFields
 				}
-				
+
 				// Add origin metadata if available from event metadata
 				if localMeta := local.Event.Metadata(); localMeta != nil {
 					if origin, ok := localMeta["origin"]; ok {
@@ -937,9 +936,9 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 						conflict.Metadata["remote_timestamp"] = timestamp
 					}
 				}
-				
+
 				conflicts = append(conflicts, conflict)
-				
+
 				sm.logger.Debug("Detected conflict",
 					"aggregate_id", conflict.AggregateID,
 					"event_type", conflict.EventType,
@@ -949,10 +948,9 @@ func (sm *syncManager) detectConflicts(localEvents, remoteEvents []EventWithVers
 			}
 		}
 	}
-	
+
 	return conflicts
 }
-
 
 // isTransportHealthyForSync checks if the transport is healthy enough for sync operations
 // This method supports state-aware transports and falls back to always allowing sync
@@ -970,7 +968,7 @@ func (sm *syncManager) isTransportHealthyForSync() bool {
 		sm.logger.Debug("Transport is healthy for sync operations")
 		return true
 	}
-	
+
 	// Check if it's a StatefulTransportWrapper from statemachine package
 	if statefulWrapper, ok := sm.transport.(interface {
 		GetConnectionState() interface{}
@@ -980,20 +978,20 @@ func (sm *syncManager) isTransportHealthyForSync() bool {
 		// For sync operations, we need both send and receive capabilities
 		canSend := statefulWrapper.CanSendData()
 		canReceive := statefulWrapper.CanReceiveData()
-		
+
 		if !canSend || !canReceive {
 			sm.logger.Debug("Transport state does not allow sync operations",
 				"can_send", canSend,
 				"can_receive", canReceive)
 			return false
 		}
-		
+
 		sm.logger.Debug("Transport state allows sync operations",
 			"can_send", canSend,
 			"can_receive", canReceive)
 		return true
 	}
-	
+
 	// For non-stateful transports, always allow sync (backward compatibility)
 	sm.logger.Debug("Transport does not support state awareness, allowing sync")
 	return true
@@ -1034,16 +1032,16 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 			}
 
 			sm.logger.Debug("Starting projection runner", "runner_index", runnerIndex)
-			
+
 			// Execute projection with timeout context - use ApplySince to catch up projections
 			applied, lastVersion, err := projRunner.ApplySince(projectionCtx)
 			if err != nil {
-				sm.logger.Error("Projection runner failed", 
+				sm.logger.Error("Projection runner failed",
 					"runner_index", runnerIndex,
 					"error", err)
 				errorChan <- fmt.Errorf("projection runner %d failed: %w", runnerIndex, err)
 			} else {
-				sm.logger.Debug("Projection runner completed successfully", 
+				sm.logger.Debug("Projection runner completed successfully",
 					"runner_index", runnerIndex,
 					"applied_events", applied,
 					"last_version", lastVersion)
@@ -1068,7 +1066,7 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 			// Timeout occurred - collect any remaining runners as errors
 			remainingRunners := totalRunners - completedCount
 			if remainingRunners > 0 {
-				timeoutErr := fmt.Errorf("projection execution timed out with %d runners still pending after %v", 
+				timeoutErr := fmt.Errorf("projection execution timed out with %d runners still pending after %v",
 					remainingRunners, sm.projectionConfig.Timeout)
 				projectionErrors = append(projectionErrors, timeoutErr)
 			}
@@ -1078,7 +1076,7 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 
 	// Log projection execution summary
 	if len(projectionErrors) == 0 {
-		sm.logger.Info("All projection runners completed successfully", 
+		sm.logger.Info("All projection runners completed successfully",
 			"completed_count", completedCount)
 		return nil
 	} else {
@@ -1086,7 +1084,7 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 			"completed_count", completedCount,
 			"error_count", len(projectionErrors),
 			"total_runners", totalRunners)
-		
+
 		// Combine all projection errors into a single error
 		errorMessages := make([]string, len(projectionErrors))
 		for i, err := range projectionErrors {
@@ -1103,23 +1101,23 @@ func (sm *syncManager) detectChangedFields(local, remote Event) []string {
 	// For now, we'll do a simple check based on event data comparison
 	// In a real implementation, this would be more sophisticated and potentially
 	// use reflection or schema-based comparison
-	
+
 	localData := local.Data()
 	remoteData := remote.Data()
-	
+
 	if localData == nil && remoteData == nil {
 		return nil
 	}
-	
+
 	if localData == nil || remoteData == nil {
 		return []string{"data"}
 	}
-	
+
 	// Simple comparison - if data differs, mark "data" as changed
 	// A more sophisticated implementation would inspect struct fields
 	if fmt.Sprintf("%v", localData) != fmt.Sprintf("%v", remoteData) {
 		return []string{"data"}
 	}
-	
+
 	return nil
 }

@@ -3,6 +3,7 @@ package synckit
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,8 @@ func (s *slowResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflic
 
 // testObservabilityHooks captures hook calls for testing
 type testObservabilityHooks struct {
+	mu sync.Mutex
+
 	stateTransitions          []stateTransitionCall
 	stateTransitionFailures   []stateTransitionFailureCall
 	workflowsStarted         []workflowStartedCall
@@ -128,30 +131,48 @@ func newTestObservabilityHooks() *testObservabilityHooks {
 func (th *testObservabilityHooks) toConflictResolutionObservabilityHooks() *statemachine.ConflictResolutionObservabilityHooks {
 	return &statemachine.ConflictResolutionObservabilityHooks{
 		OnStateTransition: func(from, to statemachine.ConflictResolutionState, metadata map[string]interface{}) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.stateTransitions = append(th.stateTransitions, stateTransitionCall{from: from, to: to, metadata: metadata})
 		},
 		OnStateTransitionFailed: func(from, to statemachine.ConflictResolutionState, err error) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.stateTransitionFailures = append(th.stateTransitionFailures, stateTransitionFailureCall{from: from, to: to, err: err})
 		},
 		OnWorkflowStarted: func(conflictID string, conflict Conflict) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.workflowsStarted = append(th.workflowsStarted, workflowStartedCall{conflictID: conflictID, conflict: conflict})
 		},
 		OnWorkflowCompleted: func(conflictID string, auditTrail *statemachine.ConflictAuditTrail) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.workflowsCompleted = append(th.workflowsCompleted, workflowCompletedCall{conflictID: conflictID, auditTrail: auditTrail})
 		},
 		OnWorkflowFailed: func(conflictID string, err error) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.workflowsFailed = append(th.workflowsFailed, workflowFailedCall{conflictID: conflictID, err: err})
 		},
 		OnRuleEvaluationStarted: func(conflictID, ruleName string) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.ruleEvaluationsStarted = append(th.ruleEvaluationsStarted, ruleEvaluationCall{conflictID: conflictID, ruleName: ruleName})
 		},
 		OnRuleEvaluationCompleted: func(conflictID, ruleName string, matched bool, duration time.Duration) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.ruleEvaluationsCompleted = append(th.ruleEvaluationsCompleted, ruleEvaluationCompletedCall{conflictID: conflictID, ruleName: ruleName, matched: matched, duration: duration})
 		},
 		OnRuleEvaluationFailed: func(conflictID, ruleName string, err error) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.ruleEvaluationsFailed = append(th.ruleEvaluationsFailed, ruleEvaluationFailedCall{conflictID: conflictID, ruleName: ruleName, err: err})
 		},
 		OnMetricsRecorded: func(metrics *statemachine.ResolverPerformanceMetrics) {
+			th.mu.Lock()
+			defer th.mu.Unlock()
 			th.metricsRecorded = append(th.metricsRecorded, metricsRecordedCall{metrics: metrics})
 		},
 	}
@@ -280,22 +301,34 @@ func TestStatefulDynamicResolver_StateTransitions(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Verify state transitions were recorded
-	if len(testHooks.stateTransitions) == 0 {
-		t.Error("Expected state transitions to be recorded")
-	}
+	func() {
+		testHooks.mu.Lock()
+		defer testHooks.mu.Unlock()
+		if len(testHooks.stateTransitions) == 0 {
+			t.Error("Expected state transitions to be recorded")
+		}
+	}()
 
 	// Verify workflows were started and completed
-	if len(testHooks.workflowsStarted) != 1 {
-		t.Errorf("Expected 1 workflow to be started, got: %d", len(testHooks.workflowsStarted))
-	}
-	if len(testHooks.workflowsCompleted) != 1 {
-		t.Errorf("Expected 1 workflow to be completed, got: %d", len(testHooks.workflowsCompleted))
-	}
+	func() {
+		testHooks.mu.Lock()
+		defer testHooks.mu.Unlock()
+		if len(testHooks.workflowsStarted) != 1 {
+			t.Errorf("Expected 1 workflow to be started, got: %d", len(testHooks.workflowsStarted))
+		}
+		if len(testHooks.workflowsCompleted) != 1 {
+			t.Errorf("Expected 1 workflow to be completed, got: %d", len(testHooks.workflowsCompleted))
+		}
+	}()
 
 	// Verify metrics were recorded
-	if len(testHooks.metricsRecorded) == 0 {
-		t.Error("Expected performance metrics to be recorded")
-	}
+	func() {
+		testHooks.mu.Lock()
+		defer testHooks.mu.Unlock()
+		if len(testHooks.metricsRecorded) == 0 {
+			t.Error("Expected performance metrics to be recorded")
+		}
+	}()
 }
 
 func TestStatefulDynamicResolver_RuleEvaluation(t *testing.T) {
@@ -577,9 +610,14 @@ func TestStatefulDynamicResolver_StateChanges(t *testing.T) {
 	}
 
 	// Subscribe to state changes
-	var stateChanges []statemachine.ConflictResolutionState
+	var (
+		stateChanges []statemachine.ConflictResolutionState
+		stateMu      sync.Mutex
+	)
 	observer := &testStateObserver{
 		onTransition: func(from, to statemachine.ConflictResolutionState, metadata map[string]interface{}) {
+			stateMu.Lock()
+			defer stateMu.Unlock()
 			stateChanges = append(stateChanges, to)
 		},
 	}
