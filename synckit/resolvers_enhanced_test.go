@@ -15,12 +15,12 @@ func TestResolvers_EnhancedEdgeCases(t *testing.T) {
 		t.Run("BoundaryConditions", testLastWriteWinsBoundaryConditions)
 		t.Run("ErrorConditions", testLastWriteWinsErrorConditions)
 	})
-	
+
 	t.Run("AdditiveMergeResolver", func(t *testing.T) {
 		t.Run("EdgeCases", testAdditiveMergeEdgeCases)
 		t.Run("BoundaryConditions", testAdditiveMergeBoundaryConditions)
 	})
-	
+
 	t.Run("ManualReviewResolver", func(t *testing.T) {
 		t.Run("EdgeCases", testManualReviewEdgeCases)
 		t.Run("ReasonHandling", testManualReviewReasonHandling)
@@ -32,37 +32,37 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name      string
-		conflict  Conflict
-		wantDecision string
+		name           string
+		conflict       Conflict
+		wantDecision   string
 		wantEventCount int
-		wantError bool
+		wantError      bool
 	}{
 		{
 			name: "identical_versions_prefer_remote",
 			conflict: Conflict{
-			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 5}},
-			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 5}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 5}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 5}},
 			},
-			wantDecision: "keep_remote",
+			wantDecision:   "keep_remote",
 			wantEventCount: 1,
 		},
 		{
 			name: "zero_versions_both",
 			conflict: Conflict{
-			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 0}},
-			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 0}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 0}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 0}},
 			},
-			wantDecision: "keep_remote",
+			wantDecision:   "keep_remote",
 			wantEventCount: 1,
 		},
 		{
 			name: "very_large_version_numbers",
 			conflict: Conflict{
-			Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 999999999}},
-			Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 1000000000}},
+				Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 999999999}},
+				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 1000000000}},
 			},
-			wantDecision: "keep_remote",
+			wantDecision:   "keep_remote",
 			wantEventCount: 1,
 		},
 		{
@@ -71,7 +71,7 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 				Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: -1}},
 				Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 1}},
 			},
-			wantDecision: "keep_remote",
+			wantDecision:   "keep_remote",
 			wantEventCount: 1,
 		},
 		{
@@ -80,7 +80,7 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 				Local:  EventWithVersion{Event: &testEvent{id: ""}, Version: &testVersion{v: 1}},
 				Remote: EventWithVersion{Event: &testEvent{id: ""}, Version: &testVersion{v: 2}},
 			},
-			wantDecision: "keep_remote",
+			wantDecision:   "keep_remote",
 			wantEventCount: 1,
 		},
 	}
@@ -88,7 +88,7 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := resolver.Resolve(ctx, tt.conflict)
-			
+
 			if tt.wantError && err == nil {
 				t.Errorf("Expected error but got none")
 				return
@@ -97,7 +97,7 @@ func testLastWriteWinsEdgeCases(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if result.Decision != tt.wantDecision {
 				t.Errorf("Decision: got %s, want %s", result.Decision, tt.wantDecision)
 			}
@@ -115,12 +115,12 @@ func testLastWriteWinsBoundaryConditions(t *testing.T) {
 	// Test context cancellation
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-	
+
 	conflict := Conflict{
 		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
-	
+
 	// Should still work even with cancelled context (no async operations)
 	result, err := resolver.Resolve(cancelCtx, conflict)
 	if err != nil {
@@ -134,7 +134,7 @@ func testLastWriteWinsBoundaryConditions(t *testing.T) {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer timeoutCancel()
 	time.Sleep(2 * time.Millisecond) // Ensure timeout
-	
+
 	result, err = resolver.Resolve(timeoutCtx, conflict)
 	if err != nil {
 		t.Errorf("Unexpected error with timeout context: %v", err)
@@ -143,13 +143,13 @@ func testLastWriteWinsBoundaryConditions(t *testing.T) {
 
 func testLastWriteWinsErrorConditions(t *testing.T) {
 	resolver := &LastWriteWinsResolver{}
-	
+
 	// Test with invalid version comparison
 	invalidVersionConflict := Conflict{
 		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &invalidVersion{}},
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
-	
+
 	result, err := resolver.Resolve(context.Background(), invalidVersionConflict)
 	// Should handle gracefully - invalid version should return 0 from Compare
 	if err != nil {
@@ -207,7 +207,7 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 				},
 				Remote: EventWithVersion{
 					Event: &testEvent{
-						id:   "large-remote", 
+						id:   "large-remote",
 						data: strings.Repeat("y", 10000),
 					},
 					Version: &testVersion{v: 2},
@@ -233,15 +233,15 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if len(result.ResolvedEvents) != tt.wantEventCount {
 				t.Errorf("Event count: got %d, want %d", len(result.ResolvedEvents), tt.wantEventCount)
 			}
-			
+
 			if result.Decision != "merge" && tt.wantEventCount > 0 {
 				t.Errorf("Expected merge decision for non-empty result, got %s", result.Decision)
 			}
-			
+
 			// Verify consistent ordering (local first, then remote)
 			if tt.checkOrder && len(result.ResolvedEvents) == 2 {
 				if result.ResolvedEvents[0].Event.ID() != "large-local" {
@@ -257,16 +257,16 @@ func testAdditiveMergeEdgeCases(t *testing.T) {
 
 func testAdditiveMergeBoundaryConditions(t *testing.T) {
 	resolver := &AdditiveMergeResolver{}
-	
+
 	// Test with many concurrent resolves (checking for race conditions)
 	const numResolves = 100
 	results := make(chan ResolvedConflict, numResolves)
-	
+
 	conflict := Conflict{
 		Local:  EventWithVersion{Event: &testEvent{id: "local"}, Version: &testVersion{v: 1}},
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
-	
+
 	for i := 0; i < numResolves; i++ {
 		go func() {
 			result, err := resolver.Resolve(context.Background(), conflict)
@@ -277,7 +277,7 @@ func testAdditiveMergeBoundaryConditions(t *testing.T) {
 			results <- result
 		}()
 	}
-	
+
 	// Collect all results and verify consistency
 	for i := 0; i < numResolves; i++ {
 		result := <-results
@@ -292,10 +292,10 @@ func testAdditiveMergeBoundaryConditions(t *testing.T) {
 
 func testManualReviewEdgeCases(t *testing.T) {
 	tests := []struct {
-		name         string
-		reason       string
-		wantReasons  []string
-		checkReason  string
+		name        string
+		reason      string
+		wantReasons []string
+		checkReason string
 	}{
 		{
 			name:        "empty_reason",
@@ -325,30 +325,30 @@ func testManualReviewEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver := &ManualReviewResolver{Reason: tt.reason}
-			
+
 			conflict := Conflict{
 				Local:  EventWithVersion{Event: &testEvent{id: "local"}},
 				Remote: EventWithVersion{Event: &testEvent{id: "remote"}},
 			}
-			
+
 			result, err := resolver.Resolve(context.Background(), conflict)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if result.Decision != "manual_review" {
 				t.Errorf("Expected manual_review, got %s", result.Decision)
 			}
-			
+
 			if len(result.ResolvedEvents) != 0 {
 				t.Errorf("Expected no resolved events, got %d", len(result.ResolvedEvents))
 			}
-			
+
 			if len(result.Reasons) != len(tt.wantReasons) {
 				t.Errorf("Reason count: got %d, want %d", len(result.Reasons), len(tt.wantReasons))
 			}
-			
+
 			// Check specific reason if provided
 			if tt.checkReason != "" {
 				found := false
@@ -368,13 +368,13 @@ func testManualReviewEdgeCases(t *testing.T) {
 
 func testManualReviewReasonHandling(t *testing.T) {
 	resolver := &ManualReviewResolver{Reason: "test reason"}
-	
+
 	// Test multiple sequential resolves maintain consistent reasons
 	conflict := Conflict{
 		Local:  EventWithVersion{Event: &testEvent{id: "local"}},
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}},
 	}
-	
+
 	const numResolves = 10
 	for i := 0; i < numResolves; i++ {
 		result, err := resolver.Resolve(context.Background(), conflict)
@@ -382,15 +382,15 @@ func testManualReviewReasonHandling(t *testing.T) {
 			t.Errorf("Resolve %d failed: %v", i, err)
 			continue
 		}
-		
+
 		expectedReasons := []string{"manual review required", "test reason"}
 		if len(result.Reasons) != len(expectedReasons) {
 			t.Errorf("Resolve %d: got %d reasons, want %d", i, len(result.Reasons), len(expectedReasons))
 		}
-		
+
 		for j, expected := range expectedReasons {
 			if j >= len(result.Reasons) || result.Reasons[j] != expected {
-				t.Errorf("Resolve %d: reason %d got %q, want %q", i, j, 
+				t.Errorf("Resolve %d: reason %d got %q, want %q", i, j,
 					safeGetReason(result.Reasons, j), expected)
 			}
 		}
@@ -408,10 +408,10 @@ func TestSpec_EnhancedEdgeCases(t *testing.T) {
 
 func testEventTypeIsEdgeCases(t *testing.T) {
 	tests := []struct {
-		name        string
-		matchType   string
-		conflict    Conflict
-		wantMatch   bool
+		name      string
+		matchType string
+		conflict  Conflict
+		wantMatch bool
 	}{
 		{
 			name:      "empty_match_type",
@@ -456,7 +456,7 @@ func testEventTypeIsEdgeCases(t *testing.T) {
 			spec := EventTypeIs(tt.matchType)
 			result := spec(tt.conflict)
 			if result != tt.wantMatch {
-				t.Errorf("EventTypeIs(%q) on %q: got %v, want %v", 
+				t.Errorf("EventTypeIs(%q) on %q: got %v, want %v",
 					tt.matchType, tt.conflict.EventType, result, tt.wantMatch)
 			}
 		})
@@ -465,10 +465,10 @@ func testEventTypeIsEdgeCases(t *testing.T) {
 
 func testAnyFieldInEdgeCases(t *testing.T) {
 	tests := []struct {
-		name        string
-		fields      []string
-		conflict    Conflict
-		wantMatch   bool
+		name      string
+		fields    []string
+		conflict  Conflict
+		wantMatch bool
 	}{
 		{
 			name:      "no_fields_to_match",
@@ -513,7 +513,7 @@ func testAnyFieldInEdgeCases(t *testing.T) {
 			wantMatch: true,
 		},
 		{
-			name: "large_field_list",
+			name:      "large_field_list",
 			fields:    generateFieldList(1000, "match_"),
 			conflict:  Conflict{ChangedFields: []string{"match_0", "other"}}, // match_0 exists in generated list
 			wantMatch: true,
@@ -525,7 +525,7 @@ func testAnyFieldInEdgeCases(t *testing.T) {
 			spec := AnyFieldIn(tt.fields...)
 			result := spec(tt.conflict)
 			if result != tt.wantMatch {
-				t.Errorf("AnyFieldIn(%v) on %v: got %v, want %v", 
+				t.Errorf("AnyFieldIn(%v) on %v: got %v, want %v",
 					tt.fields, tt.conflict.ChangedFields, result, tt.wantMatch)
 			}
 		})
@@ -628,7 +628,7 @@ func testCombinatorsEdgeCases(t *testing.T) {
 	// Create base specs for testing
 	alwaysTrue := func(Conflict) bool { return true }
 	alwaysFalse := func(Conflict) bool { return false }
-	
+
 	conflict := Conflict{EventType: "TestEvent"}
 
 	t.Run("nil_specs", func(t *testing.T) {
@@ -637,30 +637,30 @@ func testCombinatorsEdgeCases(t *testing.T) {
 		if andNilNil(conflict) != false {
 			t.Errorf("And(nil, nil) should return false")
 		}
-		
+
 		andTrueNil := And(alwaysTrue, nil)
 		if andTrueNil(conflict) != false {
 			t.Errorf("And(true, nil) should return false")
 		}
-		
+
 		// Or with nil specs
 		orNilNil := Or(nil, nil)
 		if orNilNil(conflict) != false {
 			t.Errorf("Or(nil, nil) should return false")
 		}
-		
+
 		orTrueNil := Or(alwaysTrue, nil)
 		if orTrueNil(conflict) != true {
 			t.Errorf("Or(true, nil) should return true")
 		}
-		
+
 		// Not with nil spec
 		notNil := Not(nil)
 		if notNil(conflict) != true {
 			t.Errorf("Not(nil) should return true")
 		}
 	})
-	
+
 	t.Run("complex_nesting", func(t *testing.T) {
 		// Create deeply nested combinator
 		eventTypeSpec := EventTypeIs("TestEvent")
@@ -668,7 +668,7 @@ func testCombinatorsEdgeCases(t *testing.T) {
 		orSpec := Or(eventTypeSpec, notEventType)
 		andSpec := And(orSpec, alwaysTrue)
 		finalSpec := Not(And(andSpec, alwaysFalse))
-		
+
 		// This should always be true due to the logic
 		if !finalSpec(conflict) {
 			t.Errorf("Complex nested spec should return true")
@@ -679,13 +679,13 @@ func testCombinatorsEdgeCases(t *testing.T) {
 		panicSpec := func(Conflict) bool {
 			panic("should not be called")
 		}
-		
+
 		// And should short-circuit on false
 		andShortCircuit := And(alwaysFalse, panicSpec)
 		if andShortCircuit(conflict) != false {
 			t.Errorf("And should short-circuit on false")
 		}
-		
+
 		// Or should short-circuit on true
 		orShortCircuit := Or(alwaysTrue, panicSpec)
 		if orShortCircuit(conflict) != true {
@@ -739,7 +739,7 @@ func BenchmarkLastWriteWinsResolver(b *testing.B) {
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = resolver.Resolve(ctx, conflict)
@@ -753,7 +753,7 @@ func BenchmarkAdditiveMergeResolver(b *testing.B) {
 		Remote: EventWithVersion{Event: &testEvent{id: "remote"}, Version: &testVersion{v: 2}},
 	}
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = resolver.Resolve(ctx, conflict)
@@ -763,7 +763,7 @@ func BenchmarkAdditiveMergeResolver(b *testing.B) {
 func BenchmarkEventTypeIsSpec(b *testing.B) {
 	spec := EventTypeIs("TestEvent")
 	conflict := Conflict{EventType: "TestEvent"}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = spec(conflict)
@@ -775,13 +775,13 @@ func BenchmarkComplexSpec(b *testing.B) {
 	fieldSpec := AnyFieldIn("field1", "field2", "field3")
 	metaSpec := MetadataEq("priority", "high")
 	complexSpec := And(Or(eventTypeSpec, fieldSpec), Not(metaSpec))
-	
+
 	conflict := Conflict{
 		EventType:     "TestEvent",
 		ChangedFields: []string{"field1", "other"},
 		Metadata:      map[string]interface{}{"priority": "low"},
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = complexSpec(conflict)

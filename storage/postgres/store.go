@@ -101,9 +101,9 @@ type Config struct {
 	ConnMaxIdleTime time.Duration // Default: 15m - Maximum idle time before closing
 
 	// LISTEN/NOTIFY settings for real-time capabilities
-	NotificationTimeout    time.Duration // Default: 30s - Timeout for waiting on notifications
-	ReconnectInterval      time.Duration // Default: 5s - Interval between reconnection attempts
-	MaxReconnectAttempts   int           // Default: 10 - Maximum reconnection attempts before giving up
+	NotificationTimeout  time.Duration // Default: 30s - Timeout for waiting on notifications
+	ReconnectInterval    time.Duration // Default: 5s - Interval between reconnection attempts
+	MaxReconnectAttempts int           // Default: 10 - Maximum reconnection attempts before giving up
 
 	// Performance tuning
 	BatchSize           int  // Default: 1000 - Batch size for bulk operations

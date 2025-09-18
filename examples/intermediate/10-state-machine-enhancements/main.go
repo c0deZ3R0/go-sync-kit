@@ -128,7 +128,7 @@ func visualizationDemo() {
 	// Perform some transitions to show current state highlighting
 	fmt.Println("\n🔄 Performing state transitions:")
 	transitions := []SyncState{SyncInitializing, SyncPulling, SyncResolvingConflicts}
-	
+
 	for _, state := range transitions {
 		if err := sm.Transition(state); err != nil {
 			fmt.Printf("❌ Failed to transition to %s: %v\n", state, err)
@@ -140,7 +140,7 @@ func visualizationDemo() {
 	// Export DOT representation
 	fmt.Println("\n📊 Generating DOT representation for visualization:")
 	dotContent := sm.ExportDOT()
-	
+
 	// Save to file for visualization
 	dotFile := "state_machine_diagram.dot"
 	if err := os.WriteFile(dotFile, []byte(dotContent), 0644); err != nil {
@@ -159,11 +159,11 @@ func visualizationDemo() {
 	if len(lines) < previewLines {
 		previewLines = len(lines)
 	}
-	
+
 	for i := 0; i < previewLines; i++ {
 		fmt.Printf("  %s\n", lines[i])
 	}
-	
+
 	if len(lines) > previewLines {
 		fmt.Printf("  ... (%d more lines)\n", len(lines)-previewLines)
 	}
@@ -196,7 +196,7 @@ func persistenceDemo() {
 	// Enable persistence with auto-save
 	persistenceConfig := statemachine.DefaultPersistenceConfig()
 	persistenceConfig.AutoSave = true
-	
+
 	fmt.Printf("📦 Enabling persistence for machine ID: %s\n", machineID)
 	if err := sm.EnablePersistence(persistence, machineID, persistenceConfig); err != nil {
 		fmt.Printf("❌ Failed to enable persistence: %v\n", err)
@@ -223,7 +223,7 @@ func persistenceDemo() {
 			fmt.Printf("    ❌ Transition failed: %v\n", err)
 			continue
 		}
-		
+
 		// Small delay to simulate work
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -251,7 +251,7 @@ func persistenceDemo() {
 
 	// Enable persistence - this should load the saved state
 	fmt.Printf("🔄 Restoring state for machine ID: %s\n", machineID)
-	
+
 	if err := newSM.EnablePersistence(persistence, machineID, persistenceConfig); err != nil {
 		fmt.Printf("❌ Failed to restore persistence: %v\n", err)
 		return
@@ -309,8 +309,8 @@ func timeoutDemo() {
 
 	// Set specific timeouts for different states
 	timeouts := map[SyncState]time.Duration{
-		SyncPulling: 1 * time.Second,  // Very short for demo
-		SyncPushing: 3 * time.Second,  // Slightly longer
+		SyncPulling: 1 * time.Second, // Very short for demo
+		SyncPushing: 3 * time.Second, // Slightly longer
 	}
 	timeoutHandler.SetTimeouts(timeouts)
 
@@ -333,10 +333,10 @@ func timeoutDemo() {
 
 	// Start with normal transitions
 	fmt.Println("\n🔄 Starting sync process with timeout monitoring:")
-	
+
 	fmt.Printf("  ➡️  Transitioning to: %s\n", SyncInitializing)
 	sm.Transition(SyncInitializing)
-	
+
 	fmt.Printf("  ➡️  Transitioning to: %s (will timeout in %v)\n", SyncPulling, timeouts[SyncPulling])
 	sm.Transition(SyncPulling)
 
@@ -349,12 +349,12 @@ func timeoutDemo() {
 
 	if currentState == SyncTimeout {
 		fmt.Println("  ✅ SUCCESS: Timeout handling worked correctly!")
-		
+
 		// Transition from timeout to recovery
 		fmt.Printf("  🔄 Recovering from timeout...\n")
 		sm.Transition(SyncFailed)
 		fmt.Printf("  ➡️  Transitioned to recovery state: %s\n", sm.Current())
-		
+
 		// Reset to idle
 		sm.Transition(SyncIdle)
 		fmt.Printf("  ➡️  Reset to: %s\n", sm.Current())
@@ -373,11 +373,11 @@ func timeoutDemo() {
 
 	// Demonstrate successful operation within timeout
 	fmt.Println("\n✅ Demonstrating successful operation within timeout limits:")
-	
+
 	sm.Transition(SyncInitializing)
 	sm.Transition(SyncPushing) // This has a 3-second timeout
 	fmt.Printf("  ➡️  In %s state (timeout in %v)\n", SyncPushing, timeouts[SyncPushing])
-	
+
 	// Complete within timeout
 	time.Sleep(1 * time.Second)
 	sm.Transition(SyncCompleted)
@@ -420,7 +420,7 @@ func integrationDemo() {
 	timeoutConfig := statemachine.DefaultTimeoutConfig(SyncTimeout)
 	timeoutConfig.DefaultTimeout = 5 * time.Second
 	timeoutHandler := statemachine.NewTimeoutHandler(sm, timeoutConfig)
-	
+
 	timeoutHandler.SetTimeouts(map[SyncState]time.Duration{
 		SyncPulling:            3 * time.Second,
 		SyncPushing:            4 * time.Second,
@@ -439,10 +439,10 @@ func integrationDemo() {
 
 	// 3. Run a complete sync workflow
 	fmt.Println("\n🚀 Running complete enhanced sync workflow:")
-	
+
 	workflow := []struct {
-		state SyncState
-		delay time.Duration
+		state       SyncState
+		delay       time.Duration
 		description string
 	}{
 		{SyncInitializing, 200 * time.Millisecond, "Initialize sync"},
@@ -458,7 +458,7 @@ func integrationDemo() {
 			fmt.Printf("    ❌ Transition failed: %v\n", err)
 			continue
 		}
-		
+
 		// Simulate work with delay
 		time.Sleep(step.delay)
 	}
@@ -468,7 +468,7 @@ func integrationDemo() {
 	// 4. Generate visualization
 	fmt.Println("\n📊 Generating final state machine visualization...")
 	dotContent := sm.ExportDOT()
-	
+
 	visualFile := "enhanced_sync_machine.dot"
 	if err := os.WriteFile(visualFile, []byte(dotContent), 0644); err == nil {
 		fmt.Printf("✅ Enhanced state machine diagram saved as: %s\n", visualFile)
@@ -477,14 +477,14 @@ func integrationDemo() {
 	// 5. Show comprehensive metrics
 	fmt.Println("\n📈 Final Enhancement Summary:")
 	fmt.Printf("  🎨 Visualization: State diagram exported (%d lines)\n", len(strings.Split(dotContent, "\n")))
-	
+
 	if machines, err := persistence.ListMachines(context.Background()); err == nil {
 		fmt.Printf("  💾 Persistence: %d machines persisted\n", len(machines))
 	}
-	
+
 	finalMetrics := timeoutMetrics.GetMetrics()
 	fmt.Printf("  ⏰ Timeouts: %d total timeouts handled\n", finalMetrics.TotalTimeouts)
-	
+
 	fmt.Printf("  📊 State History: %d transitions recorded\n", len(sm.History()))
 
 	fmt.Println("\n🎉 All enhancements successfully demonstrated!")

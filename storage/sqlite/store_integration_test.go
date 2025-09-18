@@ -220,7 +220,7 @@ func TestSQLiteEventStore_WALAndPoolDefaults(t *testing.T) {
 			{"journal_mode", "PRAGMA journal_mode;", "wal"},
 			{"busy_timeout", "PRAGMA busy_timeout;", 5000},
 			{"synchronous", "PRAGMA synchronous;", 1}, // NORMAL = 1
-			{"temp_store", "PRAGMA temp_store;", 2},    // MEMORY = 2
+			{"temp_store", "PRAGMA temp_store;", 2},   // MEMORY = 2
 			{"cache_size", "PRAGMA cache_size;", -20000},
 		}
 
@@ -292,7 +292,7 @@ func TestSQLiteEventStore_PragmaErrorHandling(t *testing.T) {
 		_, err := New(config)
 		assert.Error(t, err, "Should fail with invalid data source")
 		// Error could be either from database opening or PRAGMA application
-		assert.True(t, 
+		assert.True(t,
 			strings.Contains(err.Error(), "failed to open sqlite database") ||
 				strings.Contains(err.Error(), "failed to apply PRAGMA settings"),
 			"Error should mention database opening or PRAGMA application")

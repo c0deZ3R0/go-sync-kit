@@ -1,5 +1,5 @@
 // Example 6: Custom Events and Filters Demo
-// 
+//
 // This example demonstrates:
 // - Creating various custom event types for different domains
 // - Implementing event filtering to sync only specific event types
@@ -35,18 +35,18 @@ type BaseEvent struct {
 // UserEvent represents user management events
 type UserEvent struct {
 	BaseEvent
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Role         string `json:"role"`
-	Action       string `json:"action"` // created, updated, deleted, login
-	Department   string `json:"department"`
-	IsActive     bool   `json:"is_active"`
+	Username   string `json:"username"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	Action     string `json:"action"` // created, updated, deleted, login
+	Department string `json:"department"`
+	IsActive   bool   `json:"is_active"`
 }
 
-func (e *UserEvent) ID() string                           { return e.EventID }
-func (e *UserEvent) Type() string                         { return e.EventType }
-func (e *UserEvent) AggregateID() string                  { return e.BaseEvent.AggregateID }
-func (e *UserEvent) Data() interface{}                    { return e }
+func (e *UserEvent) ID() string          { return e.EventID }
+func (e *UserEvent) Type() string        { return e.EventType }
+func (e *UserEvent) AggregateID() string { return e.BaseEvent.AggregateID }
+func (e *UserEvent) Data() interface{}   { return e }
 func (e *UserEvent) Metadata() map[string]interface{} {
 	meta := make(map[string]interface{})
 	meta["user_id"] = e.UserID
@@ -66,19 +66,19 @@ func (e *UserEvent) Metadata() map[string]interface{} {
 // ProductEvent represents e-commerce product events
 type ProductEvent struct {
 	BaseEvent
-	ProductName  string  `json:"product_name"`
-	Category     string  `json:"category"`
-	Price        float64 `json:"price"`
-	SKU          string  `json:"sku"`
-	Action       string  `json:"action"` // created, updated, price_changed, discontinued
-	StockLevel   int     `json:"stock_level"`
-	IsAvailable  bool    `json:"is_available"`
+	ProductName string  `json:"product_name"`
+	Category    string  `json:"category"`
+	Price       float64 `json:"price"`
+	SKU         string  `json:"sku"`
+	Action      string  `json:"action"` // created, updated, price_changed, discontinued
+	StockLevel  int     `json:"stock_level"`
+	IsAvailable bool    `json:"is_available"`
 }
 
-func (e *ProductEvent) ID() string                           { return e.EventID }
-func (e *ProductEvent) Type() string                         { return e.EventType }
-func (e *ProductEvent) AggregateID() string                  { return e.BaseEvent.AggregateID }
-func (e *ProductEvent) Data() interface{}                    { return e }
+func (e *ProductEvent) ID() string          { return e.EventID }
+func (e *ProductEvent) Type() string        { return e.EventType }
+func (e *ProductEvent) AggregateID() string { return e.BaseEvent.AggregateID }
+func (e *ProductEvent) Data() interface{}   { return e }
 func (e *ProductEvent) Metadata() map[string]interface{} {
 	meta := make(map[string]interface{})
 	meta["user_id"] = e.UserID
@@ -110,10 +110,10 @@ type OrderEvent struct {
 	Priority     string  `json:"priority"` // low, normal, high, urgent
 }
 
-func (e *OrderEvent) ID() string                           { return e.EventID }
-func (e *OrderEvent) Type() string                         { return e.EventType }
-func (e *OrderEvent) AggregateID() string                  { return e.BaseEvent.AggregateID }
-func (e *OrderEvent) Data() interface{}                    { return e }
+func (e *OrderEvent) ID() string          { return e.EventID }
+func (e *OrderEvent) Type() string        { return e.EventType }
+func (e *OrderEvent) AggregateID() string { return e.BaseEvent.AggregateID }
+func (e *OrderEvent) Data() interface{}   { return e }
 func (e *OrderEvent) Metadata() map[string]interface{} {
 	meta := make(map[string]interface{})
 	meta["user_id"] = e.UserID
@@ -161,7 +161,7 @@ func (f *EventFilters) HighPriorityEvents(event synckit.Event) bool {
 		}
 		return priorityStr == "high" || priorityStr == "urgent"
 	}
-	
+
 	// Also include user role changes and login events as high priority
 	if strings.HasPrefix(event.Type(), "user.") {
 		if action, exists := metadata["action"]; exists {
@@ -172,7 +172,7 @@ func (f *EventFilters) HighPriorityEvents(event synckit.Event) bool {
 			return actionStr == "login" || actionStr == "role_changed"
 		}
 	}
-	
+
 	return false
 }
 
@@ -219,7 +219,7 @@ func main() {
 
 	// Create store for the demo
 	fmt.Println("🏗️ Setting up event store...")
-	
+
 	store, err := sqlite.NewWithDataSource("filtered-events.db")
 	if err != nil {
 		log.Fatalf("Failed to create store: %v", err)
@@ -231,62 +231,62 @@ func main() {
 
 	// Create sample events of different types
 	fmt.Println("📝 Creating sample events of different types...")
-	
+
 	events := []synckit.Event{
 		// User events
 		&UserEvent{
-			BaseEvent:   BaseEvent{EventID: "user-1", EventType: "user.created", AggregateID: "user-001", Timestamp: time.Now().Add(-2*time.Hour), UserID: "admin", TenantID: "tenant-a"},
-			Username:    "alice",
-			Email:       "alice@company.com",
-			Role:        "admin",
-			Action:      "created",
-			Department:  "engineering",
-			IsActive:    true,
+			BaseEvent:  BaseEvent{EventID: "user-1", EventType: "user.created", AggregateID: "user-001", Timestamp: time.Now().Add(-2 * time.Hour), UserID: "admin", TenantID: "tenant-a"},
+			Username:   "alice",
+			Email:      "alice@company.com",
+			Role:       "admin",
+			Action:     "created",
+			Department: "engineering",
+			IsActive:   true,
 		},
 		&UserEvent{
-			BaseEvent:   BaseEvent{EventID: "user-2", EventType: "user.login", AggregateID: "user-001", Timestamp: time.Now().Add(-30*time.Minute), UserID: "alice", TenantID: "tenant-a"},
-			Username:    "alice",
-			Email:       "alice@company.com",
-			Role:        "admin",
-			Action:      "login",
-			Department:  "engineering",
-			IsActive:    true,
+			BaseEvent:  BaseEvent{EventID: "user-2", EventType: "user.login", AggregateID: "user-001", Timestamp: time.Now().Add(-30 * time.Minute), UserID: "alice", TenantID: "tenant-a"},
+			Username:   "alice",
+			Email:      "alice@company.com",
+			Role:       "admin",
+			Action:     "login",
+			Department: "engineering",
+			IsActive:   true,
 		},
 		&UserEvent{
-			BaseEvent:   BaseEvent{EventID: "user-3", EventType: "user.updated", AggregateID: "user-002", Timestamp: time.Now().Add(-1*time.Hour), UserID: "admin", TenantID: "tenant-b"},
-			Username:    "bob",
-			Email:       "bob@company.com",
-			Role:        "user",
-			Action:      "updated",
-			Department:  "sales",
-			IsActive:    true,
+			BaseEvent:  BaseEvent{EventID: "user-3", EventType: "user.updated", AggregateID: "user-002", Timestamp: time.Now().Add(-1 * time.Hour), UserID: "admin", TenantID: "tenant-b"},
+			Username:   "bob",
+			Email:      "bob@company.com",
+			Role:       "user",
+			Action:     "updated",
+			Department: "sales",
+			IsActive:   true,
 		},
-		
+
 		// Product events
 		&ProductEvent{
-			BaseEvent:    BaseEvent{EventID: "prod-1", EventType: "product.created", AggregateID: "prod-001", Timestamp: time.Now().Add(-3*time.Hour), UserID: "admin", TenantID: "tenant-a"},
-			ProductName:  "Wireless Headphones",
-			Category:     "electronics",
-			Price:        99.99,
-			SKU:          "WH-001",
-			Action:       "created",
-			StockLevel:   100,
-			IsAvailable:  true,
+			BaseEvent:   BaseEvent{EventID: "prod-1", EventType: "product.created", AggregateID: "prod-001", Timestamp: time.Now().Add(-3 * time.Hour), UserID: "admin", TenantID: "tenant-a"},
+			ProductName: "Wireless Headphones",
+			Category:    "electronics",
+			Price:       99.99,
+			SKU:         "WH-001",
+			Action:      "created",
+			StockLevel:  100,
+			IsAvailable: true,
 		},
 		&ProductEvent{
-			BaseEvent:    BaseEvent{EventID: "prod-2", EventType: "product.price_changed", AggregateID: "prod-001", Timestamp: time.Now().Add(-20*time.Minute), UserID: "manager", TenantID: "tenant-a"},
-			ProductName:  "Wireless Headphones",
-			Category:     "electronics",
-			Price:        89.99,
-			SKU:          "WH-001",
-			Action:       "price_changed",
-			StockLevel:   95,
-			IsAvailable:  true,
+			BaseEvent:   BaseEvent{EventID: "prod-2", EventType: "product.price_changed", AggregateID: "prod-001", Timestamp: time.Now().Add(-20 * time.Minute), UserID: "manager", TenantID: "tenant-a"},
+			ProductName: "Wireless Headphones",
+			Category:    "electronics",
+			Price:       89.99,
+			SKU:         "WH-001",
+			Action:      "price_changed",
+			StockLevel:  95,
+			IsAvailable: true,
 		},
-		
+
 		// Order events
 		&OrderEvent{
-			BaseEvent:    BaseEvent{EventID: "order-1", EventType: "order.created", AggregateID: "order-001", Timestamp: time.Now().Add(-45*time.Minute), UserID: "system", TenantID: "tenant-a", EventMetadata: map[string]string{"priority": "urgent"}},
+			BaseEvent:    BaseEvent{EventID: "order-1", EventType: "order.created", AggregateID: "order-001", Timestamp: time.Now().Add(-45 * time.Minute), UserID: "system", TenantID: "tenant-a", EventMetadata: map[string]string{"priority": "urgent"}},
 			OrderID:      "ORD-001",
 			CustomerID:   "cust-001",
 			TotalAmount:  299.99,
@@ -297,7 +297,7 @@ func main() {
 			Priority:     "urgent",
 		},
 		&OrderEvent{
-			BaseEvent:    BaseEvent{EventID: "order-2", EventType: "order.paid", AggregateID: "order-001", Timestamp: time.Now().Add(-15*time.Minute), UserID: "system", TenantID: "tenant-a", EventMetadata: map[string]string{"priority": "urgent"}},
+			BaseEvent:    BaseEvent{EventID: "order-2", EventType: "order.paid", AggregateID: "order-001", Timestamp: time.Now().Add(-15 * time.Minute), UserID: "system", TenantID: "tenant-a", EventMetadata: map[string]string{"priority": "urgent"}},
 			OrderID:      "ORD-001",
 			CustomerID:   "cust-001",
 			TotalAmount:  299.99,
@@ -308,7 +308,7 @@ func main() {
 			Priority:     "urgent",
 		},
 		&OrderEvent{
-			BaseEvent:    BaseEvent{EventID: "order-3", EventType: "order.created", AggregateID: "order-002", Timestamp: time.Now().Add(-2*time.Hour), UserID: "system", TenantID: "tenant-b", EventMetadata: map[string]string{"priority": "low"}},
+			BaseEvent:    BaseEvent{EventID: "order-3", EventType: "order.created", AggregateID: "order-002", Timestamp: time.Now().Add(-2 * time.Hour), UserID: "system", TenantID: "tenant-b", EventMetadata: map[string]string{"priority": "low"}},
 			OrderID:      "ORD-002",
 			CustomerID:   "cust-002",
 			TotalAmount:  49.99,
@@ -393,7 +393,7 @@ func main() {
 			continue
 		}
 		defer scenarioStore.Close()
-		
+
 		// Create a sync manager with the current filter
 		manager, err := synckit.NewManager(
 			synckit.WithStore(scenarioStore),
@@ -428,24 +428,24 @@ func main() {
 			if scenario.filter(eventWithVersion.Event) {
 				filteredCount++
 				metadata := eventWithVersion.Event.Metadata()
-				
+
 				switch e := eventWithVersion.Event.Data().(type) {
 				case *UserEvent:
-					fmt.Printf("  👤 %s: %s (%s) - %s [%s]\n", 
+					fmt.Printf("  👤 %s: %s (%s) - %s [%s]\n",
 						eventWithVersion.Event.Type(), e.Username, e.Role, e.Action, e.TenantID)
 				case *ProductEvent:
-					fmt.Printf("  📦 %s: %s ($%.2f) - %s [%s]\n", 
+					fmt.Printf("  📦 %s: %s ($%.2f) - %s [%s]\n",
 						eventWithVersion.Event.Type(), e.ProductName, e.Price, e.Action, e.TenantID)
 				case *OrderEvent:
-					fmt.Printf("  🛒 %s: %s ($%.2f) - %s (%s priority) [%s]\n", 
+					fmt.Printf("  🛒 %s: %s ($%.2f) - %s (%s priority) [%s]\n",
 						eventWithVersion.Event.Type(), e.OrderID, e.TotalAmount, e.Status, e.Priority, e.TenantID)
 				default:
-					fmt.Printf("  🔍 %s: %s [%v]\n", 
+					fmt.Printf("  🔍 %s: %s [%v]\n",
 						eventWithVersion.Event.Type(), eventWithVersion.Event.ID(), metadata["tenant_id"])
 				}
 			}
 		}
-		
+
 		fmt.Printf("\n📊 Filter Results: %d out of %d events match the filter (%.1f%%)\n",
 			filteredCount, len(allEvents), float64(filteredCount)/float64(len(allEvents))*100)
 

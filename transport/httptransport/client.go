@@ -126,7 +126,7 @@ func (c *TransportClient) ToHTTPTransport() *HTTPTransport {
 	if c.parseVersion != nil {
 		versionParser = VersionParser(c.parseVersion)
 	}
-	
+
 	// Use the existing NewTransportWithLogger to create HTTPTransport
 	return NewTransportWithLogger(c.baseURL, c.http, versionParser, clientOptions, nil)
 }
@@ -171,7 +171,7 @@ func NewTransportWithLogger(baseURL string, client *http.Client, parser VersionP
 		options.MaxDecompressedResponseSize = 20 * 1024 * 1024
 	}
 	// Note: GzipMinBytes can be 0 intentionally, so we don't set a default here
-	
+
 	// Validate client options
 	if err := ValidateClientOptions(options); err != nil {
 		// For backward compatibility, we'll just use default options if validation fails
@@ -208,8 +208,8 @@ func NewTransportWithLogger(baseURL string, client *http.Client, parser VersionP
 
 // Push sends a batch of events to the remote server via an HTTP POST request.
 //
-// Note: If CompressionEnabled is true in ClientOptions and the payload size exceeds 
-// GzipMinBytes, the client will compress JSON request bodies using gzip and set the 
+// Note: If CompressionEnabled is true in ClientOptions and the payload size exceeds
+// GzipMinBytes, the client will compress JSON request bodies using gzip and set the
 // "Content-Encoding: gzip" header. It also sets "Accept-Encoding" header to
 // indicate support for gzip and deflate compressed responses.
 //
@@ -267,12 +267,12 @@ func (c *HTTPTransport) Push(ctx context.Context, events []synckit.EventWithVers
 				slog.String("error", err.Error()))
 			return syncErrors.WrapOpComponent(fmt.Errorf("failed to close gzip writer: %w", err), "httptransport.Push", "transport/httptransport")
 		}
-		
+
 		req.Body = io.NopCloser(&buf)
 		req.Header.Set("Content-Encoding", "gzip")
 		// Optionally set Content-Length
 		req.ContentLength = int64(buf.Len())
-		
+
 		c.logger.Debug("Compressed push request",
 			slog.Int("original_size", len(payload)),
 			slog.Int("compressed_size", buf.Len()),

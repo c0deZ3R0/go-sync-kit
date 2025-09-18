@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // Transport implements synckit.Transport using RabbitMQ for reliable messaging.
@@ -468,7 +468,7 @@ type SimpleVersion struct {
 	value string
 }
 
-func (v SimpleVersion) String() string                  { return v.value }
+func (v SimpleVersion) String() string { return v.value }
 func (v SimpleVersion) Compare(other synckit.Version) int {
 	if otherSimple, ok := other.(SimpleVersion); ok {
 		if v.value < otherSimple.value {

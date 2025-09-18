@@ -7,26 +7,26 @@ import (
 
 // Common storage errors
 var (
-	ErrKeyNotFound    = errors.New("key not found")
-	ErrStorageClosed  = errors.New("storage is closed")
-	ErrInvalidKey     = errors.New("invalid key")
-	ErrInvalidValue   = errors.New("invalid value")
+	ErrKeyNotFound   = errors.New("key not found")
+	ErrStorageClosed = errors.New("storage is closed")
+	ErrInvalidKey    = errors.New("invalid key")
+	ErrInvalidValue  = errors.New("invalid value")
 )
 
 // Storage defines the interface for storage backends.
 type Storage interface {
 	// Get retrieves data for the given key.
 	Get(ctx context.Context, key string) ([]byte, error)
-	
+
 	// Put stores data for the given key.
 	Put(ctx context.Context, key string, value []byte) error
-	
+
 	// Delete removes the data for the given key.
 	Delete(ctx context.Context, key string) error
-	
+
 	// Exists checks if a key exists in storage.
 	Exists(ctx context.Context, key string) (bool, error)
-	
+
 	// Close closes the storage backend.
 	Close() error
 }
@@ -51,18 +51,18 @@ func (m *MemoryStorage) Get(ctx context.Context, key string) ([]byte, error) {
 	if key == "" {
 		return nil, ErrInvalidKey
 	}
-	
+
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
-	
+
 	value, exists := m.data[key]
 	if !exists {
 		return nil, ErrKeyNotFound
 	}
-	
+
 	// Return a copy to prevent modification
 	result := make([]byte, len(value))
 	copy(result, value)
@@ -79,13 +79,13 @@ func (m *MemoryStorage) Put(ctx context.Context, key string, value []byte) error
 	if value == nil {
 		return ErrInvalidValue
 	}
-	
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
-	
+
 	// Store a copy to prevent modification
 	stored := make([]byte, len(value))
 	copy(stored, value)
@@ -100,13 +100,13 @@ func (m *MemoryStorage) Delete(ctx context.Context, key string) error {
 	if key == "" {
 		return ErrInvalidKey
 	}
-	
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
-	
+
 	delete(m.data, key)
 	return nil
 }
@@ -118,13 +118,13 @@ func (m *MemoryStorage) Exists(ctx context.Context, key string) (bool, error) {
 	if key == "" {
 		return false, ErrInvalidKey
 	}
-	
+
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
 	default:
 	}
-	
+
 	_, exists := m.data[key]
 	return exists, nil
 }

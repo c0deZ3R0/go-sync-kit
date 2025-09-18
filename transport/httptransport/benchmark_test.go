@@ -32,7 +32,7 @@ func BenchmarkCompressionThresholds(b *testing.B) {
 func benchmarkCompressionThreshold(b *testing.B, compressionThreshold int64, batchSize int) {
 	// Create mock store
 	store := NewMockEventStore()
-	
+
 	// Create server with specific compression threshold
 	serverOpts := &ServerOptions{
 		MaxRequestSize:       10 * 1024 * 1024, // 10MB
@@ -40,25 +40,25 @@ func benchmarkCompressionThreshold(b *testing.B, compressionThreshold int64, bat
 		CompressionEnabled:   true,
 		CompressionThreshold: compressionThreshold,
 	}
-	
+
 	handler := NewSyncHandler(store, slog.Default(), nil, serverOpts)
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(handler.handlePush))
 	defer server.Close()
-	
+
 	// Generate test events for the batch
 	events := generateTestEvents(batchSize)
-	
+
 	// Marshal events to JSON to get the actual payload size
 	data, err := json.Marshal(events)
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	b.ResetTimer()
 	b.SetBytes(int64(len(data))) // Set bytes processed per operation
-	
+
 	// Benchmark the push operation
 	for i := 0; i < b.N; i++ {
 		// Test uncompressed request
@@ -67,13 +67,13 @@ func benchmarkCompressionThreshold(b *testing.B, compressionThreshold int64, bat
 			b.Fatal(err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			b.Fatal(err)
 		}
 		resp.Body.Close()
-		
+
 		if resp.StatusCode != http.StatusOK {
 			b.Fatalf("Expected 200, got %d", resp.StatusCode)
 		}
@@ -91,9 +91,9 @@ func BenchmarkCompressionRatio(b *testing.B) {
 		{"Random", generateRandomEvents},
 		{"Mixed", generateMixedEvents},
 	}
-	
+
 	payloadSizes := []int{100, 500, 1000, 2000}
-	
+
 	for _, payloadType := range payloadTypes {
 		for _, size := range payloadSizes {
 			b.Run(fmt.Sprintf("%s_%devents", payloadType.name, size), func(b *testing.B) {
@@ -109,13 +109,13 @@ func benchmarkCompressionRatio(b *testing.B, dataFunc func(int) []JSONEventWithV
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	b.ResetTimer()
 	b.SetBytes(int64(len(data)))
-	
+
 	var totalCompressed int64
 	var totalUncompressed int64
-	
+
 	for i := 0; i < b.N; i++ {
 		// Compress the data
 		var compressed bytes.Buffer
@@ -125,11 +125,11 @@ func benchmarkCompressionRatio(b *testing.B, dataFunc func(int) []JSONEventWithV
 			b.Fatal(err)
 		}
 		gzWriter.Close()
-		
+
 		totalUncompressed += int64(len(data))
 		totalCompressed += int64(compressed.Len())
 	}
-	
+
 	// Report compression ratio in the benchmark name
 	ratio := float64(totalCompressed) / float64(totalUncompressed)
 	b.ReportMetric(ratio, "compression_ratio")
@@ -147,12 +147,12 @@ func BenchmarkSafeRequestReader(b *testing.B) {
 	}{
 		{"Small_Uncompressed_1KB", false, 1024, 2048},
 		{"Small_Compressed_1KB", true, 1024, 512},
-		{"Medium_Uncompressed_10KB", false, 10*1024, 2048},
-		{"Medium_Compressed_10KB", true, 10*1024, 512},
-		{"Large_Uncompressed_100KB", false, 100*1024, 2048},
-		{"Large_Compressed_100KB", true, 100*1024, 512},
+		{"Medium_Uncompressed_10KB", false, 10 * 1024, 2048},
+		{"Medium_Compressed_10KB", true, 10 * 1024, 512},
+		{"Large_Uncompressed_100KB", false, 100 * 1024, 2048},
+		{"Large_Compressed_100KB", true, 100 * 1024, 512},
 	}
-	
+
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			benchmarkSafeRequestReader(b, scenario.compressed, scenario.payloadSize, scenario.threshold)
@@ -163,10 +163,10 @@ func BenchmarkSafeRequestReader(b *testing.B) {
 func benchmarkSafeRequestReader(b *testing.B, compressed bool, payloadSize int, threshold int64) {
 	// Generate test payload
 	testData := strings.Repeat("A", payloadSize)
-	
+
 	var requestBody []byte
 	contentEncoding := ""
-	
+
 	if compressed {
 		var buf bytes.Buffer
 		gzWriter := gzip.NewWriter(&buf)
@@ -177,34 +177,34 @@ func benchmarkSafeRequestReader(b *testing.B, compressed bool, payloadSize int, 
 	} else {
 		requestBody = []byte(testData)
 	}
-	
+
 	serverOpts := &ServerOptions{
-		MaxRequestSize:      10 * 1024 * 1024, // 10MB
-		MaxDecompressedSize: 20 * 1024 * 1024, // 20MB
+		MaxRequestSize:       10 * 1024 * 1024, // 10MB
+		MaxDecompressedSize:  20 * 1024 * 1024, // 20MB
 		CompressionThreshold: threshold,
 	}
-	
+
 	b.ResetTimer()
 	b.SetBytes(int64(len(requestBody)))
-	
+
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(requestBody))
 		req.Header.Set("Content-Type", "application/json")
 		if contentEncoding != "" {
 			req.Header.Set("Content-Encoding", contentEncoding)
 		}
-		
+
 		w := httptest.NewRecorder()
-		
+
 		reader, cleanup, err := createSafeRequestReader(w, req, serverOpts)
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		// Read all data to benchmark the full pipeline
 		_, err = bytes.NewBuffer(nil).ReadFrom(reader)
 		cleanup()
-		
+
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -292,7 +292,7 @@ func generateMixedEvents(count int) []JSONEventWithVersion {
 			// Other events are more random
 			data = fmt.Sprintf("Unique data for event %d with timestamp %d", i, i*7919)
 		}
-		
+
 		events[i] = JSONEventWithVersion{
 			Event: JSONEvent{
 				ID:          fmt.Sprintf("mixed-%d", i),
@@ -300,9 +300,9 @@ func generateMixedEvents(count int) []JSONEventWithVersion {
 				AggregateID: fmt.Sprintf("mixed-agg-%d", i%15),
 				Data:        data,
 				Metadata: map[string]interface{}{
-					"index":      i,
-					"is_common":  i%3 == 0,
-					"batch":      i / 10,
+					"index":     i,
+					"is_common": i%3 == 0,
+					"batch":     i / 10,
 				},
 			},
 			Version: fmt.Sprintf("%d", i+1),

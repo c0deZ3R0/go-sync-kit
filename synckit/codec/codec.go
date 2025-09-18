@@ -53,7 +53,7 @@ func (r *Registry) Get(kind string) (Codec, bool) {
 func (r *Registry) Kinds() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	kinds := make([]string, 0, len(r.codecs))
 	for kind := range r.codecs {
 		kinds = append(kinds, kind)

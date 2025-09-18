@@ -12,7 +12,7 @@ func TestSyncKitAttributes(t *testing.T) {
 	// Test that core attribute keys are defined
 	expectedKeys := []string{
 		"synckit.component",
-		"synckit.operation", 
+		"synckit.operation",
 		"synckit.sync.operation",
 		"synckit.sync.phase",
 		"synckit.events.count",
@@ -30,21 +30,21 @@ func TestSyncKitAttributes(t *testing.T) {
 
 	// Create map of actual keys
 	actualKeys := map[string]bool{
-		string(ComponentKey):         true,
-		string(OperationKey):         true,
-		string(SyncOperationKey):     true,
-		string(SyncPhaseKey):         true,
-		string(EventCountKey):        true,
-		string(EventsPushedKey):      true,
-		string(EventsPulledKey):      true,
-		string(AggregateIDsKey):      true,
-		string(ConflictsResolvedKey): true,
-		string(ConflictStrategyKey):  true,
+		string(ComponentKey):          true,
+		string(OperationKey):          true,
+		string(SyncOperationKey):      true,
+		string(SyncPhaseKey):          true,
+		string(EventCountKey):         true,
+		string(EventsPushedKey):       true,
+		string(EventsPulledKey):       true,
+		string(AggregateIDsKey):       true,
+		string(ConflictsResolvedKey):  true,
+		string(ConflictStrategyKey):   true,
 		string(TransportOperationKey): true,
-		string(TransportTypeKey):     true,
-		string(StorageOperationKey):  true,
-		string(StorageTypeKey):       true,
-		string(HealthStatusKey):      true,
+		string(TransportTypeKey):      true,
+		string(StorageOperationKey):   true,
+		string(StorageTypeKey):        true,
+		string(HealthStatusKey):       true,
 	}
 
 	// Check all expected keys exist

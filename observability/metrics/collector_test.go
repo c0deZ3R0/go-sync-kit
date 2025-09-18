@@ -12,9 +12,9 @@ import (
 
 func TestNewSyncKitMetrics(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		registry *prometheus.Registry
-		wantErr bool
+		wantErr  bool
 	}{
 		{
 			name:     "with custom registry",
@@ -150,10 +150,10 @@ func TestSyncKitMetrics_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer func() { done <- true }()
-			
+
 			for j := 0; j < numOperations; j++ {
 				duration := time.Duration(j+1) * time.Millisecond
-				
+
 				// Record various metrics concurrently
 				metrics.RecordSyncOperation("push", duration, true, 1, 0, 0)
 				metrics.RecordTransportOperation("http", "push", duration, true, 50)

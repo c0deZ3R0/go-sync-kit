@@ -59,9 +59,9 @@ type RunnerOption func(*runner)
 // WithBatchSize sets the batch size for processing events.
 // Default is 500 events per batch.
 func WithBatchSize(n int) RunnerOption {
-	return func(r *runner) { 
+	return func(r *runner) {
 		if n > 0 {
-			r.batchSize = n 
+			r.batchSize = n
 		}
 	}
 }
@@ -69,9 +69,9 @@ func WithBatchSize(n int) RunnerOption {
 // WithLogger sets a custom structured logger for the runner.
 // If not provided, uses the default logger from the logging package.
 func WithLogger(logger *slog.Logger) RunnerOption {
-	return func(r *runner) { 
+	return func(r *runner) {
 		if logger != nil {
-			r.logger = logger 
+			r.logger = logger
 		}
 	}
 }
@@ -79,7 +79,7 @@ func WithLogger(logger *slog.Logger) RunnerOption {
 // WithMetrics enables metrics collection using the provided SyncKitMetrics instance.
 // This integrates the runner with the unified observability system.
 func WithMetrics(metricsCollector *metrics.SyncKitMetrics) RunnerOption {
-	return func(r *runner) { 
+	return func(r *runner) {
 		r.metricsEnabled = true
 		r.metrics = metricsCollector
 	}
@@ -88,7 +88,7 @@ func WithMetrics(metricsCollector *metrics.SyncKitMetrics) RunnerOption {
 // WithMetricsEnabled enables basic metrics collection using the legacy system.
 // For new code, prefer WithMetrics() with SyncKitMetrics for better integration.
 func WithMetricsEnabled(enabled bool) RunnerOption {
-	return func(r *runner) { 
+	return func(r *runner) {
 		r.metricsEnabled = enabled
 		// Try to use default projection metrics if available
 		if enabled && r.metrics == nil {
@@ -117,4 +117,3 @@ func NewRunner(store synckit.EventStore, offsets OffsetStore, proj Projector, op
 
 	return r
 }
-

@@ -13,42 +13,42 @@ import (
 type ResolutionMemento struct {
 	// Unique identifier for this resolution
 	ID string `json:"id"`
-	
+
 	// Timestamp when the resolution occurred
 	Timestamp time.Time `json:"timestamp"`
-	
+
 	// Conflict information (serialization-friendly)
-	EventType     string            `json:"event_type"`
-	AggregateID   string            `json:"aggregate_id"`
-	ChangedFields []string          `json:"changed_fields,omitempty"`
-	Metadata      map[string]any    `json:"metadata,omitempty"`
-	
-	// Resolution result (serialization-friendly) 
+	EventType     string         `json:"event_type"`
+	AggregateID   string         `json:"aggregate_id"`
+	ChangedFields []string       `json:"changed_fields,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+
+	// Resolution result (serialization-friendly)
 	Decision string   `json:"decision"`
 	Reasons  []string `json:"reasons,omitempty"`
-	
+
 	// Resolution metadata
-	ResolverName string            `json:"resolver_name"`
-	RuleName     string            `json:"rule_name,omitempty"`
-	GroupName    string            `json:"group_name,omitempty"`
-	Context      map[string]any    `json:"context,omitempty"`
-	
+	ResolverName string         `json:"resolver_name"`
+	RuleName     string         `json:"rule_name,omitempty"`
+	GroupName    string         `json:"group_name,omitempty"`
+	Context      map[string]any `json:"context,omitempty"`
+
 	// Audit trail information
 	UserID    string `json:"user_id,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	Origin    string `json:"origin,omitempty"`
-	
+
 	// Performance metrics
 	ResolutionDuration time.Duration `json:"resolution_duration"`
-	
+
 	// State before resolution (for rollback)
 	BeforeState *ConflictState `json:"before_state,omitempty"`
-	
+
 	// State after resolution
 	AfterState *ConflictState `json:"after_state,omitempty"`
-	
+
 	// For internal use - not serialized
-	OriginalConflict Conflict `json:"-"`
+	OriginalConflict Conflict         `json:"-"`
 	ResolvedConflict ResolvedConflict `json:"-"`
 }
 
@@ -56,14 +56,14 @@ type ResolutionMemento struct {
 // This struct is designed to be JSON serializable by storing only the data
 // payloads rather than the full Event interfaces.
 type ConflictState struct {
-	AggregateID    string         `json:"aggregate_id"`
-	EventType      string         `json:"event_type,omitempty"`
-	LocalVersion   string         `json:"local_version"`
-	RemoteVersion  string         `json:"remote_version"`
-	LocalData      any            `json:"local_data,omitempty"`
-	RemoteData     any            `json:"remote_data,omitempty"`
-	ResolvedData   any            `json:"resolved_data,omitempty"`
-	Metadata       map[string]any `json:"metadata,omitempty"`
+	AggregateID   string         `json:"aggregate_id"`
+	EventType     string         `json:"event_type,omitempty"`
+	LocalVersion  string         `json:"local_version"`
+	RemoteVersion string         `json:"remote_version"`
+	LocalData     any            `json:"local_data,omitempty"`
+	RemoteData    any            `json:"remote_data,omitempty"`
+	ResolvedData  any            `json:"resolved_data,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
 }
 
 // MementoCaretaker manages the storage and retrieval of resolution mementos.
@@ -71,30 +71,30 @@ type ConflictState struct {
 type MementoCaretaker interface {
 	// Save stores a resolution memento
 	Save(ctx context.Context, memento *ResolutionMemento) error
-	
+
 	// Get retrieves a specific memento by ID
 	Get(ctx context.Context, id string) (*ResolutionMemento, error)
-	
+
 	// List retrieves mementos based on criteria
 	List(ctx context.Context, criteria *MementoCriteria) ([]*ResolutionMemento, error)
-	
+
 	// Delete removes a memento (with appropriate authorization)
 	Delete(ctx context.Context, id string) error
-	
+
 	// GetAuditTrail returns the complete audit trail for an aggregate
 	GetAuditTrail(ctx context.Context, aggregateID string) ([]*ResolutionMemento, error)
 }
 
 // MementoCriteria defines search criteria for querying mementos.
 type MementoCriteria struct {
-	AggregateID   string     `json:"aggregate_id,omitempty"`
-	UserID        string     `json:"user_id,omitempty"`
-	ResolverName  string     `json:"resolver_name,omitempty"`
-	GroupName     string     `json:"group_name,omitempty"`
-	FromTime      *time.Time `json:"from_time,omitempty"`
-	ToTime        *time.Time `json:"to_time,omitempty"`
-	Limit         int        `json:"limit,omitempty"`
-	Offset        int        `json:"offset,omitempty"`
+	AggregateID  string     `json:"aggregate_id,omitempty"`
+	UserID       string     `json:"user_id,omitempty"`
+	ResolverName string     `json:"resolver_name,omitempty"`
+	GroupName    string     `json:"group_name,omitempty"`
+	FromTime     *time.Time `json:"from_time,omitempty"`
+	ToTime       *time.Time `json:"to_time,omitempty"`
+	Limit        int        `json:"limit,omitempty"`
+	Offset       int        `json:"offset,omitempty"`
 }
 
 // InMemoryMementoCaretaker provides an in-memory implementation of MementoCaretaker.
@@ -114,18 +114,18 @@ func (c *InMemoryMementoCaretaker) Save(ctx context.Context, memento *Resolution
 	if memento.ID == "" {
 		return fmt.Errorf("memento ID cannot be empty")
 	}
-	
+
 	// Deep copy to avoid external mutations
 	data, err := json.Marshal(memento)
 	if err != nil {
 		return fmt.Errorf("failed to serialize memento: %w", err)
 	}
-	
+
 	var copy ResolutionMemento
 	if err := json.Unmarshal(data, &copy); err != nil {
 		return fmt.Errorf("failed to deserialize memento: %w", err)
 	}
-	
+
 	c.mementos[memento.ID] = &copy
 	return nil
 }
@@ -135,24 +135,24 @@ func (c *InMemoryMementoCaretaker) Get(ctx context.Context, id string) (*Resolut
 	if !exists {
 		return nil, fmt.Errorf("memento with ID %s not found", id)
 	}
-	
+
 	// Return deep copy to prevent external mutations
 	data, err := json.Marshal(memento)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize memento: %w", err)
 	}
-	
+
 	var copy ResolutionMemento
 	if err := json.Unmarshal(data, &copy); err != nil {
 		return nil, fmt.Errorf("failed to deserialize memento: %w", err)
 	}
-	
+
 	return &copy, nil
 }
 
 func (c *InMemoryMementoCaretaker) List(ctx context.Context, criteria *MementoCriteria) ([]*ResolutionMemento, error) {
 	var results []*ResolutionMemento
-	
+
 	for _, memento := range c.mementos {
 		if c.matchesCriteria(memento, criteria) {
 			// Deep copy
@@ -162,7 +162,7 @@ func (c *InMemoryMementoCaretaker) List(ctx context.Context, criteria *MementoCr
 			results = append(results, &copy)
 		}
 	}
-	
+
 	// Apply limit and offset
 	if criteria != nil {
 		if criteria.Offset > 0 && criteria.Offset < len(results) {
@@ -172,7 +172,7 @@ func (c *InMemoryMementoCaretaker) List(ctx context.Context, criteria *MementoCr
 			results = results[:criteria.Limit]
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -180,7 +180,7 @@ func (c *InMemoryMementoCaretaker) Delete(ctx context.Context, id string) error 
 	if _, exists := c.mementos[id]; !exists {
 		return fmt.Errorf("memento with ID %s not found", id)
 	}
-	
+
 	delete(c.mementos, id)
 	return nil
 }
@@ -196,31 +196,31 @@ func (c *InMemoryMementoCaretaker) matchesCriteria(memento *ResolutionMemento, c
 	if criteria == nil {
 		return true
 	}
-	
+
 	if criteria.AggregateID != "" && memento.AggregateID != criteria.AggregateID {
 		return false
 	}
-	
+
 	if criteria.UserID != "" && memento.UserID != criteria.UserID {
 		return false
 	}
-	
+
 	if criteria.ResolverName != "" && memento.ResolverName != criteria.ResolverName {
 		return false
 	}
-	
+
 	if criteria.GroupName != "" && memento.GroupName != criteria.GroupName {
 		return false
 	}
-	
+
 	if criteria.FromTime != nil && memento.Timestamp.Before(*criteria.FromTime) {
 		return false
 	}
-	
+
 	if criteria.ToTime != nil && memento.Timestamp.After(*criteria.ToTime) {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -229,7 +229,7 @@ type AuditableResolver struct {
 	wrapped   ConflictResolver
 	caretaker MementoCaretaker
 	logger    Logger
-	
+
 	// Context extractors for audit metadata
 	userIDExtractor    func(context.Context) string
 	sessionIDExtractor func(context.Context) string
@@ -242,11 +242,11 @@ func NewAuditableResolver(resolver ConflictResolver, caretaker MementoCaretaker,
 		wrapped:   resolver,
 		caretaker: caretaker,
 	}
-	
+
 	for _, opt := range opts {
 		opt.apply(ar)
 	}
-	
+
 	return ar
 }
 
@@ -292,7 +292,7 @@ func WithOriginExtractor(extractor func(context.Context) string) AuditableOption
 // Resolve implements ConflictResolver interface with audit trail creation.
 func (ar *AuditableResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
 	start := time.Now()
-	
+
 	// Create before state
 	beforeState := &ConflictState{
 		AggregateID:   conflict.AggregateID,
@@ -303,26 +303,26 @@ func (ar *AuditableResolver) Resolve(ctx context.Context, conflict Conflict) (Re
 		RemoteData:    conflict.Remote.Event.Data(),
 		Metadata:      conflict.Metadata,
 	}
-	
+
 	// Perform the actual resolution
 	resolved, err := ar.wrapped.Resolve(ctx, conflict)
 	duration := time.Since(start)
-	
+
 	// Create memento regardless of success/failure for audit purposes
 	memento := &ResolutionMemento{
 		ID:                 generateMementoID(),
-		Timestamp:         time.Now(),
-		EventType:         conflict.EventType,
-		AggregateID:       conflict.AggregateID,
-		ChangedFields:     conflict.ChangedFields,
-		Metadata:          conflict.Metadata,
-		OriginalConflict:  conflict,
-		ResolverName:      fmt.Sprintf("%T", ar.wrapped),
-		Context:           make(map[string]any),
+		Timestamp:          time.Now(),
+		EventType:          conflict.EventType,
+		AggregateID:        conflict.AggregateID,
+		ChangedFields:      conflict.ChangedFields,
+		Metadata:           conflict.Metadata,
+		OriginalConflict:   conflict,
+		ResolverName:       fmt.Sprintf("%T", ar.wrapped),
+		Context:            make(map[string]any),
 		ResolutionDuration: duration,
-		BeforeState:       beforeState,
+		BeforeState:        beforeState,
 	}
-	
+
 	// Extract audit metadata from context
 	if ar.userIDExtractor != nil {
 		memento.UserID = ar.userIDExtractor(ctx)
@@ -333,7 +333,7 @@ func (ar *AuditableResolver) Resolve(ctx context.Context, conflict Conflict) (Re
 	if ar.originExtractor != nil {
 		memento.Origin = ar.originExtractor(ctx)
 	}
-	
+
 	if err != nil {
 		// Record the error in context
 		memento.Context["error"] = err.Error()
@@ -344,7 +344,7 @@ func (ar *AuditableResolver) Resolve(ctx context.Context, conflict Conflict) (Re
 		memento.Decision = resolved.Decision
 		memento.Reasons = resolved.Reasons
 		memento.Context["success"] = true
-		
+
 		// Create after state
 		if len(resolved.ResolvedEvents) > 0 {
 			// Use the first resolved event as representative
@@ -358,14 +358,14 @@ func (ar *AuditableResolver) Resolve(ctx context.Context, conflict Conflict) (Re
 			}
 		}
 	}
-	
+
 	// Save memento (don't fail the resolution if audit save fails)
 	if saveErr := ar.caretaker.Save(ctx, memento); saveErr != nil && ar.logger != nil {
 		ar.logger.Error("Failed to save resolution memento", "error", saveErr, "memento_id", memento.ID)
 	} else if ar.logger != nil {
 		ar.logger.Debug("Saved resolution memento", "memento_id", memento.ID, "aggregate_id", conflict.AggregateID)
 	}
-	
+
 	return resolved, err
 }
 
@@ -391,13 +391,13 @@ func (rc *RollbackCapability) AnalyzeRollback(ctx context.Context, mementoID str
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memento: %w", err)
 	}
-	
+
 	// Get subsequent resolutions for this aggregate
 	subsequent, err := rc.caretaker.GetAuditTrail(ctx, memento.AggregateID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get audit trail: %w", err)
 	}
-	
+
 	// Find resolutions that occurred after this one
 	var affectedResolutions []*ResolutionMemento
 	for _, other := range subsequent {
@@ -405,14 +405,14 @@ func (rc *RollbackCapability) AnalyzeRollback(ctx context.Context, mementoID str
 			affectedResolutions = append(affectedResolutions, other)
 		}
 	}
-	
+
 	analysis := &RollbackAnalysis{
 		TargetMemento:        memento,
 		AffectedResolutions:  affectedResolutions,
 		RollbackComplexity:   calculateComplexity(affectedResolutions),
 		RequiresReprocessing: len(affectedResolutions) > 0,
 	}
-	
+
 	return analysis, nil
 }
 
@@ -420,9 +420,9 @@ func (rc *RollbackCapability) AnalyzeRollback(ctx context.Context, mementoID str
 type RollbackAnalysis struct {
 	TargetMemento        *ResolutionMemento   `json:"target_memento"`
 	AffectedResolutions  []*ResolutionMemento `json:"affected_resolutions"`
-	RollbackComplexity   string              `json:"rollback_complexity"`
-	RequiresReprocessing bool                `json:"requires_reprocessing"`
-	Warnings             []string            `json:"warnings,omitempty"`
+	RollbackComplexity   string               `json:"rollback_complexity"`
+	RequiresReprocessing bool                 `json:"requires_reprocessing"`
+	Warnings             []string             `json:"warnings,omitempty"`
 }
 
 func calculateComplexity(affectedResolutions []*ResolutionMemento) string {

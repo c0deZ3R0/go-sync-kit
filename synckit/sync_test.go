@@ -137,9 +137,9 @@ type MockConflictResolver struct{}
 
 func (m *MockConflictResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
 	return ResolvedConflict{
-		Decision:        "use_remote", 
-		ResolvedEvents:  []EventWithVersion{conflict.Remote},
-		Reasons:         []string{"mock resolver chose remote"},
+		Decision:       "use_remote",
+		ResolvedEvents: []EventWithVersion{conflict.Remote},
+		Reasons:        []string{"mock resolver chose remote"},
 	}, nil
 }
 

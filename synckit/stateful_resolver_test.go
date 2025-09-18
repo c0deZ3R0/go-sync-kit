@@ -14,9 +14,9 @@ import (
 
 // mockStatefulResolver is a test double for testing StatefulDynamicResolver
 type mockStatefulResolver struct {
-	name string
-	res  ResolvedConflict
-	err  error
+	name  string
+	res   ResolvedConflict
+	err   error
 	calls int
 }
 
@@ -52,8 +52,8 @@ func (s *slowResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflic
 type testObservabilityHooks struct {
 	mu sync.Mutex
 
-	stateTransitions          []stateTransitionCall
-	stateTransitionFailures   []stateTransitionFailureCall
+	stateTransitions         []stateTransitionCall
+	stateTransitionFailures  []stateTransitionFailureCall
 	workflowsStarted         []workflowStartedCall
 	workflowsCompleted       []workflowCompletedCall
 	workflowsFailed          []workflowFailedCall
@@ -81,8 +81,8 @@ type workflowStartedCall struct {
 }
 
 type workflowCompletedCall struct {
-	conflictID  string
-	auditTrail  *statemachine.ConflictAuditTrail
+	conflictID string
+	auditTrail *statemachine.ConflictAuditTrail
 }
 
 type workflowFailedCall struct {
@@ -114,8 +114,8 @@ type metricsRecordedCall struct {
 
 func newTestObservabilityHooks() *testObservabilityHooks {
 	hooks := &testObservabilityHooks{
-		stateTransitions:          make([]stateTransitionCall, 0),
-		stateTransitionFailures:   make([]stateTransitionFailureCall, 0),
+		stateTransitions:         make([]stateTransitionCall, 0),
+		stateTransitionFailures:  make([]stateTransitionFailureCall, 0),
 		workflowsStarted:         make([]workflowStartedCall, 0),
 		workflowsCompleted:       make([]workflowCompletedCall, 0),
 		workflowsFailed:          make([]workflowFailedCall, 0),
@@ -276,9 +276,9 @@ func TestStatefulDynamicResolver_StateTransitions(t *testing.T) {
 		EnableWorkflowTracking:   true,
 		EnablePerformanceMetrics: true,
 		EnableAuditTrail:         true,
-		ObservabilityHooks:      testHooks.toConflictResolutionObservabilityHooks(),
-		WorkflowOptions:         statemachine.DefaultWorkflowOptions(),
-		MaxStateHistorySize:     100,
+		ObservabilityHooks:       testHooks.toConflictResolutionObservabilityHooks(),
+		WorkflowOptions:          statemachine.DefaultWorkflowOptions(),
+		MaxStateHistorySize:      100,
 	}
 
 	statefulResolver, err := NewStatefulDynamicResolver(dynamicResolver, options)
@@ -348,7 +348,7 @@ func TestStatefulDynamicResolver_RuleEvaluation(t *testing.T) {
 		EnableStateMachine:       true,
 		EnableWorkflowTracking:   true,
 		EnablePerformanceMetrics: true,
-		ObservabilityHooks:      testHooks.toConflictResolutionObservabilityHooks(),
+		ObservabilityHooks:       testHooks.toConflictResolutionObservabilityHooks(),
 	}
 
 	statefulResolver, err := NewStatefulDynamicResolver(dynamicResolver, options)
@@ -413,7 +413,7 @@ func TestStatefulDynamicResolver_RuleFailure(t *testing.T) {
 		EnableStateMachine:       true,
 		EnableWorkflowTracking:   true,
 		EnablePerformanceMetrics: true,
-		ObservabilityHooks:      testHooks.toConflictResolutionObservabilityHooks(),
+		ObservabilityHooks:       testHooks.toConflictResolutionObservabilityHooks(),
 	}
 
 	statefulResolver, err := NewStatefulDynamicResolver(dynamicResolver, options)
@@ -512,7 +512,7 @@ func TestStatefulDynamicResolver_PerformanceMetrics(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Resolve multiple conflicts to generate metrics
 	for i := 0; i < 3; i++ {
 		_, err = statefulResolver.Resolve(ctx, conflict)
@@ -557,8 +557,8 @@ func TestStatefulDynamicResolver_WorkflowTracking(t *testing.T) {
 	}
 
 	conflict := Conflict{
-		EventType:   "TestEvent",
-		AggregateID: "test-123",
+		EventType:     "TestEvent",
+		AggregateID:   "test-123",
 		ChangedFields: []string{"field1", "field2"},
 	}
 
@@ -688,32 +688,32 @@ func TestStatefulDynamicResolver_Configuration(t *testing.T) {
 
 func TestNewStatefulDynamicResolverFromOptions(t *testing.T) {
 	baseResolver := &mockStatefulResolver{name: "base", res: ResolvedConflict{Decision: "resolved"}}
-	
+
 	dynamicOpts := []Option{
 		WithFallback(baseResolver),
 		WithRule("test_rule", AlwaysMatch(), baseResolver),
 	}
-	
+
 	statefulOpts := statemachine.DefaultStatefulResolverOptions()
-	
+
 	statefulResolver, err := NewStatefulDynamicResolverFromOptions(dynamicOpts, statefulOpts)
 	if err != nil {
 		t.Fatalf("Failed to create stateful resolver from options: %v", err)
 	}
-	
+
 	if !statefulResolver.IsStateMachineEnabled() {
 		t.Error("Expected state machine to be enabled")
 	}
-	
+
 	// Test that it works
 	conflict := Conflict{
 		EventType:   "TestEvent",
 		AggregateID: "test-123",
 	}
-	
+
 	ctx := context.Background()
 	result, err := statefulResolver.Resolve(ctx, conflict)
-	
+
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}

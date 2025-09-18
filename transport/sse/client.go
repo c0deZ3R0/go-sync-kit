@@ -12,12 +12,11 @@ import (
 	"strings"
 	"time"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	kiterr "github.com/c0deZ3R0/go-sync-kit/errors"
 	"github.com/c0deZ3R0/go-sync-kit/logging"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
-
 
 type Client struct {
 	BaseURL string
@@ -177,7 +176,7 @@ func (c *Client) consumeStream(ctx context.Context, body io.ReadCloser, handler 
 
 		var payload struct {
 			Events     []JSONEventWithVersion `json:"events"`
-			NextCursor cursor.WireCursor       `json:"next_cursor"`
+			NextCursor cursor.WireCursor      `json:"next_cursor"`
 		}
 
 		if err := json.Unmarshal(bytes.TrimPrefix(line, []byte("data: ")), &payload); err != nil {
@@ -224,18 +223,18 @@ func (c *Client) consumeStream(ctx context.Context, body io.ReadCloser, handler 
 }
 
 // Implement other Transport methods as passthroughs or unimplemented if Subscribe-only for MVP.
-func (c *Client) Push(ctx context.Context, _ []synckit.EventWithVersion) error { 
-	return kiterr.E(kiterr.Op("sse.Push"), kiterr.Component("transport/sse"), kiterr.KindMethodNotAllowed, "not implemented") 
+func (c *Client) Push(ctx context.Context, _ []synckit.EventWithVersion) error {
+	return kiterr.E(kiterr.Op("sse.Push"), kiterr.Component("transport/sse"), kiterr.KindMethodNotAllowed, "not implemented")
 }
 
-func (c *Client) Pull(ctx context.Context, _ synckit.Version) ([]synckit.EventWithVersion, error) { 
-	return nil, kiterr.E(kiterr.Op("sse.Pull"), kiterr.Component("transport/sse"), kiterr.KindMethodNotAllowed, "not implemented") 
+func (c *Client) Pull(ctx context.Context, _ synckit.Version) ([]synckit.EventWithVersion, error) {
+	return nil, kiterr.E(kiterr.Op("sse.Pull"), kiterr.Component("transport/sse"), kiterr.KindMethodNotAllowed, "not implemented")
 }
 
 func (c *Client) GetLatestVersion(ctx context.Context) (synckit.Version, error) {
 	return nil, kiterr.E(kiterr.Op("sse.GetLatestVersion"), kiterr.Component("transport/sse"), kiterr.KindMethodNotAllowed, "not implemented")
 }
 
-func (c *Client) Close() error { 
-	return nil 
+func (c *Client) Close() error {
+	return nil
 }

@@ -17,11 +17,11 @@ import (
 // OffsetStore implements projection.OffsetStore using BadgerDB as the backend.
 // It provides high-performance offset persistence with excellent concurrent access patterns.
 type OffsetStore struct {
-	db     *badger.DB
+	db           *badger.DB
 	parseVersion func(ctx context.Context, s string) (synckit.Version, error)
-	logger *slog.Logger
-	mu     sync.RWMutex
-	closed bool
+	logger       *slog.Logger
+	mu           sync.RWMutex
+	closed       bool
 }
 
 // OffsetStoreOption configures an OffsetStore using the functional options pattern.

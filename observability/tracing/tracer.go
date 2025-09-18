@@ -53,7 +53,7 @@ func WithAttributes(attrs ...attribute.KeyValue) TracerOption {
 // It uses the global OpenTelemetry tracer provider to create the underlying tracer.
 func NewTracer(serviceName string, opts ...TracerOption) *SyncKitTracer {
 	tracer := otel.Tracer("github.com/c0deZ3R0/go-sync-kit")
-	
+
 	t := &SyncKitTracer{
 		tracer:      tracer,
 		serviceName: serviceName,
@@ -62,11 +62,11 @@ func NewTracer(serviceName string, opts ...TracerOption) *SyncKitTracer {
 			attribute.String("library.name", "go-sync-kit"),
 		},
 	}
-	
+
 	for _, opt := range opts {
 		opt(t)
 	}
-	
+
 	return t
 }
 
@@ -74,13 +74,13 @@ func NewTracer(serviceName string, opts ...TracerOption) *SyncKitTracer {
 // It automatically sets standard attributes and naming conventions.
 func (t *SyncKitTracer) StartSyncOperation(ctx context.Context, operation string) (context.Context, trace.Span) {
 	spanName := fmt.Sprintf("synckit.sync.%s", operation)
-	
+
 	attrs := append([]attribute.KeyValue{
 		SyncOperationKey.String(operation),
 		SyncPhaseKey.String("start"),
 		ComponentKey.String("synckit"),
 	}, t.attributes...)
-	
+
 	return t.tracer.Start(ctx, spanName,
 		trace.WithAttributes(attrs...),
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -90,13 +90,13 @@ func (t *SyncKitTracer) StartSyncOperation(ctx context.Context, operation string
 // StartTransportOperation starts a new span for a transport operation.
 func (t *SyncKitTracer) StartTransportOperation(ctx context.Context, operation, transport string) (context.Context, trace.Span) {
 	spanName := fmt.Sprintf("synckit.transport.%s", operation)
-	
+
 	attrs := append([]attribute.KeyValue{
 		TransportOperationKey.String(operation),
 		TransportTypeKey.String(transport),
 		ComponentKey.String("transport"),
 	}, t.attributes...)
-	
+
 	return t.tracer.Start(ctx, spanName,
 		trace.WithAttributes(attrs...),
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -106,13 +106,13 @@ func (t *SyncKitTracer) StartTransportOperation(ctx context.Context, operation, 
 // StartStorageOperation starts a new span for a storage operation.
 func (t *SyncKitTracer) StartStorageOperation(ctx context.Context, operation, storageType string) (context.Context, trace.Span) {
 	spanName := fmt.Sprintf("synckit.storage.%s", operation)
-	
+
 	attrs := append([]attribute.KeyValue{
 		StorageOperationKey.String(operation),
 		StorageTypeKey.String(storageType),
 		ComponentKey.String("storage"),
 	}, t.attributes...)
-	
+
 	return t.tracer.Start(ctx, spanName,
 		trace.WithAttributes(attrs...),
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -122,12 +122,12 @@ func (t *SyncKitTracer) StartStorageOperation(ctx context.Context, operation, st
 // StartConflictResolution starts a new span for conflict resolution.
 func (t *SyncKitTracer) StartConflictResolution(ctx context.Context, strategy string) (context.Context, trace.Span) {
 	spanName := "synckit.conflict.resolve"
-	
+
 	attrs := append([]attribute.KeyValue{
 		ConflictStrategyKey.String(strategy),
 		ComponentKey.String("conflict-resolver"),
 	}, t.attributes...)
-	
+
 	return t.tracer.Start(ctx, spanName,
 		trace.WithAttributes(attrs...),
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -139,7 +139,7 @@ func (t *SyncKitTracer) AddEventAttributes(span trace.Span, eventCount int, aggr
 	attrs := []attribute.KeyValue{
 		EventCountKey.Int(eventCount),
 	}
-	
+
 	if len(aggregateIDs) > 0 {
 		// Limit the number of aggregate IDs to prevent span size issues
 		maxAggregateIDs := 10
@@ -150,7 +150,7 @@ func (t *SyncKitTracer) AddEventAttributes(span trace.Span, eventCount int, aggr
 			attrs = append(attrs, AggregateIDsKey.StringSlice(aggregateIDs))
 		}
 	}
-	
+
 	span.SetAttributes(attrs...)
 }
 
@@ -159,7 +159,7 @@ func (t *SyncKitTracer) RecordError(span trace.Span, err error, description stri
 	if err == nil {
 		return
 	}
-	
+
 	span.SetStatus(codes.Error, description)
 	span.RecordError(err, trace.WithAttributes(
 		attribute.String("error.type", fmt.Sprintf("%T", err)),
@@ -175,7 +175,7 @@ func (t *SyncKitTracer) SetSyncResult(span trace.Span, eventsPushed, eventsPulle
 		ConflictsResolvedKey.Int(conflictsResolved),
 		attribute.Bool("success", true),
 	)
-	
+
 	span.SetStatus(codes.Ok, "Sync operation completed successfully")
 }
 

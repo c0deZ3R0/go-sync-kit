@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Config defines the RabbitMQ transport configuration.
@@ -41,9 +41,9 @@ type Config struct {
 	DeadLetterQueue string
 
 	// Observability
-	Tracer        SyncKitTracer
-	Metrics       MetricsCollector
-	Logger        *slog.Logger
+	Tracer  SyncKitTracer
+	Metrics MetricsCollector
+	Logger  *slog.Logger
 }
 
 // DefaultConfig returns a RabbitMQ config with sensible defaults.
@@ -88,7 +88,7 @@ func (c *Config) Validate() error {
 		}
 	}
 	if !valid {
-		return fmt.Errorf("invalid exchange type %s, must be one of: %s", 
+		return fmt.Errorf("invalid exchange type %s, must be one of: %s",
 			c.ExchangeType, strings.Join(validTypes, ", "))
 	}
 

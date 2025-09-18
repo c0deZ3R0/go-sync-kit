@@ -178,10 +178,16 @@ func (m *MockMetricsCollector) RecordConflicts(resolved int) {
 }
 
 // Snapshot helpers for thread-safe reads in tests
-func (m *MockMetricsCollector) CopyDurationCalls() []struct{ Operation string; Duration time.Duration } {
+func (m *MockMetricsCollector) CopyDurationCalls() []struct {
+	Operation string
+	Duration  time.Duration
+} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	out := make([]struct{ Operation string; Duration time.Duration }, len(m.DurationCalls))
+	out := make([]struct {
+		Operation string
+		Duration  time.Duration
+	}, len(m.DurationCalls))
 	copy(out, m.DurationCalls)
 	return out
 }

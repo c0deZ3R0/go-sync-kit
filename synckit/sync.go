@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
-	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 	"github.com/c0deZ3R0/go-sync-kit/synckit/statemachine"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Event represents a syncable event in the system.
@@ -245,7 +245,7 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 		// Log the error but don't fail - state machine is optional enhancement
 		logger.Warn("Failed to create sync state machine, continuing without state tracking", "error", err)
 	}
-	
+
 	sm := &syncManager{
 		store:            store,
 		transport:        transport,
@@ -254,7 +254,7 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 		stateMachine:     stateMachine,
 		projectionConfig: projectionConfig,
 	}
-	
+
 	// Initialize projection worker pool if projections are configured
 	if projectionConfig != nil && projectionConfig.RunOnSync && len(projectionConfig.Runners) > 0 {
 		sm.projectionPool = make(chan struct{}, projectionConfig.MaxWorkers)
@@ -264,7 +264,7 @@ func NewSyncManager(store EventStore, transport Transport, opts *SyncOptions, lo
 			"timeout", projectionConfig.Timeout,
 		)
 	}
-	
+
 	return sm
 }
 
@@ -275,22 +275,22 @@ func createSyncStateMachine(metricsCollector MetricsCollector, tracer interface{
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If no observability components provided, return basic state machine
 	if metricsCollector == nil && tracer == nil {
 		return basicStateMachine, nil
 	}
-	
+
 	// Create observability adapters
 	var stateMetrics statemachine.StateMetricsCollector
 	var stateTracer statemachine.StateTracer
 	var healthUpdater statemachine.StateHealthUpdater
-	
+
 	// Setup metrics adapter
 	if metricsCollector != nil {
 		stateMetrics = statemachine.NewSyncKitMetricsAdapter(metricsCollector)
 	}
-	
+
 	// Setup tracing adapter if available
 	if tracer != nil {
 		// Try to cast to the expected tracer interface
@@ -302,12 +302,12 @@ func createSyncStateMachine(metricsCollector MetricsCollector, tracer interface{
 			stateTracer = statemachine.NewSyncKitTracerAdapter(syncTracer)
 		}
 	}
-	
+
 	// Create default health updater (placeholder for future health check integration)
 	if logger != nil {
 		healthUpdater = statemachine.NewDefaultStateHealthUpdater(nil) // nil for now, can be enhanced later
 	}
-	
+
 	// Create observability hooks
 	hooks := statemachine.NewObservabilityHooks[SyncState](
 		stateMetrics,
@@ -316,9 +316,9 @@ func createSyncStateMachine(metricsCollector MetricsCollector, tracer interface{
 		logger,
 		"sync_manager",
 	)
-	
+
 	// Subscribe observability hooks to the state machine
 	basicStateMachine.Subscribe(hooks)
-	
+
 	return basicStateMachine, nil
 }

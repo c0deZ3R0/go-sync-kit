@@ -16,11 +16,11 @@ import (
 // as mentioned in the code review
 func BenchmarkSQLiteWALConcurrentReadWrite(b *testing.B) {
 	scenarios := []struct {
-		name        string
-		numReaders  int
-		numWriters  int
-		enableWAL   bool
-		batchSize   int
+		name       string
+		numReaders int
+		numWriters int
+		enableWAL  bool
+		batchSize  int
 	}{
 		{"WAL_1Reader_1Writer", 1, 1, true, 10},
 		{"WAL_2Readers_1Writer", 2, 1, true, 10},
@@ -30,7 +30,7 @@ func BenchmarkSQLiteWALConcurrentReadWrite(b *testing.B) {
 		{"NoWAL_1Reader_1Writer", 1, 1, false, 10},
 		{"NoWAL_2Readers_1Writer", 2, 1, false, 10},
 	}
-	
+
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			benchmarkConcurrentReadWrite(b, scenario.numReaders, scenario.numWriters, scenario.enableWAL, scenario.batchSize)
@@ -41,7 +41,7 @@ func BenchmarkSQLiteWALConcurrentReadWrite(b *testing.B) {
 func benchmarkConcurrentReadWrite(b *testing.B, numReaders, numWriters int, enableWAL bool, batchSize int) {
 	tempDir := b.TempDir()
 	dbPath := filepath.Join(tempDir, "benchmark.db")
-	
+
 	config := &Config{
 		DataSourceName:  dbPath,
 		EnableWAL:       enableWAL,
@@ -50,15 +50,15 @@ func benchmarkConcurrentReadWrite(b *testing.B, numReaders, numWriters int, enab
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: 5 * time.Minute,
 	}
-	
+
 	store, err := New(config)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer store.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Pre-populate some data for readers
 	for i := 0; i < 100; i++ {
 		event := &MockEvent{
@@ -72,12 +72,12 @@ func benchmarkConcurrentReadWrite(b *testing.B, numReaders, numWriters int, enab
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
-	
+
 	var wg sync.WaitGroup
 	startTime := time.Now()
-	
+
 	// Start readers
 	for r := 0; r < numReaders; r++ {
 		wg.Add(1)
@@ -86,7 +86,7 @@ func benchmarkConcurrentReadWrite(b *testing.B, numReaders, numWriters int, enab
 			benchmarkReader(b, store, readerID, startTime)
 		}(r)
 	}
-	
+
 	// Start writers
 	for w := 0; w < numWriters; w++ {
 		wg.Add(1)
@@ -95,14 +95,14 @@ func benchmarkConcurrentReadWrite(b *testing.B, numReaders, numWriters int, enab
 			benchmarkWriter(b, store, writerID, batchSize, startTime)
 		}(w)
 	}
-	
+
 	wg.Wait()
 }
 
 func benchmarkReader(b *testing.B, store *SQLiteEventStore, readerID int, startTime time.Time) {
 	ctx := context.Background()
 	readCount := 0
-	
+
 	for time.Since(startTime) < time.Duration(b.N)*time.Nanosecond {
 		// Perform different types of reads
 		switch readCount % 3 {
@@ -136,12 +136,12 @@ func benchmarkReader(b *testing.B, store *SQLiteEventStore, readerID int, startT
 func benchmarkWriter(b *testing.B, store *SQLiteEventStore, writerID int, batchSize int, startTime time.Time) {
 	ctx := context.Background()
 	writeCount := 0
-	
+
 	for time.Since(startTime) < time.Duration(b.N)*time.Nanosecond {
 		// Create batch of events
 		events := make([]synckit.EventWithVersion, batchSize)
 		baseSeq := uint64(writeCount*batchSize + writerID*1000000) // Avoid sequence conflicts
-		
+
 		for i := 0; i < batchSize; i++ {
 			events[i] = synckit.EventWithVersion{
 				Event: &MockEvent{
@@ -149,24 +149,24 @@ func benchmarkWriter(b *testing.B, store *SQLiteEventStore, writerID int, batchS
 					eventType:   "BenchmarkEvent",
 					aggregateID: fmt.Sprintf("benchmark-agg-%d", (writeCount*batchSize+i)%25),
 					data: map[string]interface{}{
-						"writer_id":   writerID,
-						"batch_id":    writeCount,
-						"event_id":    i,
-						"timestamp":   time.Now().Unix(),
-						"payload":     fmt.Sprintf("Benchmark payload for writer %d batch %d event %d", writerID, writeCount, i),
+						"writer_id": writerID,
+						"batch_id":  writeCount,
+						"event_id":  i,
+						"timestamp": time.Now().Unix(),
+						"payload":   fmt.Sprintf("Benchmark payload for writer %d batch %d event %d", writerID, writeCount, i),
 					},
 				},
 				Version: cursor.IntegerCursor{Seq: baseSeq + uint64(i)},
 			}
 		}
-		
+
 		// Write batch
 		err := store.StoreBatch(ctx, events)
 		if err != nil {
 			b.Error(err)
 			return
 		}
-		
+
 		writeCount++
 	}
 }
@@ -184,7 +184,7 @@ func BenchmarkSQLiteWALScaling(b *testing.B) {
 		{"Conns_50_10", 50, 10},
 		{"Conns_100_20", 100, 20},
 	}
-	
+
 	for _, connConfig := range connectionConfigs {
 		b.Run(connConfig.name, func(b *testing.B) {
 			benchmarkWALScaling(b, connConfig.maxOpenConns, connConfig.maxIdleConns)
@@ -195,7 +195,7 @@ func BenchmarkSQLiteWALScaling(b *testing.B) {
 func benchmarkWALScaling(b *testing.B, maxOpenConns, maxIdleConns int) {
 	tempDir := b.TempDir()
 	dbPath := filepath.Join(tempDir, "scaling.db")
-	
+
 	config := &Config{
 		DataSourceName:  dbPath,
 		EnableWAL:       true,
@@ -204,18 +204,18 @@ func benchmarkWALScaling(b *testing.B, maxOpenConns, maxIdleConns int) {
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: 5 * time.Minute,
 	}
-	
+
 	store, err := New(config)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer store.Close()
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	b.SetBytes(1024) // Approximate size per operation
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		eventCounter := 0
 		for pb.Next() {
@@ -225,7 +225,7 @@ func benchmarkWALScaling(b *testing.B, maxOpenConns, maxIdleConns int) {
 				aggregateID: fmt.Sprintf("scaling-agg-%d", eventCounter%10),
 				data:        fmt.Sprintf("Scaling test data for event %d with max connections %d", eventCounter, maxOpenConns),
 			}
-			
+
 			err := store.Store(ctx, event, cursor.IntegerCursor{Seq: uint64(eventCounter + 1)})
 			if err != nil {
 				b.Error(err)
@@ -239,7 +239,7 @@ func benchmarkWALScaling(b *testing.B, maxOpenConns, maxIdleConns int) {
 // BenchmarkSQLiteWALTransactionSizes benchmarks different transaction sizes in WAL mode
 func BenchmarkSQLiteWALTransactionSizes(b *testing.B) {
 	transactionSizes := []int{1, 5, 10, 25, 50, 100, 250}
-	
+
 	for _, txSize := range transactionSizes {
 		b.Run(fmt.Sprintf("TxSize_%d", txSize), func(b *testing.B) {
 			benchmarkWALTransactionSize(b, txSize)
@@ -250,26 +250,26 @@ func BenchmarkSQLiteWALTransactionSizes(b *testing.B) {
 func benchmarkWALTransactionSize(b *testing.B, transactionSize int) {
 	tempDir := b.TempDir()
 	dbPath := filepath.Join(tempDir, "transaction.db")
-	
+
 	config := DefaultConfig(dbPath)
 	config.EnableWAL = true
-	
+
 	store, err := New(config)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer store.Close()
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	b.SetBytes(int64(transactionSize * 512)) // Approximate bytes per transaction
-	
+
 	for i := 0; i < b.N; i++ {
 		// Create batch of events
 		events := make([]synckit.EventWithVersion, transactionSize)
 		baseSeq := uint64(i * transactionSize)
-		
+
 		for j := 0; j < transactionSize; j++ {
 			events[j] = synckit.EventWithVersion{
 				Event: &MockEvent{
@@ -281,7 +281,7 @@ func benchmarkWALTransactionSize(b *testing.B, transactionSize int) {
 				Version: cursor.IntegerCursor{Seq: baseSeq + uint64(j)},
 			}
 		}
-		
+
 		// Store batch in single transaction
 		err := store.StoreBatch(ctx, events)
 		if err != nil {
@@ -293,16 +293,16 @@ func benchmarkWALTransactionSize(b *testing.B, transactionSize int) {
 // BenchmarkSQLiteWALCheckpointBehavior benchmarks behavior around WAL checkpoint operations
 func BenchmarkSQLiteWALCheckpointBehavior(b *testing.B) {
 	scenarios := []struct {
-		name              string
-		eventsBeforeRead  int
-		readFrequency     int
-		checkpointFreq    int
+		name             string
+		eventsBeforeRead int
+		readFrequency    int
+		checkpointFreq   int
 	}{
 		{"Frequent_Checkpoints", 1000, 50, 100},
 		{"Moderate_Checkpoints", 2000, 100, 500},
 		{"Infrequent_Checkpoints", 5000, 250, 1000},
 	}
-	
+
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			benchmarkWALCheckpointBehavior(b, scenario.eventsBeforeRead, scenario.readFrequency, scenario.checkpointFreq)
@@ -313,18 +313,18 @@ func BenchmarkSQLiteWALCheckpointBehavior(b *testing.B) {
 func benchmarkWALCheckpointBehavior(b *testing.B, eventsBeforeRead, readFrequency, checkpointFreq int) {
 	tempDir := b.TempDir()
 	dbPath := filepath.Join(tempDir, "checkpoint.db")
-	
+
 	config := DefaultConfig(dbPath)
 	config.EnableWAL = true
-	
+
 	store, err := New(config)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer store.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Pre-populate to simulate realistic WAL size
 	for i := 0; i < eventsBeforeRead; i++ {
 		event := &MockEvent{
@@ -338,9 +338,9 @@ func benchmarkWALCheckpointBehavior(b *testing.B, eventsBeforeRead, readFrequenc
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		// Write an event
 		event := &MockEvent{
@@ -349,12 +349,12 @@ func benchmarkWALCheckpointBehavior(b *testing.B, eventsBeforeRead, readFrequenc
 			aggregateID: fmt.Sprintf("checkpoint-agg-%d", i%25),
 			data:        fmt.Sprintf("Checkpoint benchmark data %d", i),
 		}
-		
+
 		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: uint64(eventsBeforeRead + i + 1)})
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		// Periodic reads
 		if i%readFrequency == 0 {
 			_, err := store.Load(ctx, cursor.IntegerCursor{Seq: uint64(eventsBeforeRead + i - readFrequency/2)})
@@ -362,7 +362,7 @@ func benchmarkWALCheckpointBehavior(b *testing.B, eventsBeforeRead, readFrequenc
 				b.Fatal(err)
 			}
 		}
-		
+
 		// Simulate checkpoint behavior (SQLite handles this automatically, but we can trigger reads that might be affected)
 		if i%checkpointFreq == 0 {
 			// Perform a larger read operation that might benefit from checkpointing
@@ -386,13 +386,13 @@ func BenchmarkSQLiteWALReadPerformance(b *testing.B) {
 		{"AggregateReads", benchmarkAggregateReads},
 		{"RangeReads", benchmarkRangeReads},
 	}
-	
+
 	for _, datasetSize := range datasetSizes {
 		for _, pattern := range readPatterns {
 			b.Run(fmt.Sprintf("%s_Dataset_%d", pattern.name, datasetSize), func(b *testing.B) {
 				store := setupWALStoreWithData(b, datasetSize)
 				defer store.Close()
-				
+
 				b.ResetTimer()
 				pattern.fn(b, store, datasetSize)
 			})
@@ -403,17 +403,17 @@ func BenchmarkSQLiteWALReadPerformance(b *testing.B) {
 func setupWALStoreWithData(b *testing.B, datasetSize int) *SQLiteEventStore {
 	tempDir := b.TempDir()
 	dbPath := filepath.Join(tempDir, "read_perf.db")
-	
+
 	config := DefaultConfig(dbPath)
 	config.EnableWAL = true
-	
+
 	store, err := New(config)
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Populate with test data
 	events := make([]synckit.EventWithVersion, datasetSize)
 	for i := 0; i < datasetSize; i++ {
@@ -433,19 +433,19 @@ func setupWALStoreWithData(b *testing.B, datasetSize int) *SQLiteEventStore {
 			Version: cursor.IntegerCursor{Seq: uint64(i + 1)},
 		}
 	}
-	
+
 	// Use batch insert for better performance during setup
 	err = store.StoreBatch(ctx, events)
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	return store
 }
 
 func benchmarkSequentialReads(b *testing.B, store *SQLiteEventStore, datasetSize int) {
 	ctx := context.Background()
-	
+
 	for i := 0; i < b.N; i++ {
 		startSeq := uint64((i % (datasetSize / 10)) * 10)
 		_, err := store.Load(ctx, cursor.IntegerCursor{Seq: startSeq})
@@ -457,7 +457,7 @@ func benchmarkSequentialReads(b *testing.B, store *SQLiteEventStore, datasetSize
 
 func benchmarkRandomReads(b *testing.B, store *SQLiteEventStore, datasetSize int) {
 	ctx := context.Background()
-	
+
 	for i := 0; i < b.N; i++ {
 		randomSeq := uint64((i * 7919) % datasetSize) // Pseudo-random access
 		_, err := store.Load(ctx, cursor.IntegerCursor{Seq: randomSeq})
@@ -469,7 +469,7 @@ func benchmarkRandomReads(b *testing.B, store *SQLiteEventStore, datasetSize int
 
 func benchmarkAggregateReads(b *testing.B, store *SQLiteEventStore, datasetSize int) {
 	ctx := context.Background()
-	
+
 	for i := 0; i < b.N; i++ {
 		aggregateID := fmt.Sprintf("read-perf-agg-%d", i%100)
 		_, err := store.LoadByAggregate(ctx, aggregateID, cursor.IntegerCursor{Seq: 0})
@@ -481,7 +481,7 @@ func benchmarkAggregateReads(b *testing.B, store *SQLiteEventStore, datasetSize 
 
 func benchmarkRangeReads(b *testing.B, store *SQLiteEventStore, datasetSize int) {
 	ctx := context.Background()
-	
+
 	for i := 0; i < b.N; i++ {
 		startSeq := uint64((i % (datasetSize / 100)) * 100)
 		_, err := store.Load(ctx, cursor.IntegerCursor{Seq: startSeq})

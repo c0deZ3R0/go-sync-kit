@@ -169,7 +169,7 @@ func (d *DynamicLevelVar) SetFromString(level string) bool {
 // NewLoggerWithDynamicLevel creates a logger with dynamic level support
 func NewLoggerWithDynamicLevel(config Config) (*Logger, *DynamicLevelVar) {
 	levelVar := NewDynamicLevelVar(slog.LevelInfo)
-	
+
 	opts := &slog.HandlerOptions{
 		Level:     levelVar.LevelVar,
 		AddSource: config.AddSource,

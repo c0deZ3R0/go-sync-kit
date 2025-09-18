@@ -15,7 +15,7 @@ type WireEvent struct {
 	ID          string                 `json:"id"`
 	Type        string                 `json:"type"`
 	AggregateID string                 `json:"aggregate_id"`
-	Data        json.RawMessage        `json:"data"`         // Raw JSON for codec-aware or fallback encoding
+	Data        json.RawMessage        `json:"data"`                // Raw JSON for codec-aware or fallback encoding
 	DataKind    string                 `json:"data_kind,omitempty"` // Optional: codec identifier
 	Metadata    map[string]interface{} `json:"metadata"`
 }
@@ -54,7 +54,7 @@ func (e *CodecAwareEncoder) EncodeEvent(event synckit.Event) (WireEvent, error) 
 	}
 
 	data := event.Data()
-	
+
 	// Try to determine codec kind from metadata
 	var codecKind string
 	if metadata := event.Metadata(); metadata != nil {
@@ -104,7 +104,7 @@ func (e *CodecAwareEncoder) EncodeEvent(event synckit.Event) (WireEvent, error) 
 // DecodeEvent converts a WireEvent back to a concrete Event implementation.
 func (e *CodecAwareEncoder) DecodeEvent(wireEvent WireEvent) (synckit.Event, error) {
 	var data interface{}
-	
+
 	// If DataKind is specified, try to use the codec
 	if wireEvent.DataKind != "" {
 		if c, found := e.registry.Get(wireEvent.DataKind); found {

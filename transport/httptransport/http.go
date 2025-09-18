@@ -16,12 +16,12 @@ import (
 
 // Operation constants for consistent error reporting
 const (
-	opPush         = "httptransport.Push"
-	opPull         = "httptransport.Pull"
+	opPush          = "httptransport.Push"
+	opPull          = "httptransport.Pull"
 	opLatestVersion = "httptransport.GetLatestVersion"
-	opSubscribe    = "httptransport.Subscribe"
-	opPushHandler  = "httptransport.handlePush"
-	opPullHandler  = "httptransport.handlePull"
+	opSubscribe     = "httptransport.Subscribe"
+	opPushHandler   = "httptransport.handlePush"
+	opPullHandler   = "httptransport.handlePull"
 	opLatestHandler = "httptransport.handleLatestVersion"
 )
 
@@ -34,7 +34,7 @@ type VersionParser func(ctx context.Context, s string) (synckit.Version, error)
 type SyncHooks struct {
 	// AfterCommit is called after events are successfully committed to storage
 	AfterCommit func(ctx context.Context, committed []synckit.EventWithVersion)
-	
+
 	// BeforePull is called before pulling events (for metrics, etc.)
 	BeforePull func(ctx context.Context, since synckit.Version)
 }
@@ -172,7 +172,7 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 
 	// Track successfully committed events for hooks
 	var committedEvents []synckit.EventWithVersion
-	
+
 	for _, jev := range jsonEvents {
 		ev, err := fromJSONEventWithVersion(r.Context(), h.versionParser, jev)
 		if err != nil {
@@ -203,21 +203,21 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		slog.Int("event_count", len(jsonEvents)),
 		slog.Int("committed_count", len(committedEvents)),
 		slog.String("remote_addr", r.RemoteAddr))
-	
+
 	// Send response first
 	h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
-	
+
 	// Call AfterCommit hook asynchronously if there are committed events
 	if h.hooks != nil && h.hooks.AfterCommit != nil && len(committedEvents) > 0 {
 		go func() {
 			// Create timeout context for hook execution
 			hookCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			
+
 			h.logger.Debug("Calling AfterCommit hook",
 				slog.Int("committed_events", len(committedEvents)),
 				slog.String("remote_addr", r.RemoteAddr))
-			
+
 			h.hooks.AfterCommit(hookCtx, committedEvents)
 		}()
 	}

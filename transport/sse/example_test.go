@@ -9,24 +9,24 @@ import (
 	"testing"
 	"time"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // ExampleEvent implements synckit.Event for testing
 type ExampleEvent struct {
-	IDValue         string                 `json:"id"`
-	TypeValue       string                 `json:"type"`
-	AggregateIDValue string                `json:"aggregate_id"`
-	DataValue       interface{}            `json:"data"`
-	MetadataValue   map[string]interface{} `json:"metadata"`
+	IDValue          string                 `json:"id"`
+	TypeValue        string                 `json:"type"`
+	AggregateIDValue string                 `json:"aggregate_id"`
+	DataValue        interface{}            `json:"data"`
+	MetadataValue    map[string]interface{} `json:"metadata"`
 }
 
-func (e ExampleEvent) ID() string                            { return e.IDValue }
-func (e ExampleEvent) Type() string                          { return e.TypeValue }
-func (e ExampleEvent) AggregateID() string                   { return e.AggregateIDValue }
-func (e ExampleEvent) Data() interface{}                     { return e.DataValue }
-func (e ExampleEvent) Metadata() map[string]interface{}      { return e.MetadataValue }
+func (e ExampleEvent) ID() string                       { return e.IDValue }
+func (e ExampleEvent) Type() string                     { return e.TypeValue }
+func (e ExampleEvent) AggregateID() string              { return e.AggregateIDValue }
+func (e ExampleEvent) Data() interface{}                { return e.DataValue }
+func (e ExampleEvent) Metadata() map[string]interface{} { return e.MetadataValue }
 
 // MockEventStore implements synckit.EventStore for testing
 type MockEventStore struct {
@@ -47,7 +47,7 @@ func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]syn
 			sinceSeq = ic.Seq
 		}
 	}
-	
+
 	for i, ev := range m.events {
 		if ic, ok := ev.Version.(cursor.IntegerCursor); ok && ic.Seq > sinceSeq {
 			result = append(result, ev)
@@ -63,7 +63,7 @@ func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var result []synckit.EventWithVersion
 	for _, ev := range events {
 		if ev.Event.AggregateID() == aggregateID {
@@ -92,37 +92,37 @@ func (m *MockEventStore) Close() error {
 func ExampleTransport() {
 	// Initialize cursor codecs
 	cursor.InitDefaultCodecs()
-	
+
 	// Create mock store with some test events
 	store := &MockEventStore{}
 	store.Store(context.Background(), ExampleEvent{
-		IDValue:         "event-1",
-		TypeValue:       "UserCreated",
+		IDValue:          "event-1",
+		TypeValue:        "UserCreated",
 		AggregateIDValue: "user-123",
-		DataValue:       map[string]interface{}{"name": "John Doe"},
+		DataValue:        map[string]interface{}{"name": "John Doe"},
 	}, cursor.NewInteger(1))
-	
+
 	store.Store(context.Background(), ExampleEvent{
-		IDValue:         "event-2", 
-		TypeValue:       "UserUpdated",
+		IDValue:          "event-2",
+		TypeValue:        "UserUpdated",
 		AggregateIDValue: "user-123",
-		DataValue:       map[string]interface{}{"name": "John Smith"},
+		DataValue:        map[string]interface{}{"name": "John Smith"},
 	}, cursor.NewInteger(2))
 
 	// Create SSE server
 	server := NewServer(store, slog.Default())
-	
+
 	// Create test HTTP server
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
-	
+
 	// Create SSE client
 	client := NewClient(testServer.URL, nil)
-	
+
 	// Subscribe to events
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	eventCount := 0
 	err := client.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
 		for _, ev := range events {
@@ -131,13 +131,13 @@ func ExampleTransport() {
 		}
 		return nil
 	})
-	
+
 	if err != nil && !strings.Contains(err.Error(), "context deadline exceeded") && err.Error() != "context canceled" {
 		fmt.Printf("Subscribe error: %v\n", err)
 	}
-	
+
 	fmt.Printf("Total events received: %d\n", eventCount)
-	// Output: 
+	// Output:
 	// Received event: UserCreated - event-1
 	// Received event: UserUpdated - event-2
 	// Total events received: 2
@@ -146,28 +146,28 @@ func ExampleTransport() {
 func TestSSEBasicIntegration(t *testing.T) {
 	// Initialize cursor codecs
 	cursor.InitDefaultCodecs()
-	
+
 	// Create mock store
 	store := &MockEventStore{}
-	
+
 	// Create SSE server
 	server := NewServer(store, slog.Default())
-	
+
 	// Test that server can be created
 	if server == nil {
 		t.Fatal("Failed to create SSE server")
 	}
-	
+
 	if server.BatchSize != 100 {
 		t.Errorf("Expected default batch size 100, got %d", server.BatchSize)
 	}
-	
+
 	// Test client creation
 	client := NewClient("http://localhost:8080", nil)
 	if client == nil {
 		t.Fatal("Failed to create SSE client")
 	}
-	
+
 	if client.BaseURL != "http://localhost:8080" {
 		t.Errorf("Expected BaseURL 'http://localhost:8080', got '%s'", client.BaseURL)
 	}

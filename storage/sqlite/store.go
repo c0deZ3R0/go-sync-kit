@@ -26,12 +26,12 @@ import (
 
 // Operation constants for consistent error reporting
 const (
-	opStore         = "sqlite.Store"
-	opStoreBatch    = "sqlite.StoreBatch"
-	opLoad          = "sqlite.Load"
+	opStore           = "sqlite.Store"
+	opStoreBatch      = "sqlite.StoreBatch"
+	opLoad            = "sqlite.Load"
 	opLoadByAggregate = "sqlite.LoadByAggregate"
-	opLatestVersion = "sqlite.LatestVersion"
-	opParseVersion  = "sqlite.ParseVersion"
+	opLatestVersion   = "sqlite.LatestVersion"
+	opParseVersion    = "sqlite.ParseVersion"
 )
 
 // Custom errors for better error handling

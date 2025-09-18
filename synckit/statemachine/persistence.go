@@ -12,13 +12,13 @@ import (
 type StatePersistence[T comparable] interface {
 	// SaveState persists the current state machine state
 	SaveState(ctx context.Context, machineID string, state StateMachineSnapshot[T]) error
-	
+
 	// LoadState retrieves the persisted state for a state machine
 	LoadState(ctx context.Context, machineID string) (*StateMachineSnapshot[T], error)
-	
+
 	// DeleteState removes persisted state (cleanup)
 	DeleteState(ctx context.Context, machineID string) error
-	
+
 	// ListMachines returns all persisted state machine IDs
 	ListMachines(ctx context.Context) ([]string, error)
 }
@@ -27,23 +27,22 @@ type StatePersistence[T comparable] interface {
 // that can be persisted and restored for resilience across restarts.
 type StateMachineSnapshot[T comparable] struct {
 	// Core state information
-	MachineID     string    `json:"machine_id"`
-	CurrentState  T         `json:"current_state"`
-	InitialState  T         `json:"initial_state"`
+	MachineID      string    `json:"machine_id"`
+	CurrentState   T         `json:"current_state"`
+	InitialState   T         `json:"initial_state"`
 	StateEnteredAt time.Time `json:"state_entered_at"`
-	
+
 	// Configuration snapshot
 	Config StateMachineConfig[T] `json:"config"`
-	
+
 	// History and metadata
-	History     []StateTransition[T] `json:"history"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	
+	History  []StateTransition[T]   `json:"history"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+
 	// Persistence metadata
 	SnapshotTime time.Time `json:"snapshot_time"`
 	Version      int       `json:"version"`
 }
-
 
 // MemoryStatePersistence provides an in-memory implementation of StatePersistence
 // for testing and development purposes.
@@ -108,13 +107,13 @@ func (jp *JSONStatePersistence[T]) SaveState(ctx context.Context, machineID stri
 	if err != nil {
 		return err
 	}
-	
+
 	// In a real implementation, you would:
 	// 1. Write to a temporary file first
 	// 2. Atomically rename to final location
 	// 3. Handle file locking/concurrency
 	// 4. Implement proper error handling
-	
+
 	// For now, return nil to indicate the interface implementation
 	_ = data
 	return nil
@@ -127,7 +126,7 @@ func (jp *JSONStatePersistence[T]) LoadState(ctx context.Context, machineID stri
 	// 2. Unmarshal into StateMachineSnapshot
 	// 3. Validate the snapshot
 	// 4. Handle file not found scenarios
-	
+
 	// For now, return nil to indicate no state found
 	return nil, nil
 }
@@ -148,16 +147,16 @@ func (jp *JSONStatePersistence[T]) ListMachines(ctx context.Context) ([]string, 
 type PersistenceConfig struct {
 	// AutoSave enables automatic state saving after each transition
 	AutoSave bool
-	
+
 	// SaveInterval for periodic state saves (if AutoSave is false)
 	SaveInterval time.Duration
-	
+
 	// RetentionPeriod for automatic cleanup of old state snapshots
 	RetentionPeriod time.Duration
-	
+
 	// MaxSnapshots to keep for each state machine
 	MaxSnapshots int
-	
+
 	// CompressSnapshots enables compression for storage efficiency
 	CompressSnapshots bool
 }

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+echo "[pre-push] go test -race..."
+go test ./... -race -count=1

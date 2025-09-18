@@ -21,10 +21,10 @@ type UserEvent struct {
 	timestamp   time.Time
 }
 
-func (e *UserEvent) ID() string          { return e.id }
-func (e *UserEvent) Type() string        { return e.eventType }
-func (e *UserEvent) AggregateID() string { return e.aggregateID }
-func (e *UserEvent) Data() interface{}   { return e.data }
+func (e *UserEvent) ID() string                       { return e.id }
+func (e *UserEvent) Type() string                     { return e.eventType }
+func (e *UserEvent) AggregateID() string              { return e.aggregateID }
+func (e *UserEvent) Data() interface{}                { return e.data }
 func (e *UserEvent) Metadata() map[string]interface{} { return e.metadata }
 
 // NewUserEvent creates a new user event
@@ -114,7 +114,7 @@ func demonstrateBasicOperations(ctx context.Context, store *postgres.PostgresEve
 			log.Printf("Failed to store event %s: %v", event.ID(), err)
 			continue
 		}
-		logger.Printf("✓ Stored event: %s (%s) for aggregate %s", 
+		logger.Printf("✓ Stored event: %s (%s) for aggregate %s",
 			event.ID(), event.Type(), event.AggregateID())
 	}
 
@@ -134,7 +134,7 @@ func demonstrateBasicOperations(ctx context.Context, store *postgres.PostgresEve
 	} else {
 		logger.Printf("Loaded %d events", len(allEvents))
 		for _, ev := range allEvents {
-			logger.Printf("  - %d: %s (%s)", 
+			logger.Printf("  - %d: %s (%s)",
 				ev.Version.(cursor.IntegerCursor).Seq, ev.Event.Type(), ev.Event.ID())
 		}
 	}
@@ -202,7 +202,7 @@ func demonstrateRealtimeNotifications(ctx context.Context, store *postgres.Realt
 	// Subscribe to events for a specific user stream
 	logger.Println("Subscribing to events for user-charlie...")
 	err := store.SubscribeToStream(demoCtx, "user-charlie", func(payload postgres.NotificationPayload) error {
-		logger.Printf("📢 Stream notification: %s (%s) for %s at version %d", 
+		logger.Printf("📢 Stream notification: %s (%s) for %s at version %d",
 			payload.EventType, payload.ID, payload.AggregateID, payload.Version)
 		streamNotifications <- payload
 		return nil
@@ -215,7 +215,7 @@ func demonstrateRealtimeNotifications(ctx context.Context, store *postgres.Realt
 	// Subscribe to all events
 	logger.Println("Subscribing to all events...")
 	err = store.SubscribeToAll(demoCtx, func(payload postgres.NotificationPayload) error {
-		logger.Printf("🌍 Global notification: %s (%s) for %s on stream %s", 
+		logger.Printf("🌍 Global notification: %s (%s) for %s on stream %s",
 			payload.EventType, payload.ID, payload.AggregateID, payload.StreamName)
 		globalNotifications <- payload
 		return nil
@@ -228,7 +228,7 @@ func demonstrateRealtimeNotifications(ctx context.Context, store *postgres.Realt
 	// Subscribe to events of a specific type
 	logger.Println("Subscribing to UserLoggedOut events...")
 	err = store.SubscribeToEventType(demoCtx, "UserLoggedOut", func(payload postgres.NotificationPayload) error {
-		logger.Printf("🔓 Logout notification: %s (%s) for %s", 
+		logger.Printf("🔓 Logout notification: %s (%s) for %s",
 			payload.EventType, payload.ID, payload.AggregateID)
 		typeNotifications <- payload
 		return nil
@@ -278,9 +278,9 @@ func demonstrateRealtimeNotifications(ctx context.Context, store *postgres.Realt
 	}
 
 	for i, event := range testEvents {
-		logger.Printf("Storing event %d: %s (%s) for %s", 
+		logger.Printf("Storing event %d: %s (%s) for %s",
 			i+1, event.Type(), event.ID(), event.AggregateID())
-		
+
 		err := store.Store(demoCtx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			log.Printf("Failed to store event %s: %v", event.ID(), err)
@@ -310,19 +310,19 @@ func demonstrateRealtimeNotifications(ctx context.Context, store *postgres.Realt
 
 	for i := 0; i < 3 && len(streamNotifications) > 0; i++ {
 		notification := <-streamNotifications
-		logger.Printf("  Stream: %s v%d at %v", 
+		logger.Printf("  Stream: %s v%d at %v",
 			notification.EventType, notification.Version, notification.CreatedAt)
 	}
 
 	for i := 0; i < 3 && len(globalNotifications) > 0; i++ {
 		notification := <-globalNotifications
-		logger.Printf("  Global: %s v%d for %s", 
+		logger.Printf("  Global: %s v%d for %s",
 			notification.EventType, notification.Version, notification.AggregateID)
 	}
 
 	for len(typeNotifications) > 0 {
 		notification := <-typeNotifications
-		logger.Printf("  Type: %s v%d for %s", 
+		logger.Printf("  Type: %s v%d for %s",
 			notification.EventType, notification.Version, notification.AggregateID)
 	}
 

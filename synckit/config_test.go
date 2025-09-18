@@ -114,9 +114,9 @@ func TestConfigLoader_BuildMatchersAndResolvers(t *testing.T) {
 
 	// Test the matcher function
 	conflict := Conflict{
-		EventType:      "UserCreated",
-		AggregateID:    "user-123",
-		ChangedFields:  []string{"email", "name"},
+		EventType:     "UserCreated",
+		AggregateID:   "user-123",
+		ChangedFields: []string{"email", "name"},
 	}
 
 	if !matcher(conflict) {

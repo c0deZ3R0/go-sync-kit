@@ -12,16 +12,16 @@ import (
 // This follows the same pattern as SyncKitMetrics in observability/metrics.
 type ProjectionMetrics struct {
 	// Operations metrics
-	opsTotal         *prometheus.CounterVec
-	opsDuration      *prometheus.HistogramVec
-	eventsProcessed  *prometheus.CounterVec
-	batchSize        *prometheus.HistogramVec
-	errorsTotal      *prometheus.CounterVec
-	lastSuccess      *prometheus.GaugeVec
+	opsTotal        *prometheus.CounterVec
+	opsDuration     *prometheus.HistogramVec
+	eventsProcessed *prometheus.CounterVec
+	batchSize       *prometheus.HistogramVec
+	errorsTotal     *prometheus.CounterVec
+	lastSuccess     *prometheus.GaugeVec
 
 	// Performance metrics
-	lag              *prometheus.GaugeVec
-	health           *prometheus.GaugeVec
+	lag    *prometheus.GaugeVec
+	health *prometheus.GaugeVec
 
 	registry *prometheus.Registry
 	labels   prometheus.Labels
@@ -230,14 +230,14 @@ func (m *ProjectionMetrics) SetProjectionHealth(projection string, healthy bool)
 // In production, metrics should be accessed via the Prometheus HTTP endpoint.
 func (m *ProjectionMetrics) GetProjectionMetrics(projection string) map[string]float64 {
 	metrics := make(map[string]float64)
-	
+
 	// Note: This is a simplified implementation that returns placeholder values.
 	// For full metric access, use the Prometheus /metrics endpoint.
 	metrics["operations_total"] = 0
 	metrics["errors_total"] = 0
 	metrics["lag_seconds"] = 0
 	metrics["health"] = 1
-	
+
 	return metrics
 }
 
@@ -251,18 +251,18 @@ func (m *ProjectionMetrics) ResetProjectionMetrics(projection string) {
 	m.batchSize.DeleteLabelValues(projection)
 	m.health.DeleteLabelValues(projection)
 	m.lag.DeleteLabelValues(projection)
-	
+
 	// Delete histogram series for all operations
 	m.opsDuration.DeletePartialMatch(prometheus.Labels{"projection": projection})
 }
 
 // Error type constants for consistent error reporting
 const (
-	ErrorTypeApply     = "apply_error"
-	ErrorTypeOffset    = "offset_error"
-	ErrorTypeLoad      = "load_error"
-	ErrorTypeTimeout   = "timeout_error"
-	ErrorTypeContext   = "context_error"
+	ErrorTypeApply   = "apply_error"
+	ErrorTypeOffset  = "offset_error"
+	ErrorTypeLoad    = "load_error"
+	ErrorTypeTimeout = "timeout_error"
+	ErrorTypeContext = "context_error"
 )
 
 // Operation type constants for metrics labeling

@@ -24,29 +24,29 @@ type MockEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (e *MockEvent) ID() string                            { return e.id }
-func (e *MockEvent) Type() string                          { return e.eventType }
-func (e *MockEvent) AggregateID() string                   { return e.aggregateID }
-func (e *MockEvent) Data() interface{}                     { return e.data }
-func (e *MockEvent) Metadata() map[string]interface{}     { return e.metadata }
+func (e *MockEvent) ID() string                       { return e.id }
+func (e *MockEvent) Type() string                     { return e.eventType }
+func (e *MockEvent) AggregateID() string              { return e.aggregateID }
+func (e *MockEvent) Data() interface{}                { return e.data }
+func (e *MockEvent) Metadata() map[string]interface{} { return e.metadata }
 
 // TestWrapOpComponent tests the WrapOpComponent helper function
 func TestWrapOpComponent(t *testing.T) {
 	tests := []struct {
-		name        string
-		err         error
-		op          string
-		component   string
-		expectedOp  errors.Operation
+		name         string
+		err          error
+		op           string
+		component    string
+		expectedOp   errors.Operation
 		expectedComp string
-		nilError    bool
+		nilError     bool
 	}{
 		{
-			name:         "nil error returns nil",
-			err:          nil,
-			op:           "test.Operation",
-			component:    "test/component",
-			nilError:     true,
+			name:      "nil error returns nil",
+			err:       nil,
+			op:        "test.Operation",
+			component: "test/component",
+			nilError:  true,
 		},
 		{
 			name:         "basic error wrapping",
@@ -69,7 +69,7 @@ func TestWrapOpComponent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := errors.WrapOpComponent(tt.err, tt.op, tt.component)
-			
+
 			if tt.nilError {
 				if result != nil {
 					t.Errorf("Expected nil error, got %v", result)
@@ -192,14 +192,14 @@ func TestSQLiteStoreErrorPropagation(t *testing.T) {
 func TestHTTPTransportErrorPropagation(t *testing.T) {
 	// Create transport with invalid base URL to trigger errors
 	transport := httptransport.NewTransport("invalid://url", nil, nil, nil)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	// Create a mock event that will cause marshal errors
 	event := &MockEvent{
 		id:          "test-event",
-		eventType:   "TestEvent", 
+		eventType:   "TestEvent",
 		aggregateID: "test-aggregate",
 		data:        make(chan int), // channels can't be marshaled to JSON
 		metadata:    map[string]interface{}{"test": "metadata"},

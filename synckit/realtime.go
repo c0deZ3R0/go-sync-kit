@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -285,7 +286,7 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 
 	// Add maximum timeout for connection attempts
 	maxTimeout := 5 * time.Minute
-	attempt := 0
+	var attempt int64 = 0
 
 	for {
 		// FIXED: Check stop channel under lock to avoid race
@@ -309,7 +310,7 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 		err := notifier.Subscribe(ctx, func(notification Notification) error {
 			// Reset backoff on successful notification
 			backoff.Reset()
-			attempt = 0
+			atomic.StoreInt64(&attempt, 0)
 
 			// FIXED: Use thread-safe helper method
 			rsm.updateConnectionStatus(true, time.Now(), nil)
@@ -342,7 +343,7 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 		if err != nil {
 			// FIXED: Use thread-safe helper methods
 			rsm.updateConnectionStatus(false, time.Time{}, err)
-			rsm.updateReconnectAttempts(attempt)
+			rsm.updateReconnectAttempts(int(atomic.LoadInt64(&attempt)))
 
 			// Start fallback polling if not disabled
 			if !rsm.realtimeOptions.DisablePolling && rsm.fallbackTicker == nil {
@@ -350,11 +351,12 @@ func (rsm *realtimeSyncManager) handleNotifications(ctx context.Context) {
 			}
 
 			// Wait before reconnecting
-			delay := backoff.NextDelay(attempt)
+			currentAttempt := int(atomic.LoadInt64(&attempt))
+			delay := backoff.NextDelay(currentAttempt)
 			if delay > maxTimeout {
 				delay = maxTimeout
 			}
-			attempt++
+			atomic.AddInt64(&attempt, 1)
 
 			// FIXED: Check stop channel under lock to avoid race
 			rsm.realtimeMu.RLock()

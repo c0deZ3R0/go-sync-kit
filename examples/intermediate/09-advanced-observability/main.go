@@ -42,16 +42,16 @@ type SystemMetrics struct {
 
 // TransactionEvent represents business transaction events
 type TransactionEvent struct {
-	EventID      string            `json:"id"`
-	EventType    string            `json:"event_type"`
-	TransactionID string           `json:"transaction_id"`
-	Amount       float64           `json:"amount"`
-	Currency     string            `json:"currency"`
-	AccountID    string            `json:"account_id"`
-	CustomerID   string            `json:"customer_id"`
-	Timestamp    time.Time         `json:"timestamp"`
-	Status       string            `json:"status"`
-	EventMetadata     map[string]string `json:"metadata"`
+	EventID       string            `json:"id"`
+	EventType     string            `json:"event_type"`
+	TransactionID string            `json:"transaction_id"`
+	Amount        float64           `json:"amount"`
+	Currency      string            `json:"currency"`
+	AccountID     string            `json:"account_id"`
+	CustomerID    string            `json:"customer_id"`
+	Timestamp     time.Time         `json:"timestamp"`
+	Status        string            `json:"status"`
+	EventMetadata map[string]string `json:"metadata"`
 }
 
 // Implement the Event interface
@@ -86,8 +86,8 @@ type MetricsCollector struct {
 
 func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
-		startTime:     time.Now(),
-		dashboardData: make(map[string]interface{}),
+		startTime:      time.Now(),
+		dashboardData:  make(map[string]interface{}),
 		operationTimes: make([]time.Duration, 0, 1000),
 	}
 }
@@ -156,14 +156,14 @@ func (mc *MetricsCollector) estimateCPUUsage() float64 {
 
 // Alert represents a monitoring alert
 type Alert struct {
-	ID          string                 `json:"id"`
-	Type        string                 `json:"type"`
-	Severity    string                 `json:"severity"`
-	Message     string                 `json:"message"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Metadata    map[string]interface{} `json:"metadata"`
-	Resolved    bool                   `json:"resolved"`
-	ResolvedAt  *time.Time             `json:"resolved_at,omitempty"`
+	ID         string                 `json:"id"`
+	Type       string                 `json:"type"`
+	Severity   string                 `json:"severity"`
+	Message    string                 `json:"message"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	Resolved   bool                   `json:"resolved"`
+	ResolvedAt *time.Time             `json:"resolved_at,omitempty"`
 }
 
 func (mc *MetricsCollector) checkAlertConditions() {
@@ -171,7 +171,7 @@ func (mc *MetricsCollector) checkAlertConditions() {
 
 	// High error rate alert
 	if metrics.ErrorRate > 5.0 {
-		mc.triggerAlert("high_error_rate", "WARNING", 
+		mc.triggerAlert("high_error_rate", "WARNING",
 			fmt.Sprintf("Error rate is %.2f%%, exceeding threshold of 5%%", metrics.ErrorRate),
 			map[string]interface{}{"error_rate": metrics.ErrorRate})
 	}
@@ -246,7 +246,7 @@ func NewDashboard(mc *MetricsCollector, updateInterval time.Duration) *Dashboard
 
 func (d *Dashboard) Start() {
 	fmt.Println("📈 Starting real-time dashboard...")
-	
+
 	go func() {
 		ticker := time.NewTicker(d.updateInterval)
 		defer ticker.Stop()
@@ -264,7 +264,7 @@ func (d *Dashboard) Start() {
 
 func (d *Dashboard) updateDashboard() {
 	metrics := d.metricsCollector.GetCurrentMetrics()
-	
+
 	fmt.Printf("\r📊 Live Dashboard | Ops: %d | Conflicts: %d | Latency: %.1fms | CPU: %.1f%% | Mem: %.1fMB | Errors: %.1f%% | Throughput: %.1f ops/s",
 		metrics.SyncOperationsCount,
 		metrics.ConflictsResolved,
@@ -287,10 +287,10 @@ type HealthChecker struct {
 }
 
 type HealthCheck struct {
-	Name        string    `json:"name"`
-	Status      string    `json:"status"`
-	LastChecked time.Time `json:"last_checked"`
-	Message     string    `json:"message"`
+	Name        string        `json:"name"`
+	Status      string        `json:"status"`
+	LastChecked time.Time     `json:"last_checked"`
+	Message     string        `json:"message"`
 	Duration    time.Duration `json:"duration"`
 }
 
@@ -306,7 +306,7 @@ func (hc *HealthChecker) RegisterCheck(name string, checkFunc func() (bool, stri
 			start := time.Now()
 			healthy, message := checkFunc()
 			duration := time.Since(start)
-			
+
 			status := "HEALTHY"
 			if !healthy {
 				status = "UNHEALTHY"
@@ -337,10 +337,10 @@ type ObservabilityResolver struct {
 
 func (r *ObservabilityResolver) Resolve(ctx context.Context, conflict synckit.Conflict) (synckit.ResolvedConflict, error) {
 	start := time.Now()
-	
+
 	// Simulate some processing time for demonstration
 	time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
-	
+
 	// Simple LWW resolution with monitoring
 	result := synckit.ResolvedConflict{
 		ResolvedEvents: []synckit.EventWithVersion{conflict.Remote},
@@ -349,7 +349,7 @@ func (r *ObservabilityResolver) Resolve(ctx context.Context, conflict synckit.Co
 	}
 
 	duration := time.Since(start)
-	
+
 	// Simulate occasional errors for demonstration
 	hasError := rand.Float64() < 0.02 // 2% error rate
 	if hasError {
@@ -366,7 +366,7 @@ func main() {
 
 	// Setup monitoring infrastructure
 	fmt.Println("🏗️ Setting up comprehensive monitoring infrastructure...")
-	
+
 	store, err := sqlite.NewWithDataSource("observability-demo.db")
 	if err != nil {
 		log.Fatalf("Failed to create store: %v", err)
@@ -375,15 +375,15 @@ func main() {
 
 	// Create metrics collector
 	metricsCollector := NewMetricsCollector()
-	
+
 	// Create health checker
 	healthChecker := NewHealthChecker()
-	
+
 	// Register health checks
 	healthChecker.RegisterCheck("database", func() (bool, string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		// Simple health check - try to query the database
 		_, err := store.Load(ctx, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
@@ -396,7 +396,7 @@ func main() {
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
 		memUsageMB := float64(memStats.Alloc) / 1024 / 1024
-		
+
 		if memUsageMB > 1024 { // 1GB threshold
 			return false, fmt.Sprintf("High memory usage: %.2fMB", memUsageMB)
 		}
@@ -545,7 +545,7 @@ func main() {
 		if check.Status == "UNHEALTHY" {
 			status = "❌"
 		}
-		fmt.Printf("  %s %s: %s (checked: %v ago)\n", 
+		fmt.Printf("  %s %s: %s (checked: %v ago)\n",
 			status, name, check.Message, time.Since(check.LastChecked).Round(time.Second))
 	}
 
@@ -592,8 +592,8 @@ func main() {
 	resolverMetrics := statefulResolver.GetPerformanceMetrics()
 	if resolverMetrics != nil {
 		fmt.Printf("  • Resolver Operations: %d\n", resolverMetrics.TotalConflictsResolved)
-		fmt.Printf("  • Auto-resolved: %d (%.1f%%)\n", 
-			resolverMetrics.AutoResolvedCount, 
+		fmt.Printf("  • Auto-resolved: %d (%.1f%%)\n",
+			resolverMetrics.AutoResolvedCount,
 			float64(resolverMetrics.AutoResolvedCount)/float64(resolverMetrics.TotalConflictsResolved)*100)
 		fmt.Printf("  • Resolver Avg Time: %v\n", resolverMetrics.AverageResolutionTime)
 	}

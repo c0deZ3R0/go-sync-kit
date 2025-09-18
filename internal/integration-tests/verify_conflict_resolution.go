@@ -19,18 +19,18 @@ type TestEvent struct {
 	data        interface{}
 }
 
-func (e *TestEvent) ID() string                         { return e.id }
-func (e *TestEvent) Type() string                       { return e.eventType }
-func (e *TestEvent) AggregateID() string                { return e.aggregateID }
-func (e *TestEvent) Data() interface{}                  { return e.data }
-func (e *TestEvent) Metadata() map[string]interface{}   { return nil }
+func (e *TestEvent) ID() string                       { return e.id }
+func (e *TestEvent) Type() string                     { return e.eventType }
+func (e *TestEvent) AggregateID() string              { return e.aggregateID }
+func (e *TestEvent) Data() interface{}                { return e.data }
+func (e *TestEvent) Metadata() map[string]interface{} { return nil }
 
 // Simple test version
 type TestVersion struct {
 	version string
 }
 
-func (v *TestVersion) String() string                    { return v.version }
+func (v *TestVersion) String() string { return v.version }
 func (v *TestVersion) Compare(other types.Version) int {
 	if other == nil {
 		return 1
@@ -101,26 +101,26 @@ func (m *MockTransport) Close() error {
 
 func main() {
 	fmt.Println("=== Conflict Resolution Integration Verification ===")
-	
+
 	// Create logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	
+
 	// Test 1: Default DynamicResolver creation
 	fmt.Println("\n1. Testing default DynamicResolver creation...")
-	
+
 	store := &MockStore{}
 	transport := &MockTransport{}
 	opts := &synckit.SyncOptions{
 		BatchSize: 10,
 	}
-	
+
 	sm := synckit.NewSyncManager(store, transport, opts, logger)
 	_ = sm // Use the variable to avoid unused error
 	fmt.Println("✅ SyncManager created successfully")
-	
+
 	// Test 2: Custom DynamicResolver
 	fmt.Println("\n2. Testing custom DynamicResolver...")
-	
+
 	resolver, err := synckit.NewDynamicResolver(
 		synckit.WithEventTypeRule("user_rule", "UserUpdated", &dynres.LastWriteWinsResolver{}),
 		synckit.WithFallback(&dynres.LastWriteWinsResolver{}),
@@ -131,10 +131,10 @@ func main() {
 		return
 	}
 	fmt.Println("✅ Custom DynamicResolver created successfully")
-	
+
 	// Test 3: Conflict resolution
 	fmt.Println("\n3. Testing conflict resolution...")
-	
+
 	conflict := dynres.Conflict{
 		EventType:   "UserUpdated",
 		AggregateID: "user-123",
@@ -142,19 +142,19 @@ func main() {
 		Remote:      types.EventWithVersion{Event: &TestEvent{id: "2", eventType: "UserUpdated", aggregateID: "user-123"}, Version: &TestVersion{version: "v2"}},
 		Metadata:    make(map[string]any),
 	}
-	
+
 	ctx := context.Background()
 	resolved, err := resolver.Resolve(ctx, conflict)
 	if err != nil {
 		fmt.Printf("❌ Failed to resolve conflict: %v\n", err)
 		return
 	}
-	
+
 	fmt.Printf("✅ Conflict resolved successfully with decision: %s\n", resolved.Decision)
 	fmt.Printf("   Resolved events count: %d\n", len(resolved.ResolvedEvents))
-	
+
 	fmt.Println("\n🎉 Conflict Resolution Integration Verification PASSED!")
 	fmt.Println("   - Default resolver injection: ✅")
-	fmt.Println("   - Custom resolver creation: ✅") 
+	fmt.Println("   - Custom resolver creation: ✅")
 	fmt.Println("   - Conflict resolution flow: ✅")
 }

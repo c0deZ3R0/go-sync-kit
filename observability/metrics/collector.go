@@ -15,12 +15,12 @@ import (
 // Prometheus-compatible metrics for monitoring and alerting.
 type SyncKitMetrics struct {
 	// Sync operation metrics
-	syncOpsTotal         *prometheus.CounterVec
-	syncOpsDuration      *prometheus.HistogramVec
-	syncEventsProcessed  *prometheus.CounterVec
-	syncConflictsTotal   *prometheus.CounterVec
-	syncErrorsTotal      *prometheus.CounterVec
-	syncLastSuccess      *prometheus.GaugeVec
+	syncOpsTotal        *prometheus.CounterVec
+	syncOpsDuration     *prometheus.HistogramVec
+	syncEventsProcessed *prometheus.CounterVec
+	syncConflictsTotal  *prometheus.CounterVec
+	syncErrorsTotal     *prometheus.CounterVec
+	syncLastSuccess     *prometheus.GaugeVec
 
 	// Transport metrics
 	transportOpsTotal    *prometheus.CounterVec
@@ -29,28 +29,28 @@ type SyncKitMetrics struct {
 	transportErrorsTotal *prometheus.CounterVec
 
 	// Storage metrics
-	storageOpsTotal      *prometheus.CounterVec
-	storageDuration      *prometheus.HistogramVec
-	storageErrorsTotal   *prometheus.CounterVec
+	storageOpsTotal    *prometheus.CounterVec
+	storageDuration    *prometheus.HistogramVec
+	storageErrorsTotal *prometheus.CounterVec
 
 	// Conflict resolution metrics
-	conflictOpsTotal     *prometheus.CounterVec
-	conflictDuration     *prometheus.HistogramVec
+	conflictOpsTotal *prometheus.CounterVec
+	conflictDuration *prometheus.HistogramVec
 
 	// Projection metrics
-	projectionOpsTotal         *prometheus.CounterVec
-	projectionOpsDuration      *prometheus.HistogramVec
-	projectionEventsProcessed  *prometheus.CounterVec
-	projectionBatchSize        *prometheus.HistogramVec
-	projectionErrorsTotal      *prometheus.CounterVec
-	projectionLastSuccess      *prometheus.GaugeVec
-	projectionLag              *prometheus.GaugeVec
-	projectionHealth           *prometheus.GaugeVec
+	projectionOpsTotal        *prometheus.CounterVec
+	projectionOpsDuration     *prometheus.HistogramVec
+	projectionEventsProcessed *prometheus.CounterVec
+	projectionBatchSize       *prometheus.HistogramVec
+	projectionErrorsTotal     *prometheus.CounterVec
+	projectionLastSuccess     *prometheus.GaugeVec
+	projectionLag             *prometheus.GaugeVec
+	projectionHealth          *prometheus.GaugeVec
 
 	// System metrics
-	activeConnections    prometheus.Gauge
-	memoryUsage         prometheus.Gauge
-	goroutines          prometheus.Gauge
+	activeConnections prometheus.Gauge
+	memoryUsage       prometheus.Gauge
+	goroutines        prometheus.Gauge
 
 	registry *prometheus.Registry
 	labels   prometheus.Labels

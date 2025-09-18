@@ -341,7 +341,7 @@ func TestSyncHandler_BothHooks(t *testing.T) {
 		// Test push
 		eventData := []JSONEventWithVersion{
 			{
-				Event: JSONEvent{ID: "test-1", Type: "UserCreated"},
+				Event:   JSONEvent{ID: "test-1", Type: "UserCreated"},
 				Version: "1",
 			},
 		}

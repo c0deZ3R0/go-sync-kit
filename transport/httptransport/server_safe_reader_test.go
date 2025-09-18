@@ -338,13 +338,13 @@ func TestSafeRequestReader_SizeLimits(t *testing.T) {
 					t.Error("expected reader but got nil")
 					return
 				}
-				
+
 				// Try to read all the data, expecting an error
 				buf := make([]byte, 1024)
 				totalRead := 0
 				var readErr error
 				var n int
-				
+
 				for readErr == nil {
 					n, readErr = reader.Read(buf)
 					totalRead += n
@@ -364,7 +364,7 @@ func TestSafeRequestReader_SizeLimits(t *testing.T) {
 						break
 					}
 				}
-				
+
 				if tt.expectedError && readErr == nil {
 					t.Error("expected error during reading but got none")
 				}
