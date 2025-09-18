@@ -27,12 +27,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("init: %v", err)
 	}
-	
+
 	result, err := mgr.Sync(context.Background())
 	if err != nil {
 		log.Fatalf("sync: %v", err)
 	}
-	
+
 	log.Printf("Local sync completed successfully! Events: %d, Duration: %v\n",
 		result.EventsPushed+result.EventsPulled, result.Duration)
 }

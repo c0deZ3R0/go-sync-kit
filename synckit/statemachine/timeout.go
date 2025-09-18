@@ -12,14 +12,14 @@ import (
 type TimeoutHandler[T comparable] struct {
 	stateMachine StateMachine[T]
 	timeouts     map[T]time.Duration
-	
+
 	// Current timeout tracking
 	currentTimeout context.CancelFunc
 	mu             sync.RWMutex
-	
+
 	// Configuration
 	config TimeoutConfig
-	
+
 	// Callbacks
 	onTimeout func(from T, duration time.Duration)
 }
@@ -28,19 +28,19 @@ type TimeoutHandler[T comparable] struct {
 type TimeoutConfig struct {
 	// DefaultTimeout is used when no specific timeout is configured for a state
 	DefaultTimeout time.Duration
-	
+
 	// EnableTimeouts globally enables/disables timeout handling
 	EnableTimeouts bool
-	
+
 	// TimeoutAction specifies what to do when a timeout occurs
 	TimeoutAction TimeoutAction
-	
+
 	// TargetState is the state to transition to on timeout (if TimeoutAction is TransitionTo)
 	TargetState interface{}
-	
+
 	// MaxRetries for timeout recovery attempts
 	MaxRetries int
-	
+
 	// RetryDelay between timeout recovery attempts
 	RetryDelay time.Duration
 }
@@ -51,16 +51,16 @@ type TimeoutAction int
 const (
 	// TimeoutActionTransition automatically transitions to a target state
 	TimeoutActionTransition TimeoutAction = iota
-	
+
 	// TimeoutActionFail marks the state machine as failed
 	TimeoutActionFail
-	
+
 	// TimeoutActionCallback calls a custom callback function
 	TimeoutActionCallback
-	
+
 	// TimeoutActionReset resets the state machine to initial state
 	TimeoutActionReset
-	
+
 	// TimeoutActionIgnore logs the timeout but takes no action
 	TimeoutActionIgnore
 )
@@ -112,28 +112,28 @@ func (th *TimeoutHandler[T]) StartTimeout() {
 	if !th.config.EnableTimeouts {
 		return
 	}
-	
+
 	th.mu.Lock()
 	defer th.mu.Unlock()
-	
+
 	// Cancel any existing timeout
 	if th.currentTimeout != nil {
 		th.currentTimeout()
 		th.currentTimeout = nil
 	}
-	
+
 	currentState := th.stateMachine.Current()
 	timeout := th.getTimeoutForState(currentState)
-	
+
 	if timeout <= 0 {
 		// No timeout configured for this state
 		return
 	}
-	
+
 	// Create a cancellable context for this timeout
 	ctx, cancel := context.WithCancel(context.Background())
 	th.currentTimeout = cancel
-	
+
 	// Start timeout monitoring in a goroutine
 	go th.monitorTimeout(ctx, currentState, timeout)
 }
@@ -142,7 +142,7 @@ func (th *TimeoutHandler[T]) StartTimeout() {
 func (th *TimeoutHandler[T]) StopTimeout() {
 	th.mu.Lock()
 	defer th.mu.Unlock()
-	
+
 	if th.currentTimeout != nil {
 		th.currentTimeout()
 		th.currentTimeout = nil
@@ -162,12 +162,12 @@ func (th *TimeoutHandler[T]) getTimeoutForState(state T) time.Duration {
 func (th *TimeoutHandler[T]) monitorTimeout(ctx context.Context, state T, timeout time.Duration) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
-	
+
 	select {
 	case <-ctx.Done():
 		// Timeout was cancelled (state changed or timeout handler stopped)
 		return
-		
+
 	case <-timer.C:
 		// Timeout occurred
 		th.handleTimeout(state, timeout)
@@ -180,21 +180,21 @@ func (th *TimeoutHandler[T]) handleTimeout(state T, duration time.Duration) {
 	if th.onTimeout != nil {
 		th.onTimeout(state, duration)
 	}
-	
+
 	// Take the configured action
 	switch th.config.TimeoutAction {
 	case TimeoutActionTransition:
 		th.handleTimeoutTransition(state)
-		
+
 	case TimeoutActionFail:
 		th.handleTimeoutFail(state)
-		
+
 	case TimeoutActionReset:
 		th.handleTimeoutReset(state)
-		
+
 	case TimeoutActionCallback:
 		// Callback was already called above
-		
+
 	case TimeoutActionIgnore:
 		// Do nothing except log (callback handles logging)
 	}
@@ -205,7 +205,7 @@ func (th *TimeoutHandler[T]) handleTimeoutTransition(state T) {
 	if th.config.TargetState == nil {
 		return
 	}
-	
+
 	if targetState, ok := th.config.TargetState.(T); ok {
 		th.stateMachine.TransitionWithContext(targetState, map[string]interface{}{
 			"timeout":      true,
@@ -219,10 +219,10 @@ func (th *TimeoutHandler[T]) handleTimeoutTransition(state T) {
 func (th *TimeoutHandler[T]) handleTimeoutFail(state T) {
 	// For this to work, the state machine must have a "failed" state defined
 	// This is a generic approach - specific implementations might need different logic
-	
+
 	// Try common failure state names
 	failureStates := []interface{}{"failed", "error", "timeout", "stuck"}
-	
+
 	for _, failState := range failureStates {
 		if typedState, ok := failState.(T); ok {
 			if th.stateMachine.CanTransition(typedState) {
@@ -272,66 +272,72 @@ func (to *TimeoutObserver[T]) OnTransitionFailed(from, toState T, err error, met
 	// Keep existing timeout on transition failure
 }
 
-// TimeoutMetrics tracks timeout-related metrics for monitoring and alerting.
+// TimeoutMetrics is a snapshot of timeout-related metrics for monitoring and alerting.
 type TimeoutMetrics struct {
-	TotalTimeouts      int64         `json:"total_timeouts"`
+	TotalTimeouts      int64            `json:"total_timeouts"`
 	TimeoutsByState    map[string]int64 `json:"timeouts_by_state"`
-	AverageTimeoutTime time.Duration `json:"average_timeout_time"`
-	MaxTimeoutTime     time.Duration `json:"max_timeout_time"`
-	LastTimeout        time.Time     `json:"last_timeout"`
-	
-	mu sync.RWMutex
+	AverageTimeoutTime time.Duration    `json:"average_timeout_time"`
+	MaxTimeoutTime     time.Duration    `json:"max_timeout_time"`
+	LastTimeout        time.Time        `json:"last_timeout"`
+}
+
+// TimeoutMetricsTracker tracks metrics with internal synchronization.
+type TimeoutMetricsTracker struct {
+	mu   sync.RWMutex
+	data TimeoutMetrics
 }
 
 // NewTimeoutMetrics creates a new timeout metrics tracker.
-func NewTimeoutMetrics() *TimeoutMetrics {
-	return &TimeoutMetrics{
-		TimeoutsByState: make(map[string]int64),
+func NewTimeoutMetrics() *TimeoutMetricsTracker {
+	return &TimeoutMetricsTracker{
+		data: TimeoutMetrics{
+			TimeoutsByState: make(map[string]int64),
+		},
 	}
 }
 
 // RecordTimeout records a timeout occurrence for metrics.
-func (tm *TimeoutMetrics) RecordTimeout(state string, duration time.Duration) {
+func (tm *TimeoutMetricsTracker) RecordTimeout(state string, duration time.Duration) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	
-	tm.TotalTimeouts++
-	tm.TimeoutsByState[state]++
-	tm.LastTimeout = time.Now()
-	
+
+	tm.data.TotalTimeouts++
+	tm.data.TimeoutsByState[state]++
+	tm.data.LastTimeout = time.Now()
+
 	// Update duration metrics
-	if duration > tm.MaxTimeoutTime {
-		tm.MaxTimeoutTime = duration
+	if duration > tm.data.MaxTimeoutTime {
+		tm.data.MaxTimeoutTime = duration
 	}
-	
+
 	// Calculate running average (simplified)
-	if tm.TotalTimeouts == 1 {
-		tm.AverageTimeoutTime = duration
+	if tm.data.TotalTimeouts == 1 {
+		tm.data.AverageTimeoutTime = duration
 	} else {
 		// Running average: new_avg = old_avg + (new_value - old_avg) / count
-		tm.AverageTimeoutTime = tm.AverageTimeoutTime + 
-			(duration-tm.AverageTimeoutTime)/time.Duration(tm.TotalTimeouts)
+		tm.data.AverageTimeoutTime = tm.data.AverageTimeoutTime +
+			(duration-tm.data.AverageTimeoutTime)/time.Duration(tm.data.TotalTimeouts)
 	}
 }
 
 // GetMetrics returns a copy of the current metrics.
-func (tm *TimeoutMetrics) GetMetrics() TimeoutMetrics {
+func (tm *TimeoutMetricsTracker) GetMetrics() TimeoutMetrics {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()
-	
+
 	// Create a copy to avoid race conditions
 	copyMetrics := TimeoutMetrics{
-		TotalTimeouts:      tm.TotalTimeouts,
+		TotalTimeouts:      tm.data.TotalTimeouts,
 		TimeoutsByState:    make(map[string]int64),
-		AverageTimeoutTime: tm.AverageTimeoutTime,
-		MaxTimeoutTime:     tm.MaxTimeoutTime,
-		LastTimeout:        tm.LastTimeout,
+		AverageTimeoutTime: tm.data.AverageTimeoutTime,
+		MaxTimeoutTime:     tm.data.MaxTimeoutTime,
+		LastTimeout:        tm.data.LastTimeout,
 	}
-	
-	for state, count := range tm.TimeoutsByState {
+
+	for state, count := range tm.data.TimeoutsByState {
 		copyMetrics.TimeoutsByState[state] = count
 	}
-	
+
 	return copyMetrics
 }
 

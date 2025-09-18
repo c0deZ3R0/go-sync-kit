@@ -1,0 +1,76 @@
+version: '3'
+
+vars:
+  FUZZ_TIME: 10 # seconds
+
+tasks:
+  # Default: quick sanity checks
+  default:
+    desc: Vet + unit tests
+    cmds:
+      - task: vet
+      - task: test
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Static checks
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Unit tests (no cache)
+    cmds:
+      - go test ./... -count=1
+
+  test-no-pg:
+    desc: Run tests excluding storage/postgres (no local Postgres needed)
+    cmds:
+      - cmd: pwsh -NoProfile -File scripts/test-no-pg.ps1
+        platforms: [windows]
+      - cmd: sh -lc 'pkgs=$(go list ./... | grep -v "storage/postgres\(\$\|/\)" ); if [ -n "$pkgs" ]; then echo "$pkgs" | xargs go test -count=1; else echo "No packages to test"; fi'
+        platforms: [linux, darwin]
+
+  race:
+    desc: Unit tests with race detector
+    cmds:
+      - go test ./... -race -count=1
+
+  race-no-pg:
+    desc: Run race tests excluding storage/postgres (no local Postgres needed)
+    cmds:
+      - cmd: pwsh -NoProfile -File scripts/race-no-pg.ps1
+        platforms: [windows]
+      - cmd: sh -lc 'pkgs=$(go list ./... | grep -v "storage/postgres\(\$\|/\)" ); if [ -n "$pkgs" ]; then echo "$pkgs" | xargs go test -race -count=1; else echo "No packages to test"; fi'
+        platforms: [linux, darwin]
+
+  cover:
+    desc: Coverage summary
+    cmds:
+      - go test ./... -coverprofile=coverage.out -covermode=atomic -count=1
+      - go tool cover -func=coverage.out
+
+  bench:
+    desc: Run benchmarks
+    cmds:
+      - 'go test ./... -run "^$" -bench . -benchmem -count=1'
+
+  fuzz:
+    desc: Run fuzzers briefly
+    cmds:
+      - 'go test ./... -run "^$" -fuzz . -fuzztime {{.FUZZ_TIME}}s'
+
+  tidy:
+    desc: Ensure go.mod/go.sum are tidy (fails if tidy changed files)
+    cmds:
+      - go mod tidy
+    # Ensure no changes to go.mod/go.sum after tidy
+      - git diff --exit-code -- go.mod go.sum
+
+  plan-reminder:
+    desc: Gentle reminder to update *IMPLEMENTATION_PLAN after commits
+    cmds:
+      - echo Remember to update *IMPLEMENTATION_PLAN

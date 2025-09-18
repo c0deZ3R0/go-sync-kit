@@ -17,8 +17,8 @@ func FuzzDynamicResolver_Resolve(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, eventType, aggregateID, fieldsStr, metaKey, metaValue string, localVersion, remoteVersion int64) {
 		// Skip invalid UTF-8 strings to focus on logical fuzz testing
-		if !utf8.ValidString(eventType) || !utf8.ValidString(aggregateID) || 
-		   !utf8.ValidString(fieldsStr) || !utf8.ValidString(metaKey) || !utf8.ValidString(metaValue) {
+		if !utf8.ValidString(eventType) || !utf8.ValidString(aggregateID) ||
+			!utf8.ValidString(fieldsStr) || !utf8.ValidString(metaKey) || !utf8.ValidString(metaValue) {
 			return
 		}
 
@@ -59,20 +59,20 @@ func FuzzDynamicResolver_Resolve(f *testing.F) {
 			resolver *DynamicResolver
 		}{
 			{
-				name: "lww-only",
+				name:     "lww-only",
 				resolver: mustNewResolver(t, WithFallback(&LastWriteWinsResolver{})),
 			},
 			{
-				name: "additive-only",
+				name:     "additive-only",
 				resolver: mustNewResolver(t, WithFallback(&AdditiveMergeResolver{})),
 			},
 			{
-				name: "manual-only", 
+				name:     "manual-only",
 				resolver: mustNewResolver(t, WithFallback(&ManualReviewResolver{Reason: "fuzz"})),
 			},
 			{
 				name: "event-type-rule",
-				resolver: mustNewResolver(t, 
+				resolver: mustNewResolver(t,
 					WithEventTypeRule("match", eventType, &LastWriteWinsResolver{}),
 					WithFallback(&AdditiveMergeResolver{}),
 				),
@@ -126,8 +126,8 @@ func FuzzSpec_Combinators(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, eventType, aggregateID, fieldsStr, metaKey, metaValue string) {
 		// Skip invalid UTF-8
-		if !utf8.ValidString(eventType) || !utf8.ValidString(aggregateID) || 
-		   !utf8.ValidString(fieldsStr) || !utf8.ValidString(metaKey) || !utf8.ValidString(metaValue) {
+		if !utf8.ValidString(eventType) || !utf8.ValidString(aggregateID) ||
+			!utf8.ValidString(fieldsStr) || !utf8.ValidString(metaKey) || !utf8.ValidString(metaValue) {
 			return
 		}
 
@@ -164,7 +164,7 @@ func FuzzSpec_Combinators(f *testing.F) {
 			spec Spec
 		}{
 			{"event", eventSpec},
-			{"field", fieldSpec}, 
+			{"field", fieldSpec},
 			{"meta", metaSpec},
 			{"and", andSpec},
 			{"or", orSpec},
@@ -177,7 +177,7 @@ func FuzzSpec_Combinators(f *testing.F) {
 				// Should not panic and be deterministic
 				result1 := tc.spec(conflict)
 				result2 := tc.spec(conflict)
-				
+
 				if result1 != result2 {
 					t.Fatalf("Non-deterministic spec result for %s: %v vs %v", tc.name, result1, result2)
 				}
@@ -281,7 +281,7 @@ func (t fuzzTestVersion) Compare(other Version) int {
 	return 0
 }
 func (t fuzzTestVersion) String() string { return "" }
-func (t fuzzTestVersion) IsZero() bool  { return t.v == 0 }
+func (t fuzzTestVersion) IsZero() bool   { return t.v == 0 }
 
 // fuzzTestEvent is a simple Event implementation for fuzz testing
 type fuzzTestEvent struct {

@@ -112,7 +112,7 @@ func (h *HealthChecker) AddCheck(checkType CheckType, check HealthCheck) {
 	if h.checks[component] == nil {
 		h.checks[component] = make(map[CheckType][]HealthCheck)
 	}
-	
+
 	h.checks[component][checkType] = append(h.checks[component][checkType], check)
 }
 
@@ -151,11 +151,11 @@ func (h *HealthChecker) CheckStartup(ctx context.Context) OverallResult {
 // CheckAll performs all health checks and returns detailed results.
 func (h *HealthChecker) CheckAll(ctx context.Context) map[CheckType]OverallResult {
 	results := make(map[CheckType]OverallResult)
-	
+
 	results[CheckTypeLiveness] = h.CheckLiveness(ctx)
 	results[CheckTypeReadiness] = h.CheckReadiness(ctx)
 	results[CheckTypeStartup] = h.CheckStartup(ctx)
-	
+
 	return results
 }
 
@@ -192,7 +192,7 @@ type Summary struct {
 // runChecks executes all checks of a specific type.
 func (h *HealthChecker) runChecks(ctx context.Context, checkType CheckType) OverallResult {
 	start := time.Now()
-	
+
 	// Create timeout context
 	timeoutCtx, cancel := context.WithTimeout(ctx, h.config.Timeout)
 	defer cancel()
@@ -210,7 +210,7 @@ func (h *HealthChecker) runChecks(ctx context.Context, checkType CheckType) Over
 			for _, check := range checks {
 				result := h.executeCheck(timeoutCtx, check)
 				results[fmt.Sprintf("%s.%s", component, check.Name())] = result
-				
+
 				summary.Total++
 				switch result.Status {
 				case StatusUp:
@@ -257,7 +257,7 @@ func (h *HealthChecker) runChecks(ctx context.Context, checkType CheckType) Over
 // executeCheck runs a single health check with proper error handling.
 func (h *HealthChecker) executeCheck(ctx context.Context, check HealthCheck) CheckResult {
 	start := time.Now()
-	
+
 	// Recover from panics in health checks
 	defer func() {
 		if r := recover(); r != nil {
@@ -267,16 +267,16 @@ func (h *HealthChecker) executeCheck(ctx context.Context, check HealthCheck) Che
 
 	// Execute the check
 	result := check.Check(ctx)
-	
+
 	// Calculate the duration of this check
 	duration := time.Since(start)
-	
+
 	// Use the check's own duration if it set one and is greater, otherwise use our calculated duration
 	// Ensure there's always at least some measurable duration to avoid timer precision issues
 	if result.Duration == 0 || duration > result.Duration {
 		result.Duration = duration
 	}
-	
+
 	// Ensure minimum duration to avoid Windows timer precision issues in tests
 	if result.Duration == 0 {
 		result.Duration = 1 * time.Nanosecond
@@ -292,7 +292,7 @@ func (h *HealthChecker) GetComponentStatus(ctx context.Context, component string
 	defer h.mu.RUnlock()
 
 	results := make(map[CheckType]CheckResult)
-	
+
 	if checksByType, exists := h.checks[component]; exists {
 		for checkType, checks := range checksByType {
 			if len(checks) > 0 {
@@ -316,6 +316,6 @@ func (h *HealthChecker) ListComponents() []string {
 	for component := range h.checks {
 		components = append(components, component)
 	}
-	
+
 	return components
 }

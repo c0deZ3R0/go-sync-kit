@@ -11,19 +11,19 @@ type TransportState int
 const (
 	// TransportDisconnected indicates the transport is not connected
 	TransportDisconnected TransportState = iota
-	
+
 	// TransportConnecting indicates a connection attempt is in progress
 	TransportConnecting
-	
+
 	// TransportConnected indicates the transport is connected and active
 	TransportConnected
-	
+
 	// TransportReconnecting indicates the transport is attempting to reconnect after a failure
 	TransportReconnecting
-	
+
 	// TransportFailed indicates the transport has failed and cannot connect
 	TransportFailed
-	
+
 	// TransportShuttingDown indicates the transport is being shut down gracefully
 	TransportShuttingDown
 )
@@ -94,56 +94,56 @@ func NewTransportStateMachine() (StateMachine[TransportState], error) {
 	transitionRules := TransitionRules[TransportState]{
 		// From Disconnected
 		TransportDisconnected: {
-			TransportConnecting,    // Start connecting
+			TransportConnecting,   // Start connecting
 			TransportShuttingDown, // Direct shutdown without connecting
 		},
-		
+
 		// From Connecting
 		TransportConnecting: {
-			TransportConnected,     // Connection successful
-			TransportFailed,        // Connection failed
-			TransportDisconnected,  // Connection cancelled
-			TransportShuttingDown,  // Shutdown during connection
+			TransportConnected,    // Connection successful
+			TransportFailed,       // Connection failed
+			TransportDisconnected, // Connection cancelled
+			TransportShuttingDown, // Shutdown during connection
 		},
-		
+
 		// From Connected
 		TransportConnected: {
-			TransportReconnecting,  // Connection lost, attempting to reconnect
-			TransportDisconnected,  // Clean disconnection
-			TransportFailed,        // Connection failed permanently
-			TransportShuttingDown,  // Graceful shutdown
+			TransportReconnecting, // Connection lost, attempting to reconnect
+			TransportDisconnected, // Clean disconnection
+			TransportFailed,       // Connection failed permanently
+			TransportShuttingDown, // Graceful shutdown
 		},
-		
+
 		// From Reconnecting
 		TransportReconnecting: {
-			TransportConnected,     // Reconnection successful
-			TransportFailed,        // Reconnection failed permanently
-			TransportDisconnected,  // Gave up reconnecting
-			TransportShuttingDown,  // Shutdown during reconnection
+			TransportConnected,    // Reconnection successful
+			TransportFailed,       // Reconnection failed permanently
+			TransportDisconnected, // Gave up reconnecting
+			TransportShuttingDown, // Shutdown during reconnection
 		},
-		
+
 		// From Failed
 		TransportFailed: {
-			TransportConnecting,    // Manual retry attempt
-			TransportShuttingDown,  // Shutdown after failure
+			TransportConnecting,   // Manual retry attempt
+			TransportShuttingDown, // Shutdown after failure
 		},
-		
+
 		// From ShuttingDown - terminal state, no transitions allowed
 		TransportShuttingDown: {},
 	}
-	
+
 	// Create validator for additional validation logic
 	validator := &transportStateValidator{}
-	
+
 	config := StateMachineConfig[TransportState]{
 		InitialState:    TransportDisconnected,
 		TransitionRules: transitionRules,
 		Validator:       validator,
 		MaxHistorySize:  50,
 		EnableMetrics:   true,
-		Name:           "transport_connection",
+		Name:            "transport_connection",
 	}
-	
+
 	return New(config)
 }
 
@@ -156,7 +156,7 @@ func (v *transportStateValidator) ValidateTransition(from, to TransportState) er
 	case from == TransportShuttingDown:
 		return fmt.Errorf("cannot transition from shutting down state")
 	}
-	
+
 	return nil
 }
 
@@ -166,10 +166,10 @@ type TransportStateMetadata struct{}
 // ConnectingMetadata creates metadata for connection attempts
 func (TransportStateMetadata) ConnectingMetadata(endpoint string, timeout time.Duration) map[string]interface{} {
 	return map[string]interface{}{
-		"endpoint":     endpoint,
-		"timeout":      timeout,
-		"started_at":   time.Now().Format(time.RFC3339),
-		"operation":    "connecting",
+		"endpoint":   endpoint,
+		"timeout":    timeout,
+		"started_at": time.Now().Format(time.RFC3339),
+		"operation":  "connecting",
 	}
 }
 
@@ -187,10 +187,10 @@ func (TransportStateMetadata) ConnectedMetadata(endpoint string, connectionTime 
 func (TransportStateMetadata) ReconnectingMetadata(reason string, attempt int, nextRetry time.Duration) map[string]interface{} {
 	return map[string]interface{}{
 		"disconnect_reason": reason,
-		"attempt":          attempt,
-		"next_retry":       nextRetry,
-		"started_at":       time.Now().Format(time.RFC3339),
-		"operation":        "reconnecting",
+		"attempt":           attempt,
+		"next_retry":        nextRetry,
+		"started_at":        time.Now().Format(time.RFC3339),
+		"operation":         "reconnecting",
 	}
 }
 
@@ -209,9 +209,9 @@ func (TransportStateMetadata) FailedMetadata(err error, attempts int, duration t
 func (TransportStateMetadata) DisconnectedMetadata(reason string, graceful bool) map[string]interface{} {
 	return map[string]interface{}{
 		"disconnect_reason": reason,
-		"graceful":         graceful,
-		"disconnected_at":  time.Now().Format(time.RFC3339),
-		"operation":        "disconnected",
+		"graceful":          graceful,
+		"disconnected_at":   time.Now().Format(time.RFC3339),
+		"operation":         "disconnected",
 	}
 }
 

@@ -8,8 +8,8 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/logging"
-	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // VersionManager defines the interface for managing version state.

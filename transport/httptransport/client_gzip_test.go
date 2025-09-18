@@ -18,53 +18,53 @@ import (
 // TestPushGzipCompressionThreshold tests that outbound requests are compressed when payload exceeds threshold
 func TestPushGzipCompressionThreshold(t *testing.T) {
 	tests := []struct {
-		name             string
-		gzipMinBytes     int
-		payloadSize      int
+		name               string
+		gzipMinBytes       int
+		payloadSize        int
 		compressionEnabled bool
-		expectCompressed bool
+		expectCompressed   bool
 	}{
 		{
-			name:             "small payload, default threshold - not compressed",
-			gzipMinBytes:     0, // Default 1KB
-			payloadSize:      500,
+			name:               "small payload, default threshold - not compressed",
+			gzipMinBytes:       0, // Default 1KB
+			payloadSize:        500,
 			compressionEnabled: true,
-			expectCompressed: false,
+			expectCompressed:   false,
 		},
 		{
-			name:             "large payload, default threshold - compressed",
-			gzipMinBytes:     0, // Default 1KB
-			payloadSize:      2000,
+			name:               "large payload, default threshold - compressed",
+			gzipMinBytes:       0, // Default 1KB
+			payloadSize:        2000,
 			compressionEnabled: true,
-			expectCompressed: true,
+			expectCompressed:   true,
 		},
 		{
-			name:             "small payload, custom low threshold - compressed",
-			gzipMinBytes:     100,
-			payloadSize:      200,
+			name:               "small payload, custom low threshold - compressed",
+			gzipMinBytes:       100,
+			payloadSize:        200,
 			compressionEnabled: true,
-			expectCompressed: true,
+			expectCompressed:   true,
 		},
 		{
-			name:             "large payload, custom high threshold - not compressed",
-			gzipMinBytes:     5000,
-			payloadSize:      2000,
+			name:               "large payload, custom high threshold - not compressed",
+			gzipMinBytes:       5000,
+			payloadSize:        2000,
 			compressionEnabled: true,
-			expectCompressed: false,
+			expectCompressed:   false,
 		},
 		{
-			name:             "large payload, compression disabled - not compressed",
-			gzipMinBytes:     0,
-			payloadSize:      2000,
+			name:               "large payload, compression disabled - not compressed",
+			gzipMinBytes:       0,
+			payloadSize:        2000,
 			compressionEnabled: false,
-			expectCompressed: false,
+			expectCompressed:   false,
 		},
 		{
-			name:             "zero threshold, large payload - compressed",
-			gzipMinBytes:     0,
-			payloadSize:      1500,
+			name:               "zero threshold, large payload - compressed",
+			gzipMinBytes:       0,
+			payloadSize:        1500,
 			compressionEnabled: true,
-			expectCompressed: true,
+			expectCompressed:   true,
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestPushGzipCompressionThreshold(t *testing.T) {
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				receivedContentEncoding = r.Header.Get("Content-Encoding")
-				
+
 				// Read the body
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
@@ -94,7 +94,7 @@ func TestPushGzipCompressionThreshold(t *testing.T) {
 						return
 					}
 					defer reader.Close()
-					
+
 					_, err = io.ReadAll(reader)
 					isBodyGzipped = err == nil
 				}
@@ -149,7 +149,7 @@ func TestPushGzipCompressionThreshold(t *testing.T) {
 // TestPushGzipWithCustomThreshold tests the WithGzipThreshold option
 func TestPushGzipWithCustomThreshold(t *testing.T) {
 	var receivedContentEncoding string
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
 		w.WriteHeader(http.StatusOK)
@@ -183,7 +183,7 @@ func TestPushGzipWithCustomThreshold(t *testing.T) {
 // TestPushGzipDisabled tests that compression is disabled when CompressionEnabled is false
 func TestPushGzipDisabled(t *testing.T) {
 	var receivedContentEncoding string
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
 		w.WriteHeader(http.StatusOK)
@@ -217,7 +217,7 @@ func TestPushGzipDisabled(t *testing.T) {
 func TestPushGzipContentType(t *testing.T) {
 	var receivedContentType string
 	var receivedContentEncoding string
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedContentType = r.Header.Get("Content-Type")
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
@@ -251,9 +251,9 @@ func TestPushGzipContentType(t *testing.T) {
 // TestPushGzipAcceptEncoding tests that Accept-Encoding header is set correctly
 func TestPushGzipAcceptEncoding(t *testing.T) {
 	tests := []struct {
-		name                       string
-		disableAutoDecompression   bool
-		expectedAcceptEncoding     string
+		name                     string
+		disableAutoDecompression bool
+		expectedAcceptEncoding   string
 	}{
 		{
 			name:                     "auto decompression enabled",
@@ -270,7 +270,7 @@ func TestPushGzipAcceptEncoding(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var receivedAcceptEncoding string
-			
+
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				receivedAcceptEncoding = r.Header.Get("Accept-Encoding")
 				w.WriteHeader(http.StatusOK)
@@ -279,9 +279,9 @@ func TestPushGzipAcceptEncoding(t *testing.T) {
 			defer server.Close()
 
 			options := &ClientOptions{
-				CompressionEnabled:        true,
-				DisableAutoDecompression:  tt.disableAutoDecompression,
-				GzipMinBytes:              100,
+				CompressionEnabled:       true,
+				DisableAutoDecompression: tt.disableAutoDecompression,
+				GzipMinBytes:             100,
 			}
 
 			transport := NewTransport(server.URL, nil, nil, options)
@@ -326,14 +326,14 @@ func TestGzipValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			options := &ClientOptions{
-				CompressionEnabled: true,
-				GzipMinBytes:       tt.gzipMinBytes,
-				MaxResponseSize:    10 * 1024 * 1024, // Required field
+				CompressionEnabled:          true,
+				GzipMinBytes:                tt.gzipMinBytes,
+				MaxResponseSize:             10 * 1024 * 1024, // Required field
 				MaxDecompressedResponseSize: 20 * 1024 * 1024, // Required field
 			}
 
 			err := ValidateClientOptions(options)
-			
+
 			if tt.expectError && err == nil {
 				t.Error("Expected validation error, but got none")
 			}
@@ -348,16 +348,16 @@ func TestGzipValidation(t *testing.T) {
 func createEventsWithSize(targetSize int) []synckit.EventWithVersion {
 	// Estimate bytes per event (JSON overhead + data)
 	bytesPerEvent := 200 // Rough estimate including JSON structure
-	
+
 	numEvents := max(1, targetSize/bytesPerEvent)
-	
+
 	events := make([]synckit.EventWithVersion, numEvents)
-	
+
 	for i := 0; i < numEvents; i++ {
 		// Create event with some data to reach target size
 		dataSize := max(10, (targetSize/numEvents)-150) // Account for JSON overhead
 		data := strings.Repeat("x", dataSize)
-		
+
 		event := &SimpleEvent{
 			IDValue:          fmt.Sprintf("event-%d", i),
 			TypeValue:        "test.event",
@@ -365,13 +365,13 @@ func createEventsWithSize(targetSize int) []synckit.EventWithVersion {
 			DataValue:        data,
 			MetadataValue:    map[string]interface{}{"test": true},
 		}
-		
+
 		events[i] = synckit.EventWithVersion{
 			Event:   event,
 			Version: cursor.IntegerCursor{Seq: uint64(i + 1)},
 		}
 	}
-	
+
 	return events
 }
 

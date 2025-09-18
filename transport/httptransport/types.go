@@ -165,7 +165,7 @@ type ClientOptions struct {
 func DefaultClientOptions() *ClientOptions {
 	return &ClientOptions{
 		CompressionEnabled:          true,
-		GzipMinBytes:                1024,              // 1KB
+		GzipMinBytes:                1024,             // 1KB
 		MaxResponseSize:             10 * 1024 * 1024, // 10MB
 		MaxDecompressedResponseSize: 20 * 1024 * 1024, // 20MB
 		RequestTimeout:              30 * time.Second, // 30s

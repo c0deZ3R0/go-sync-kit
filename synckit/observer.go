@@ -11,17 +11,17 @@ import (
 // ObservableResolver wraps any ConflictResolver to provide detailed metrics and logging.
 // It implements the Observer pattern for monitoring conflict resolution performance.
 type ObservableResolver struct {
-	wrapped        ConflictResolver
-	metrics        MetricsCollector
-	logger         *slog.Logger
-	hooks          *ResolutionHooks
-	groupName      string // Optional: for group-level observability
+	wrapped   ConflictResolver
+	metrics   MetricsCollector
+	logger    *slog.Logger
+	hooks     *ResolutionHooks
+	groupName string // Optional: for group-level observability
 }
 
 // ExtendedMetricsCollector extends the basic MetricsCollector with detailed resolution metrics.
 type ExtendedMetricsCollector interface {
 	MetricsCollector // Embed existing interface
-	
+
 	// New methods for detailed conflict resolution metrics
 	RecordResolution(ruleName, groupName, decision string, duration time.Duration, success bool)
 	RecordRuleMatch(ruleName, groupName string)
@@ -32,11 +32,11 @@ type ExtendedMetricsCollector interface {
 
 // ResolutionHooks provides callbacks for observing conflict resolution events.
 type ResolutionHooks struct {
-	OnConflict      func(ctx context.Context, conflict *Conflict)
-	OnRuleMatched   func(ctx context.Context, conflict *Conflict, rule *Rule, group *RuleGroup)
-	OnResolution    func(ctx context.Context, result *ResolvedConflict, duration time.Duration)
-	OnFallback      func(ctx context.Context, conflict *Conflict, group *RuleGroup)
-	OnError         func(ctx context.Context, conflict *Conflict, err error)
+	OnConflict    func(ctx context.Context, conflict *Conflict)
+	OnRuleMatched func(ctx context.Context, conflict *Conflict, rule *Rule, group *RuleGroup)
+	OnResolution  func(ctx context.Context, result *ResolvedConflict, duration time.Duration)
+	OnFallback    func(ctx context.Context, conflict *Conflict, group *RuleGroup)
+	OnError       func(ctx context.Context, conflict *Conflict, err error)
 }
 
 // ObservableOption provides configuration for ObservableResolver.
@@ -83,35 +83,35 @@ func NewObservableResolver(resolver ConflictResolver, opts ...ObservableOption) 
 	or := &ObservableResolver{
 		wrapped: resolver,
 	}
-	
+
 	for _, opt := range opts {
 		opt.apply(or)
 	}
-	
+
 	return or
 }
 
 // Resolve implements the ConflictResolver interface with added observability.
 func (or *ObservableResolver) Resolve(ctx context.Context, conflict Conflict) (ResolvedConflict, error) {
 	start := time.Now()
-	
+
 	// Trigger OnConflict hook
 	if or.hooks != nil && or.hooks.OnConflict != nil {
 		or.hooks.OnConflict(ctx, &conflict)
 	}
-	
+
 	// Log the conflict
 	if or.logger != nil {
 		or.logger.Debug("Attempting to resolve conflict", "aggregate_id", conflict.AggregateID, "group", or.groupName)
 	}
-	
+
 	// Perform the actual resolution
 	resolved, err := or.wrapped.Resolve(ctx, conflict)
 	duration := time.Since(start)
-	
+
 	// Get resolution details
 	_, ruleName := getResolverDetails(or.wrapped)
-	
+
 	// Record metrics and call hooks
 	if err != nil {
 		if or.metrics != nil {
@@ -144,7 +144,7 @@ func (or *ObservableResolver) Resolve(ctx context.Context, conflict Conflict) (R
 			or.logger.Info("Conflict resolved successfully", "decision", resolved.Decision, "duration", duration)
 		}
 	}
-	
+
 	return resolved, err
 }
 
@@ -185,9 +185,9 @@ type ExtendedNoOpMetricsCollector struct {
 	NoOpMetricsCollector // Embed existing no-op collector
 }
 
-func (c *ExtendedNoOpMetricsCollector) RecordResolution(rule, group, decision string, dur time.Duration, success bool) {}
-func (c *ExtendedNoOpMetricsCollector) RecordRuleMatch(rule, group string)                 {}
-func (c *ExtendedNoOpMetricsCollector) RecordFallbackUsage(group string)                   {}
+func (c *ExtendedNoOpMetricsCollector) RecordResolution(rule, group, decision string, dur time.Duration, success bool) {
+}
+func (c *ExtendedNoOpMetricsCollector) RecordRuleMatch(rule, group string)                {}
+func (c *ExtendedNoOpMetricsCollector) RecordFallbackUsage(group string)                  {}
 func (c *ExtendedNoOpMetricsCollector) RecordResolutionError(rule, group, errType string) {}
-func (c *ExtendedNoOpMetricsCollector) RecordManualReview(reason string)                 {}
-
+func (c *ExtendedNoOpMetricsCollector) RecordManualReview(reason string)                  {}

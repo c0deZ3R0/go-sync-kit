@@ -3,9 +3,9 @@ package cursor
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
-	"math"
 )
 
 // TestWireFormat_IntegerCursor_KnownFormats tests that integer cursors marshal to expected JSON
@@ -113,7 +113,7 @@ func TestWireFormat_VectorCursor_KnownFormats(t *testing.T) {
 		{
 			name: "realistic node names",
 			cursor: VectorCursor{Counters: map[string]uint64{
-				"web-server-1": 150,
+				"web-server-1":  150,
 				"worker-node-2": 89,
 			}},
 			// We'll validate this one via round-trip since key order varies
@@ -183,7 +183,7 @@ func TestWireFormat_VectorCursor_KnownFormats(t *testing.T) {
 			}
 
 			if len(restoredVC.Counters) != len(tt.cursor.Counters) {
-				t.Errorf("Round-trip counters length mismatch: got %d, want %d", 
+				t.Errorf("Round-trip counters length mismatch: got %d, want %d",
 					len(restoredVC.Counters), len(tt.cursor.Counters))
 			}
 
@@ -201,7 +201,7 @@ func TestWireFormat_BackwardCompatibility(t *testing.T) {
 	InitDefaultCodecs()
 
 	tests := []struct {
-		name          string
+		name           string
 		historicalJSON string
 		expectedType   string
 		validate       func(t *testing.T, cursor Cursor)
@@ -435,12 +435,12 @@ func TestWireFormat_RoundTripConsistency(t *testing.T) {
 		{
 			name: "vector multiple nodes",
 			cursor: VectorCursor{Counters: map[string]uint64{
-				"web-1":     150,
-				"web-2":     143,
-				"worker-1":  89,
-				"worker-2":  91,
-				"db-1":      200,
-				"cache-1":   175,
+				"web-1":    150,
+				"web-2":    143,
+				"worker-1": 89,
+				"worker-2": 91,
+				"db-1":     200,
+				"cache-1":  175,
 			}},
 		},
 		{
@@ -509,7 +509,7 @@ func TestWireFormat_RoundTripConsistency(t *testing.T) {
 					t.Fatalf("Type mismatch after round-trip: expected VectorCursor, got %T", restored)
 				}
 				if len(restored.Counters) != len(original.Counters) {
-					t.Errorf("Counters length mismatch: got %d, want %d", 
+					t.Errorf("Counters length mismatch: got %d, want %d",
 						len(restored.Counters), len(original.Counters))
 				}
 				for k, v := range original.Counters {
@@ -562,7 +562,7 @@ func TestWireFormat_JSONCompliance(t *testing.T) {
 			}
 
 			if len(decoded.Data) != len(wire.Data) {
-				t.Errorf("Data length mismatch after JSON round-trip: got %d, want %d", 
+				t.Errorf("Data length mismatch after JSON round-trip: got %d, want %d",
 					len(decoded.Data), len(wire.Data))
 			}
 
@@ -573,7 +573,7 @@ func TestWireFormat_JSONCompliance(t *testing.T) {
 			}
 
 			if restoredCursor.Kind() != cursor.Kind() {
-				t.Errorf("Cursor kind mismatch after JSON round-trip: got %s, want %s", 
+				t.Errorf("Cursor kind mismatch after JSON round-trip: got %s, want %s",
 					restoredCursor.Kind(), cursor.Kind())
 			}
 		})
@@ -585,8 +585,8 @@ func TestWireFormat_EdgeCases(t *testing.T) {
 	InitDefaultCodecs()
 
 	tests := []struct {
-		name    string
-		test    func(t *testing.T)
+		name string
+		test func(t *testing.T)
 	}{
 		{
 			name: "nil wire cursor validation",

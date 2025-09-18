@@ -32,22 +32,22 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestConfigValidation(t *testing.T) {
 	tests := []struct {
-		name        string
-		modifyConfig func(*Config)
-		expectError bool
+		name          string
+		modifyConfig  func(*Config)
+		expectError   bool
 		errorContains string
 	}{
 		{
-			name:        "valid default config",
+			name:         "valid default config",
 			modifyConfig: func(c *Config) {},
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name: "empty URL",
 			modifyConfig: func(c *Config) {
 				c.URL = ""
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "URL is required",
 		},
 		{
@@ -55,7 +55,7 @@ func TestConfigValidation(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Exchange = ""
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "Exchange name is required",
 		},
 		{
@@ -63,7 +63,7 @@ func TestConfigValidation(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.ExchangeType = "invalid"
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "invalid exchange type",
 		},
 		{
@@ -71,7 +71,7 @@ func TestConfigValidation(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.PrefetchCount = -1
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "PrefetchCount cannot be negative",
 		},
 		{
@@ -85,10 +85,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			name: "auto-apply defaults for missing values",
 			modifyConfig: func(c *Config) {
-				c.ExchangeType = "" // Should default to "topic"
+				c.ExchangeType = ""   // Should default to "topic"
 				c.ConnectionName = "" // Should default to "go-sync-kit"
-				c.Heartbeat = 0 // Should default to 60s
-				c.PrefetchCount = 0 // Should default to 10
+				c.Heartbeat = 0       // Should default to 60s
+				c.PrefetchCount = 0   // Should default to 10
 			},
 			expectError: false,
 		},
@@ -108,7 +108,7 @@ func TestConfigValidation(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
-				
+
 				// Verify defaults were applied
 				if cfg.ExchangeType == "" {
 					assert.Equal(t, "topic", cfg.ExchangeType)
@@ -183,7 +183,7 @@ type mockEvent struct {
 	eventType string
 }
 
-func (m *mockEvent) ID() string                        { return "test-id" }
+func (m *mockEvent) ID() string                       { return "test-id" }
 func (m *mockEvent) Type() string                     { return m.eventType }
 func (m *mockEvent) AggregateID() string              { return "test-aggregate" }
 func (m *mockEvent) Data() interface{}                { return nil }

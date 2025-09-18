@@ -31,7 +31,7 @@ func (r *LastWriteWinsResolver) Resolve(ctx context.Context, c Conflict) (Resolv
 	case 1:
 		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Local}, Decision: "keep_local", Reasons: []string{"local newer"}}, nil
 	default:
-	return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
+		return ResolvedConflict{ResolvedEvents: []EventWithVersion{c.Remote}, Decision: "keep_remote", Reasons: []string{"equal versions, prefer remote"}}, nil
 	}
 }
 
@@ -72,6 +72,8 @@ type ManualReviewResolver struct{ Reason string }
 
 func (r *ManualReviewResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
 	reasons := []string{"manual review required"}
-	if r.Reason != "" { reasons = append(reasons, r.Reason) }
+	if r.Reason != "" {
+		reasons = append(reasons, r.Reason)
+	}
 	return ResolvedConflict{Decision: "manual_review", Reasons: reasons}, nil
 }

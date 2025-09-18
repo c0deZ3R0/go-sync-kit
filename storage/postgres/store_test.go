@@ -11,6 +11,13 @@ import (
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// requirePostgres skips the test unless POSTGRES_TEST=1
+func requirePostgres(t *testing.T) {
+	if os.Getenv("POSTGRES_TEST") != "1" {
+		t.Skip("Skipping Postgres-backed tests; set POSTGRES_TEST=1 to enable")
+	}
+}
+
 // TestEvent is a simple implementation of synckit.Event for testing
 type TestEvent struct {
 	id          string
@@ -20,11 +27,11 @@ type TestEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (e *TestEvent) ID() string                         { return e.id }
-func (e *TestEvent) Type() string                       { return e.eventType }
-func (e *TestEvent) AggregateID() string                { return e.aggregateID }
-func (e *TestEvent) Data() interface{}                  { return e.data }
-func (e *TestEvent) Metadata() map[string]interface{}  { return e.metadata }
+func (e *TestEvent) ID() string                       { return e.id }
+func (e *TestEvent) Type() string                     { return e.eventType }
+func (e *TestEvent) AggregateID() string              { return e.aggregateID }
+func (e *TestEvent) Data() interface{}                { return e.data }
+func (e *TestEvent) Metadata() map[string]interface{} { return e.metadata }
 
 func newTestEvent(id, eventType, aggregateID string, data interface{}) *TestEvent {
 	return &TestEvent{
@@ -48,11 +55,12 @@ func getTestConnectionString() string {
 
 // setupTestStore creates a new PostgresEventStore for testing
 func setupTestStore(t *testing.T) (*PostgresEventStore, func()) {
+	requirePostgres(t)
 	config := &Config{
 		ConnectionString: getTestConnectionString(),
-		Logger:          log.New(os.Stdout, "[TEST] ", log.LstdFlags),
-		MaxOpenConns:    5,
-		MaxIdleConns:    2,
+		Logger:           log.New(os.Stdout, "[TEST] ", log.LstdFlags),
+		MaxOpenConns:     5,
+		MaxIdleConns:     2,
 	}
 
 	store, err := New(config)
@@ -74,6 +82,7 @@ func setupTestStore(t *testing.T) (*PostgresEventStore, func()) {
 }
 
 func TestPostgresEventStore_Store(t *testing.T) {
+	requirePostgres(t)
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
@@ -121,6 +130,7 @@ func TestPostgresEventStore_Store(t *testing.T) {
 }
 
 func TestPostgresEventStore_LoadByAggregate(t *testing.T) {
+	requirePostgres(t)
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
@@ -158,6 +168,7 @@ func TestPostgresEventStore_LoadByAggregate(t *testing.T) {
 }
 
 func TestPostgresEventStore_StoreBatch(t *testing.T) {
+	requirePostgres(t)
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
@@ -196,6 +207,7 @@ func TestPostgresEventStore_StoreBatch(t *testing.T) {
 }
 
 func TestPostgresEventStore_LatestVersion(t *testing.T) {
+	requirePostgres(t)
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
@@ -231,15 +243,16 @@ func TestPostgresEventStore_LatestVersion(t *testing.T) {
 }
 
 func TestRealtimeEventStore_Notifications(t *testing.T) {
+	requirePostgres(t)
 	if testing.Short() {
 		t.Skip("Skipping real-time notification test in short mode")
 	}
 
 	config := &Config{
 		ConnectionString: getTestConnectionString(),
-		Logger:          log.New(os.Stdout, "[REALTIME_TEST] ", log.LstdFlags),
-		MaxOpenConns:    5,
-		MaxIdleConns:    2,
+		Logger:           log.New(os.Stdout, "[REALTIME_TEST] ", log.LstdFlags),
+		MaxOpenConns:     5,
+		MaxIdleConns:     2,
 	}
 
 	store, err := NewRealtimeEventStore(config)
@@ -291,15 +304,16 @@ func TestRealtimeEventStore_Notifications(t *testing.T) {
 }
 
 func TestRealtimeEventStore_GlobalNotifications(t *testing.T) {
+	requirePostgres(t)
 	if testing.Short() {
 		t.Skip("Skipping global notification test in short mode")
 	}
 
 	config := &Config{
 		ConnectionString: getTestConnectionString(),
-		Logger:          log.New(os.Stdout, "[GLOBAL_TEST] ", log.LstdFlags),
-		MaxOpenConns:    5,
-		MaxIdleConns:    2,
+		Logger:           log.New(os.Stdout, "[GLOBAL_TEST] ", log.LstdFlags),
+		MaxOpenConns:     5,
+		MaxIdleConns:     2,
 	}
 
 	store, err := NewRealtimeEventStore(config)
@@ -357,12 +371,13 @@ func TestRealtimeEventStore_GlobalNotifications(t *testing.T) {
 }
 
 func TestNotificationListener_ConnectionRecovery(t *testing.T) {
+	requirePostgres(t)
 	if testing.Short() {
 		t.Skip("Skipping connection recovery test in short mode")
 	}
 
 	logger := log.New(os.Stdout, "[RECOVERY_TEST] ", log.LstdFlags)
-	
+
 	listener, err := NewNotificationListener(getTestConnectionString(), logger)
 	if err != nil {
 		t.Fatalf("Failed to create notification listener: %v", err)
@@ -428,8 +443,8 @@ func TestNotificationListener_ConnectionRecovery(t *testing.T) {
 func BenchmarkPostgresEventStore_Store(b *testing.B) {
 	config := &Config{
 		ConnectionString: getTestConnectionString(),
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
+		MaxOpenConns:     10,
+		MaxIdleConns:     5,
 	}
 
 	store, err := New(config)
@@ -448,7 +463,7 @@ func BenchmarkPostgresEventStore_Store(b *testing.B) {
 			"bench-aggregate",
 			map[string]int{"iteration": i},
 		)
-		
+
 		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Failed to store event: %v", err)
@@ -459,8 +474,8 @@ func BenchmarkPostgresEventStore_Store(b *testing.B) {
 func BenchmarkPostgresEventStore_Load(b *testing.B) {
 	config := &Config{
 		ConnectionString: getTestConnectionString(),
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
+		MaxOpenConns:     10,
+		MaxIdleConns:     5,
 	}
 
 	store, err := New(config)
@@ -479,7 +494,7 @@ func BenchmarkPostgresEventStore_Load(b *testing.B) {
 			"bench-load-aggregate",
 			map[string]int{"iteration": i},
 		)
-		
+
 		err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
 		if err != nil {
 			b.Fatalf("Failed to store setup event: %v", err)

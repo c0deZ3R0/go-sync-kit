@@ -29,7 +29,7 @@ func (m *mockHealthCheck) Check(ctx context.Context) CheckResult {
 		// Respect context cancellation by using a timer instead of just sleeping
 		timer := time.NewTimer(m.duration)
 		defer timer.Stop()
-		
+
 		select {
 		case <-timer.C:
 			// Duration completed normally

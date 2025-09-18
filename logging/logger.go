@@ -64,7 +64,7 @@ func (e SyncErrorValuer) LogValue() slog.Value {
 		slog.Bool("retryable", e.Retryable),
 		slog.String("error", e.Err.Error()),
 	}
-	
+
 	// Add metadata if present
 	if e.Metadata != nil {
 		metadataAttrs := make([]slog.Attr, 0, len(e.Metadata))
@@ -73,7 +73,7 @@ func (e SyncErrorValuer) LogValue() slog.Value {
 		}
 		attrs = append(attrs, slog.Any("metadata", slog.GroupValue(metadataAttrs...)))
 	}
-	
+
 	return slog.GroupValue(attrs...)
 }
 
@@ -136,36 +136,36 @@ func (l *Logger) WithComponent(component Component) *Logger {
 func (l *Logger) WithContext(ctx context.Context, attrs ...slog.Attr) *Logger {
 	// Extract common context values
 	contextAttrs := make([]any, 0, len(attrs)+2)
-	
+
 	// Add request ID if present
 	if reqID := ctx.Value("request_id"); reqID != nil {
 		contextAttrs = append(contextAttrs, slog.String("request_id", fmt.Sprintf("%v", reqID)))
 	}
-	
+
 	// Add trace ID if present
 	if traceID := ctx.Value("trace_id"); traceID != nil {
 		contextAttrs = append(contextAttrs, slog.String("trace_id", fmt.Sprintf("%v", traceID)))
 	}
-	
+
 	// Convert attrs to []any
 	for _, attr := range attrs {
 		contextAttrs = append(contextAttrs, attr)
 	}
-	
+
 	return &Logger{Logger: l.With(contextAttrs...)}
 }
 
 // LogError logs an error with stack trace information and structured attributes
 func (l *Logger) LogError(ctx context.Context, err error, msg string, attrs ...slog.Attr) {
 	allAttrs := make([]any, 0, len(attrs)+3)
-	
+
 	// Add error information
 	if syncErr, ok := err.(*errors.SyncError); ok {
 		allAttrs = append(allAttrs, slog.Any("sync_error", SyncErrorValuer{SyncError: syncErr}))
 	} else {
 		allAttrs = append(allAttrs, slog.String("error", err.Error()))
 	}
-	
+
 	// Add stack trace information
 	pc, file, line, ok := runtime.Caller(1)
 	if ok {
@@ -178,12 +178,12 @@ func (l *Logger) LogError(ctx context.Context, err error, msg string, attrs ...s
 			),
 		)
 	}
-	
+
 	// Convert attrs to []any
 	for _, attr := range attrs {
 		allAttrs = append(allAttrs, attr)
 	}
-	
+
 	l.ErrorContext(ctx, msg, allAttrs...)
 }
 
@@ -191,14 +191,14 @@ func (l *Logger) LogError(ctx context.Context, err error, msg string, attrs ...s
 func (l *Logger) LogOperation(ctx context.Context, op Operation, component Component, fn func() error) error {
 	start := time.Now()
 	opLogger := l.WithOperation(op).WithComponent(component)
-	
+
 	opLogger.InfoContext(ctx, "operation started",
 		slog.Time("start_time", start),
 	)
-	
+
 	err := fn()
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		opLogger.LogError(ctx, err, "operation failed",
 			slog.Duration("duration", duration),
@@ -206,12 +206,12 @@ func (l *Logger) LogOperation(ctx context.Context, op Operation, component Compo
 		)
 		return err
 	}
-	
+
 	opLogger.InfoContext(ctx, "operation completed",
 		slog.Duration("duration", duration),
 		slog.Bool("success", true),
 	)
-	
+
 	return nil
 }
 

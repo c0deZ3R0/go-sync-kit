@@ -42,7 +42,7 @@ func NewSubscriptionManager() *SubscriptionManager {
 func (sm *SubscriptionManager) Subscribe(channel string, handler EventHandler) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	sm.subscriptions[channel] = append(sm.subscriptions[channel], handler)
 }
 
@@ -50,7 +50,7 @@ func (sm *SubscriptionManager) Subscribe(channel string, handler EventHandler) {
 func (sm *SubscriptionManager) Unsubscribe(channel string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	delete(sm.subscriptions, channel)
 }
 
@@ -58,7 +58,7 @@ func (sm *SubscriptionManager) Unsubscribe(channel string) {
 func (sm *SubscriptionManager) GetChannels() []string {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	channels := make([]string, 0, len(sm.subscriptions))
 	for channel := range sm.subscriptions {
 		channels = append(channels, channel)
@@ -71,17 +71,17 @@ func (sm *SubscriptionManager) HandleNotification(channel string, payload string
 	sm.mu.RLock()
 	handlers, exists := sm.subscriptions[channel]
 	sm.mu.RUnlock()
-	
+
 	if !exists {
 		return nil // No handlers for this channel
 	}
-	
+
 	// Parse the JSON payload
 	var notificationPayload NotificationPayload
 	if err := json.Unmarshal([]byte(payload), &notificationPayload); err != nil {
 		return fmt.Errorf("failed to parse notification payload: %w", err)
 	}
-	
+
 	// Call all handlers for this channel
 	for _, handler := range handlers {
 		if err := handler(notificationPayload); err != nil {
@@ -90,7 +90,7 @@ func (sm *SubscriptionManager) HandleNotification(channel string, payload string
 			return fmt.Errorf("handler error for channel %s: %w", channel, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -98,20 +98,20 @@ func (sm *SubscriptionManager) HandleNotification(channel string, payload string
 type NotificationListener struct {
 	connectionString string
 	logger           *log.Logger
-	
+
 	// Connection management
 	listener *pq.Listener
 	mu       stdSync.RWMutex
 	closed   int32 // atomic
-	
+
 	// Subscription management
 	subscriptions *SubscriptionManager
-	
+
 	// Configuration
 	reconnectInterval    time.Duration
 	maxReconnectAttempts int
 	notificationTimeout  time.Duration
-	
+
 	// Channels for coordination
 	done chan struct{}
 }
@@ -121,21 +121,21 @@ func NewNotificationListener(connectionString string, logger *log.Logger) (*Noti
 	if connectionString == "" {
 		return nil, fmt.Errorf("connection string cannot be empty")
 	}
-	
+
 	if logger == nil {
 		logger = log.New(log.Writer(), "[NotificationListener] ", log.LstdFlags)
 	}
-	
+
 	nl := &NotificationListener{
 		connectionString:     connectionString,
-		logger:              logger,
-		subscriptions:       NewSubscriptionManager(),
-		reconnectInterval:   5 * time.Second,
+		logger:               logger,
+		subscriptions:        NewSubscriptionManager(),
+		reconnectInterval:    5 * time.Second,
 		maxReconnectAttempts: 10,
-		notificationTimeout: 30 * time.Second,
-		done:                make(chan struct{}),
+		notificationTimeout:  30 * time.Second,
+		done:                 make(chan struct{}),
 	}
-	
+
 	// Initialize the pq.Listener
 	nl.listener = pq.NewListener(
 		connectionString,
@@ -143,7 +143,7 @@ func NewNotificationListener(connectionString string, logger *log.Logger) (*Noti
 		nl.notificationTimeout,
 		nl.eventCallback,
 	)
-	
+
 	return nl, nil
 }
 
@@ -180,9 +180,9 @@ func (nl *NotificationListener) Start(ctx context.Context) error {
 	if atomic.LoadInt32(&nl.closed) == 1 {
 		return fmt.Errorf("listener is closed")
 	}
-	
+
 	nl.logger.Printf("Starting notification listener...")
-	
+
 	go nl.listenLoop(ctx)
 	return nil
 }
@@ -190,7 +190,7 @@ func (nl *NotificationListener) Start(ctx context.Context) error {
 // listenLoop is the main loop that processes notifications
 func (nl *NotificationListener) listenLoop(ctx context.Context) {
 	defer nl.logger.Printf("Notification listener stopped")
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -219,9 +219,9 @@ func (nl *NotificationListener) handleNotification(notification *pq.Notification
 	if notification == nil {
 		return
 	}
-	
+
 	nl.logger.Printf("Received notification on channel %s: %s", notification.Channel, notification.Extra)
-	
+
 	if err := nl.subscriptions.HandleNotification(notification.Channel, notification.Extra); err != nil {
 		nl.logger.Printf("Error handling notification: %v", err)
 	}
@@ -232,19 +232,19 @@ func (nl *NotificationListener) SubscribeToStream(aggregateID string, handler Ev
 	if atomic.LoadInt32(&nl.closed) == 1 {
 		return fmt.Errorf("listener is closed")
 	}
-	
+
 	channel := fmt.Sprintf("stream_%s", aggregateID)
-	
+
 	// Add to subscription manager
 	nl.subscriptions.Subscribe(channel, handler)
-	
+
 	// Subscribe to the channel in PostgreSQL
 	if err := nl.listener.Listen(channel); err != nil {
 		// Remove from subscription manager if PostgreSQL subscription failed
 		nl.subscriptions.Unsubscribe(channel)
 		return fmt.Errorf("failed to listen to channel %s: %w", channel, err)
 	}
-	
+
 	nl.logger.Printf("Subscribed to stream: %s", aggregateID)
 	return nil
 }
@@ -254,19 +254,19 @@ func (nl *NotificationListener) SubscribeToAll(handler EventHandler) error {
 	if atomic.LoadInt32(&nl.closed) == 1 {
 		return fmt.Errorf("listener is closed")
 	}
-	
+
 	channel := "events_global"
-	
+
 	// Add to subscription manager
 	nl.subscriptions.Subscribe(channel, handler)
-	
+
 	// Subscribe to the channel in PostgreSQL
 	if err := nl.listener.Listen(channel); err != nil {
 		// Remove from subscription manager if PostgreSQL subscription failed
 		nl.subscriptions.Unsubscribe(channel)
 		return fmt.Errorf("failed to listen to global channel: %w", err)
 	}
-	
+
 	nl.logger.Printf("Subscribed to global events channel")
 	return nil
 }
@@ -277,7 +277,7 @@ func (nl *NotificationListener) SubscribeToEventType(eventType string, handler E
 	if atomic.LoadInt32(&nl.closed) == 1 {
 		return fmt.Errorf("listener is closed")
 	}
-	
+
 	// Create a filtering handler that only processes events of the specified type
 	filteringHandler := func(payload NotificationPayload) error {
 		if payload.EventType == eventType {
@@ -285,22 +285,22 @@ func (nl *NotificationListener) SubscribeToEventType(eventType string, handler E
 		}
 		return nil // Skip events of other types
 	}
-	
+
 	return nl.SubscribeToAll(filteringHandler)
 }
 
 // UnsubscribeFromStream unsubscribes from a specific aggregate stream
 func (nl *NotificationListener) UnsubscribeFromStream(aggregateID string) error {
 	channel := fmt.Sprintf("stream_%s", aggregateID)
-	
+
 	// Remove from subscription manager
 	nl.subscriptions.Unsubscribe(channel)
-	
+
 	// Unsubscribe from the channel in PostgreSQL
 	if err := nl.listener.Unlisten(channel); err != nil {
 		return fmt.Errorf("failed to unlisten from channel %s: %w", channel, err)
 	}
-	
+
 	nl.logger.Printf("Unsubscribed from stream: %s", aggregateID)
 	return nil
 }
@@ -308,15 +308,15 @@ func (nl *NotificationListener) UnsubscribeFromStream(aggregateID string) error 
 // UnsubscribeFromAll unsubscribes from the global events channel
 func (nl *NotificationListener) UnsubscribeFromAll() error {
 	channel := "events_global"
-	
+
 	// Remove from subscription manager
 	nl.subscriptions.Unsubscribe(channel)
-	
+
 	// Unsubscribe from the channel in PostgreSQL
 	if err := nl.listener.Unlisten(channel); err != nil {
 		return fmt.Errorf("failed to unlisten from global channel: %w", err)
 	}
-	
+
 	nl.logger.Printf("Unsubscribed from global events channel")
 	return nil
 }
@@ -331,7 +331,7 @@ func (nl *NotificationListener) IsConnected() bool {
 	if atomic.LoadInt32(&nl.closed) == 1 {
 		return false
 	}
-	
+
 	// Use ping to check connectivity
 	return nl.listener.Ping() == nil
 }
@@ -341,12 +341,12 @@ func (nl *NotificationListener) Close() error {
 	if !atomic.CompareAndSwapInt32(&nl.closed, 0, 1) {
 		return nil // Already closed
 	}
-	
+
 	nl.logger.Printf("Closing notification listener...")
-	
+
 	// Signal the listen loop to stop
 	close(nl.done)
-	
+
 	// Close the pq.Listener
 	if nl.listener != nil {
 		if err := nl.listener.Close(); err != nil {
@@ -354,7 +354,7 @@ func (nl *NotificationListener) Close() error {
 			return err
 		}
 	}
-	
+
 	nl.logger.Printf("Notification listener closed")
 	return nil
 }
@@ -383,7 +383,7 @@ func NewRealtimeEventStore(config *Config) (*RealtimeEventStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &RealtimeEventStore{
 		PostgresEventStore: store,
 	}, nil
@@ -394,7 +394,7 @@ func (rs *RealtimeEventStore) SubscribeToStream(ctx context.Context, aggregateID
 	if err := rs.listener.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start listener: %w", err)
 	}
-	
+
 	return rs.listener.SubscribeToStream(aggregateID, handler)
 }
 
@@ -403,7 +403,7 @@ func (rs *RealtimeEventStore) SubscribeToAll(ctx context.Context, handler func(N
 	if err := rs.listener.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start listener: %w", err)
 	}
-	
+
 	return rs.listener.SubscribeToAll(handler)
 }
 
@@ -412,7 +412,7 @@ func (rs *RealtimeEventStore) SubscribeToEventType(ctx context.Context, eventTyp
 	if err := rs.listener.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start listener: %w", err)
 	}
-	
+
 	return rs.listener.SubscribeToEventType(eventType, handler)
 }
 

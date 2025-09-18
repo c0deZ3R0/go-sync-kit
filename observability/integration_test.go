@@ -344,7 +344,7 @@ func BenchmarkObservabilityIntegration(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			// Record metrics
-			metricsAdapter.RecordSyncDuration("sync", 100 * time.Millisecond)
+			metricsAdapter.RecordSyncDuration("sync", 100*time.Millisecond)
 
 			// Check health
 			result := healthChecker.CheckLiveness(ctx)

@@ -1,5 +1,5 @@
 // Example 3: Event Creation and Storage
-// 
+//
 // This example demonstrates:
 // - Creating custom events with proper Event interface
 // - Storing events locally with versioning
@@ -22,12 +22,12 @@ import (
 
 // UserEvent represents a custom event type
 type UserEvent struct {
-	EventID     string                 `json:"id"`
-	EventType   string                 `json:"event_type"`
-	UserID      string                 `json:"user_id"`
-	Username    string                 `json:"username"`
-	Email       string                 `json:"email,omitempty"`
-	Timestamp   time.Time              `json:"timestamp"`
+	EventID       string                 `json:"id"`
+	EventType     string                 `json:"event_type"`
+	UserID        string                 `json:"user_id"`
+	Username      string                 `json:"username"`
+	Email         string                 `json:"email,omitempty"`
+	Timestamp     time.Time              `json:"timestamp"`
 	EventMetadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -81,7 +81,7 @@ func main() {
 		{
 			EventID:   "evt-001",
 			EventType: "user.registered",
-			UserID:    "user-001", 
+			UserID:    "user-001",
 			Username:  "alice",
 			Email:     "alice@example.com",
 			Timestamp: time.Now(),
@@ -91,7 +91,7 @@ func main() {
 			},
 		},
 		{
-			EventID:   "evt-002", 
+			EventID:   "evt-002",
 			EventType: "user.updated",
 			UserID:    "user-001",
 			Username:  "alice_updated",
@@ -108,14 +108,14 @@ func main() {
 	fmt.Println("\n💾 Storing events:")
 	for i, event := range events {
 		version := cursor.IntegerCursor{Seq: uint64(i + 1)}
-		
+
 		err := store.Store(ctx, event, version)
 		if err != nil {
 			log.Printf("Failed to store event %d: %v", i+1, err)
 			continue
 		}
 
-		fmt.Printf("  ✅ Stored %s (v%d) - %s\n", 
+		fmt.Printf("  ✅ Stored %s (v%d) - %s\n",
 			event.EventType, i+1, event.Username)
 
 		// Show event data
@@ -126,7 +126,7 @@ func main() {
 
 	// Retrieve events from storage
 	fmt.Println("📚 Retrieving events from storage...")
-	
+
 	// Load all events since version 0
 	zeroVersion := cursor.IntegerCursor{Seq: 0}
 	storedEvents, err := store.Load(ctx, zeroVersion)
@@ -140,8 +140,8 @@ func main() {
 			ev.Version.String(),
 			ev.Event.Type(),
 			ev.Event.AggregateID())
-		
-		// Show stored event data 
+
+		// Show stored event data
 		evData, _ := json.MarshalIndent(ev.Event.Data(), "     ", "  ")
 		fmt.Printf("     📄 Data: %s\n", string(evData))
 		fmt.Println()
@@ -164,12 +164,12 @@ func main() {
 
 	fmt.Printf("✅ Sync completed!\n")
 	fmt.Printf("   Duration: %v\n", result.Duration)
-	fmt.Printf("   Events pushed: %d\n", result.EventsPushed) 
+	fmt.Printf("   Events pushed: %d\n", result.EventsPushed)
 	fmt.Printf("   Events pulled: %d\n", result.EventsPulled)
 
 	fmt.Println("\n🎉 Example completed! Check 'events-simple.db' to see stored events.")
 	fmt.Println("\n💡 Key Takeaways:")
-	fmt.Println("   • Custom events implement the Event interface") 
+	fmt.Println("   • Custom events implement the Event interface")
 	fmt.Println("   • Events are stored with sequential version numbers")
 	fmt.Println("   • You can retrieve all events or query by version range")
 	fmt.Println("   • Sync operations work with local-only (null transport) setup")

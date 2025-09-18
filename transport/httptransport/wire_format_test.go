@@ -79,9 +79,9 @@ func TestCodecAwareEncoder_EncodeEvent_WithCodec(t *testing.T) {
 	registry := codec.NewRegistry()
 	testCodec := &testCodec{kind: "test"}
 	registry.Register(testCodec)
-	
+
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	event := &testEvent{
 		id:          "test-1",
 		eventType:   "TestEvent",
@@ -91,19 +91,19 @@ func TestCodecAwareEncoder_EncodeEvent_WithCodec(t *testing.T) {
 			"kind": "test",
 		},
 	}
-	
+
 	wireEvent, err := encoder.EncodeEvent(event)
 	if err != nil {
 		t.Fatalf("EncodeEvent failed: %v", err)
 	}
-	
+
 	if wireEvent.ID != "test-1" {
 		t.Fatalf("Expected ID 'test-1', got %s", wireEvent.ID)
 	}
 	if wireEvent.DataKind != "test" {
 		t.Fatalf("Expected DataKind 'test', got %s", wireEvent.DataKind)
 	}
-	
+
 	// Verify the data was encoded with our test codec
 	var encoded string
 	if err := json.Unmarshal(wireEvent.Data, &encoded); err != nil {
@@ -117,7 +117,7 @@ func TestCodecAwareEncoder_EncodeEvent_WithCodec(t *testing.T) {
 func TestCodecAwareEncoder_EncodeEvent_Fallback(t *testing.T) {
 	registry := codec.NewRegistry()
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	event := &testEvent{
 		id:          "test-1",
 		eventType:   "TestEvent",
@@ -125,16 +125,16 @@ func TestCodecAwareEncoder_EncodeEvent_Fallback(t *testing.T) {
 		data:        "hello",
 		metadata:    map[string]interface{}{},
 	}
-	
+
 	wireEvent, err := encoder.EncodeEvent(event)
 	if err != nil {
 		t.Fatalf("EncodeEvent failed: %v", err)
 	}
-	
+
 	if wireEvent.DataKind != "" {
 		t.Fatalf("Expected no DataKind, got %s", wireEvent.DataKind)
 	}
-	
+
 	// Verify the data was encoded with JSON
 	var data interface{}
 	if err := json.Unmarshal(wireEvent.Data, &data); err != nil {
@@ -148,7 +148,7 @@ func TestCodecAwareEncoder_EncodeEvent_Fallback(t *testing.T) {
 func TestCodecAwareEncoder_EncodeEvent_NoFallback(t *testing.T) {
 	registry := codec.NewRegistry()
 	encoder := NewCodecAwareEncoder(registry, false)
-	
+
 	event := &testEvent{
 		id:          "test-1",
 		eventType:   "TestEvent",
@@ -158,7 +158,7 @@ func TestCodecAwareEncoder_EncodeEvent_NoFallback(t *testing.T) {
 			"kind": "unknown",
 		},
 	}
-	
+
 	_, err := encoder.EncodeEvent(event)
 	if err == nil {
 		t.Fatal("Expected error when codec not found and fallback disabled")
@@ -169,9 +169,9 @@ func TestCodecAwareEncoder_DecodeEvent_WithCodec(t *testing.T) {
 	registry := codec.NewRegistry()
 	testCodec := &testCodec{kind: "test"}
 	registry.Register(testCodec)
-	
+
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	// Create a wire event that was encoded with our test codec
 	data, _ := json.Marshal("PREFIX:hello")
 	wireEvent := WireEvent{
@@ -182,12 +182,12 @@ func TestCodecAwareEncoder_DecodeEvent_WithCodec(t *testing.T) {
 		DataKind:    "test",
 		Metadata:    map[string]interface{}{},
 	}
-	
+
 	event, err := encoder.DecodeEvent(wireEvent)
 	if err != nil {
 		t.Fatalf("DecodeEvent failed: %v", err)
 	}
-	
+
 	if event.ID() != "test-1" {
 		t.Fatalf("Expected ID 'test-1', got %s", event.ID())
 	}
@@ -199,7 +199,7 @@ func TestCodecAwareEncoder_DecodeEvent_WithCodec(t *testing.T) {
 func TestCodecAwareEncoder_DecodeEvent_JSONFallback(t *testing.T) {
 	registry := codec.NewRegistry()
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	// Create a wire event without codec info
 	data, _ := json.Marshal("hello")
 	wireEvent := WireEvent{
@@ -209,12 +209,12 @@ func TestCodecAwareEncoder_DecodeEvent_JSONFallback(t *testing.T) {
 		Data:        data,
 		Metadata:    map[string]interface{}{},
 	}
-	
+
 	event, err := encoder.DecodeEvent(wireEvent)
 	if err != nil {
 		t.Fatalf("DecodeEvent failed: %v", err)
 	}
-	
+
 	if event.Data() != "hello" {
 		t.Fatalf("Expected 'hello', got %v", event.Data())
 	}
@@ -224,32 +224,32 @@ func TestCodecAwareEncoder_RoundTrip(t *testing.T) {
 	registry := codec.NewRegistry()
 	testCodec := &testCodec{kind: "test"}
 	registry.Register(testCodec)
-	
+
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	original := &testEvent{
 		id:          "test-1",
 		eventType:   "TestEvent",
 		aggregateID: "agg-1",
 		data:        "hello",
 		metadata: map[string]interface{}{
-			"kind": "test",
+			"kind":  "test",
 			"other": "metadata",
 		},
 	}
-	
+
 	// Encode
 	wireEvent, err := encoder.EncodeEvent(original)
 	if err != nil {
 		t.Fatalf("EncodeEvent failed: %v", err)
 	}
-	
+
 	// Decode
 	decoded, err := encoder.DecodeEvent(wireEvent)
 	if err != nil {
 		t.Fatalf("DecodeEvent failed: %v", err)
 	}
-	
+
 	// Verify round-trip preserved data correctly
 	if decoded.ID() != original.ID() {
 		t.Fatalf("ID mismatch: expected %s, got %s", original.ID(), decoded.ID())
@@ -271,7 +271,7 @@ func TestCodecAwareEncoder_RoundTrip(t *testing.T) {
 func TestCodecAwareEncoder_EncodeEventWithVersion(t *testing.T) {
 	registry := codec.NewRegistry()
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	event := &testEvent{
 		id:          "test-1",
 		eventType:   "TestEvent",
@@ -279,18 +279,18 @@ func TestCodecAwareEncoder_EncodeEventWithVersion(t *testing.T) {
 		data:        "hello",
 		metadata:    map[string]interface{}{},
 	}
-	
+
 	version := cursor.IntegerCursor{Seq: 42}
 	ev := synckit.EventWithVersion{
 		Event:   event,
 		Version: version,
 	}
-	
+
 	wireEv, err := encoder.EncodeEventWithVersion(ev)
 	if err != nil {
 		t.Fatalf("EncodeEventWithVersion failed: %v", err)
 	}
-	
+
 	if wireEv.Version != "42" {
 		t.Fatalf("Expected version '42', got %s", wireEv.Version)
 	}
@@ -302,7 +302,7 @@ func TestCodecAwareEncoder_EncodeEventWithVersion(t *testing.T) {
 func TestCodecAwareEncoder_DecodeEventWithVersion(t *testing.T) {
 	registry := codec.NewRegistry()
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	data, _ := json.Marshal("hello")
 	wireEv := WireEventWithVersion{
 		Event: WireEvent{
@@ -314,16 +314,16 @@ func TestCodecAwareEncoder_DecodeEventWithVersion(t *testing.T) {
 		},
 		Version: "42",
 	}
-	
+
 	parser := func(ctx context.Context, s string) (synckit.Version, error) {
 		return cursor.IntegerCursor{Seq: 42}, nil
 	}
-	
+
 	ev, err := encoder.DecodeEventWithVersion(context.Background(), parser, wireEv)
 	if err != nil {
 		t.Fatalf("DecodeEventWithVersion failed: %v", err)
 	}
-	
+
 	if ev.Event.ID() != "test-1" {
 		t.Fatalf("Expected ID 'test-1', got %s", ev.Event.ID())
 	}
@@ -337,7 +337,7 @@ func TestCodecKindDetection(t *testing.T) {
 	testCodec := &testCodec{kind: "test"}
 	registry.Register(testCodec)
 	encoder := NewCodecAwareEncoder(registry, true)
-	
+
 	testCases := []struct {
 		name     string
 		metadata map[string]interface{}
@@ -369,7 +369,7 @@ func TestCodecKindDetection(t *testing.T) {
 			expected: "",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			event := &testEvent{
@@ -379,12 +379,12 @@ func TestCodecKindDetection(t *testing.T) {
 				data:        "hello",
 				metadata:    tc.metadata,
 			}
-			
+
 			wireEvent, err := encoder.EncodeEvent(event)
 			if err != nil {
 				t.Fatalf("EncodeEvent failed: %v", err)
 			}
-			
+
 			if wireEvent.DataKind != tc.expected {
 				t.Fatalf("Expected DataKind '%s', got '%s'", tc.expected, wireEvent.DataKind)
 			}
@@ -400,23 +400,23 @@ func TestLegacyConversion(t *testing.T) {
 		Data:        "hello",
 		Metadata:    map[string]interface{}{"test": "value"},
 	}
-	
+
 	// Convert to wire format
 	wireEvent, err := toWireEvent(jsonEvent)
 	if err != nil {
 		t.Fatalf("toWireEvent failed: %v", err)
 	}
-	
+
 	if wireEvent.ID != jsonEvent.ID {
 		t.Fatalf("ID mismatch: expected %s, got %s", jsonEvent.ID, wireEvent.ID)
 	}
-	
+
 	// Convert back to JSON format
 	converted, err := fromWireEvent(wireEvent)
 	if err != nil {
 		t.Fatalf("fromWireEvent failed: %v", err)
 	}
-	
+
 	if converted.ID != jsonEvent.ID {
 		t.Fatalf("ID mismatch: expected %s, got %s", jsonEvent.ID, converted.ID)
 	}

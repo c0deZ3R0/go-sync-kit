@@ -155,9 +155,9 @@ func (r *delayedResolver) Resolve(ctx context.Context, conflict Conflict) (Resol
 	select {
 	case <-time.After(r.delay):
 		return ResolvedConflict{
-			Decision:        "use_remote",
-			ResolvedEvents:  []EventWithVersion{conflict.Remote},
-			Reasons:         []string{"delayed resolver chose remote"},
+			Decision:       "use_remote",
+			ResolvedEvents: []EventWithVersion{conflict.Remote},
+			Reasons:        []string{"delayed resolver chose remote"},
 		}, nil
 	case <-ctx.Done():
 		return ResolvedConflict{}, ctx.Err()

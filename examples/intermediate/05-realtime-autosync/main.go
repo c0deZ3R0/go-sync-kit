@@ -1,5 +1,5 @@
 // Example 5: Real-time Auto Sync Demo
-// 
+//
 // This example demonstrates:
 // - Setting up automatic synchronization with timers
 // - Background sync operations that don't block the main thread
@@ -89,14 +89,14 @@ func NewAutoSyncManager(manager synckit.SyncManager, interval time.Duration) *Au
 
 func (a *AutoSyncManager) Start() {
 	fmt.Printf("🚀 Starting auto-sync with %v interval\n", a.interval)
-	
+
 	go func() {
 		ticker := time.NewTicker(a.interval)
 		defer ticker.Stop()
-		
+
 		// Initial sync
 		a.performSync()
-		
+
 		for {
 			select {
 			case <-a.ctx.Done():
@@ -111,17 +111,17 @@ func (a *AutoSyncManager) Start() {
 
 func (a *AutoSyncManager) performSync() {
 	fmt.Printf("\n🔄 Auto-sync triggered at %s\n", time.Now().Format("15:04:05"))
-	
+
 	result, err := a.manager.Sync(a.ctx)
 	a.syncCount++
 	a.lastSync = time.Now()
-	
+
 	if err != nil {
 		a.errorCount++
 		fmt.Printf("❌ Auto-sync failed: %v\n", err)
 		return
 	}
-	
+
 	fmt.Printf("✅ Auto-sync completed: %d pushed, %d pulled, %d conflicts resolved\n",
 		result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
 }
@@ -147,7 +147,7 @@ func main() {
 	}
 	defer storeA.Close()
 
-	storeB, err := sqlite.NewWithDataSource("autosync-client-b.db") 
+	storeB, err := sqlite.NewWithDataSource("autosync-client-b.db")
 	if err != nil {
 		log.Fatalf("Failed to create store B: %v", err)
 	}
@@ -157,7 +157,7 @@ func main() {
 
 	// Create managers with different auto-sync intervals
 	fmt.Println("🔧 Creating sync managers...")
-	
+
 	managerA, err := synckit.NewManager(
 		synckit.WithStore(storeA),
 		synckit.WithNullTransport(),
@@ -187,7 +187,7 @@ func main() {
 	// Simulate creating tasks on different clients over time
 	go func() {
 		time.Sleep(1 * time.Second)
-		
+
 		for i := 0; i < 10; i++ {
 			// Create tasks alternating between clients
 			if i%2 == 0 {
@@ -205,7 +205,7 @@ func main() {
 					UpdatedAt:    time.Now(),
 					Priority:     "medium",
 				}
-				
+
 				version := cursor.IntegerCursor{Seq: uint64(100 + i)}
 				err := storeA.Store(ctx, task, version)
 				if err != nil {
@@ -228,7 +228,7 @@ func main() {
 					UpdatedAt:    time.Now(),
 					Priority:     "high",
 				}
-				
+
 				version := cursor.IntegerCursor{Seq: uint64(200 + i)}
 				err := storeB.Store(ctx, task, version)
 				if err != nil {
@@ -237,7 +237,7 @@ func main() {
 					fmt.Printf("📝 Client B created: '%s'\n", task.Title)
 				}
 			}
-			
+
 			time.Sleep(2 * time.Second)
 		}
 	}()
@@ -246,16 +246,16 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
 				fmt.Println("\n📊 Auto-Sync Statistics:")
-				
+
 				syncCountA, errorCountA, lastSyncA := autoSyncA.Stats()
 				fmt.Printf("  🅰️  Client A: %d syncs, %d errors, last sync: %s\n",
 					syncCountA, errorCountA, lastSyncA.Format("15:04:05"))
-					
+
 				syncCountB, errorCountB, lastSyncB := autoSyncB.Stats()
 				fmt.Printf("  🅱️  Client B: %d syncs, %d errors, last sync: %s\n",
 					syncCountB, errorCountB, lastSyncB.Format("15:04:05"))
@@ -283,23 +283,23 @@ func main() {
 	// Final statistics
 	time.Sleep(100 * time.Millisecond)
 	fmt.Println("\n📊 Final Auto-Sync Statistics:")
-	
+
 	syncCountA, errorCountA, lastSyncA := autoSyncA.Stats()
 	fmt.Printf("  🅰️  Client A: %d syncs, %d errors, last sync: %s\n",
 		syncCountA, errorCountA, lastSyncA.Format("15:04:05"))
-		
+
 	syncCountB, errorCountB, lastSyncB := autoSyncB.Stats()
 	fmt.Printf("  🅱️  Client B: %d syncs, %d errors, last sync: %s\n",
 		syncCountB, errorCountB, lastSyncB.Format("15:04:05"))
 
 	// Show final event counts
 	zeroVersion := cursor.IntegerCursor{Seq: 0}
-	
+
 	eventsA, err := storeA.Load(ctx, zeroVersion)
 	if err == nil {
 		fmt.Printf("  📄 Client A total events: %d\n", len(eventsA))
 	}
-	
+
 	eventsB, err := storeB.Load(ctx, zeroVersion)
 	if err == nil {
 		fmt.Printf("  📄 Client B total events: %d\n", len(eventsB))

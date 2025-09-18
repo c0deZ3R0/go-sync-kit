@@ -25,25 +25,25 @@ import (
 
 // UserAccountEvent represents user account management events
 type UserAccountEvent struct {
-	EventID      string            `json:"id"`
-	EventType    string            `json:"event_type"`
-	UserID       string            `json:"user_id"`
-	AccountType  string            `json:"account_type"`
-	Email        string            `json:"email"`
-	DisplayName  string            `json:"display_name"`
-	Permissions  []string          `json:"permissions"`
-	LastActivity time.Time         `json:"last_activity"`
-	Priority     int               `json:"priority"`
+	EventID       string            `json:"id"`
+	EventType     string            `json:"event_type"`
+	UserID        string            `json:"user_id"`
+	AccountType   string            `json:"account_type"`
+	Email         string            `json:"email"`
+	DisplayName   string            `json:"display_name"`
+	Permissions   []string          `json:"permissions"`
+	LastActivity  time.Time         `json:"last_activity"`
+	Priority      int               `json:"priority"`
 	EventMetadata map[string]string `json:"metadata"`
-	ModifiedBy   string            `json:"modified_by"`
-	ModifiedAt   time.Time         `json:"modified_at"`
+	ModifiedBy    string            `json:"modified_by"`
+	ModifiedAt    time.Time         `json:"modified_at"`
 }
 
 // Implement the Event interface
-func (e *UserAccountEvent) ID() string             { return e.EventID }
-func (e *UserAccountEvent) Type() string           { return e.EventType }
-func (e *UserAccountEvent) AggregateID() string    { return e.UserID }
-func (e *UserAccountEvent) Data() interface{}      { return e }
+func (e *UserAccountEvent) ID() string          { return e.EventID }
+func (e *UserAccountEvent) Type() string        { return e.EventType }
+func (e *UserAccountEvent) AggregateID() string { return e.UserID }
+func (e *UserAccountEvent) Data() interface{}   { return e }
 
 func (e *UserAccountEvent) Metadata() map[string]interface{} {
 	return map[string]interface{}{
@@ -90,24 +90,24 @@ func (r *PriorityResolver) Resolve(ctx context.Context, conflict synckit.Conflic
 	if localPriority > remotePriority {
 		selectedEvent = conflict.Local
 		decision = "local_account_priority"
-		reasons = append(reasons, fmt.Sprintf("Local account type '%s' has higher priority than remote '%s'", 
+		reasons = append(reasons, fmt.Sprintf("Local account type '%s' has higher priority than remote '%s'",
 			localEvent.AccountType, remoteEvent.AccountType))
 	} else if remotePriority > localPriority {
 		selectedEvent = conflict.Remote
 		decision = "remote_account_priority"
-		reasons = append(reasons, fmt.Sprintf("Remote account type '%s' has higher priority than local '%s'", 
+		reasons = append(reasons, fmt.Sprintf("Remote account type '%s' has higher priority than local '%s'",
 			remoteEvent.AccountType, localEvent.AccountType))
 	} else {
 		// Same account type, check permissions count
 		if len(localEvent.Permissions) > len(remoteEvent.Permissions) {
 			selectedEvent = conflict.Local
 			decision = "local_permissions"
-			reasons = append(reasons, fmt.Sprintf("Local has more permissions (%d vs %d)", 
+			reasons = append(reasons, fmt.Sprintf("Local has more permissions (%d vs %d)",
 				len(localEvent.Permissions), len(remoteEvent.Permissions)))
 		} else if len(remoteEvent.Permissions) > len(localEvent.Permissions) {
 			selectedEvent = conflict.Remote
 			decision = "remote_permissions"
-			reasons = append(reasons, fmt.Sprintf("Remote has more permissions (%d vs %d)", 
+			reasons = append(reasons, fmt.Sprintf("Remote has more permissions (%d vs %d)",
 				len(remoteEvent.Permissions), len(localEvent.Permissions)))
 		} else {
 			// Fall back to timestamp
@@ -224,7 +224,7 @@ func (mt *MockTransport) Pull(ctx context.Context, since synckit.Version) ([]syn
 	if !ok {
 		sinceCursor = cursor.IntegerCursor{Seq: 0}
 	}
-	
+
 	var events []synckit.EventWithVersion
 	for _, event := range mt.remoteEvents {
 		if eventCursor, ok := event.Version.(cursor.IntegerCursor); ok {
@@ -268,9 +268,9 @@ func (mt *MockTransport) Subscribe(ctx context.Context, handler func([]synckit.E
 
 // Custom observability hooks for monitoring
 type MonitoringHooks struct {
-	stateTransitions   int
-	rulesEvaluated     int
-	workflowsCompleted int
+	stateTransitions    int
+	rulesEvaluated      int
+	workflowsCompleted  int
 	totalResolutionTime time.Duration
 }
 
@@ -309,7 +309,7 @@ func (h *MonitoringHooks) createObservabilityHooks() *statemachine.ConflictResol
 		},
 
 		OnMetricsRecorded: func(metrics *statemachine.ResolverPerformanceMetrics) {
-			fmt.Printf("  📊 Performance metrics updated: %d conflicts resolved, avg time: %v\n", 
+			fmt.Printf("  📊 Performance metrics updated: %d conflicts resolved, avg time: %v\n",
 				metrics.TotalConflictsResolved, metrics.AverageResolutionTime)
 		},
 	}
@@ -359,7 +359,7 @@ func main() {
 
 	// Create stateful dynamic resolver with comprehensive rules
 	dynamicResolver, err := synckit.NewDynamicResolver(
-		synckit.WithRule("admin_accounts", 
+		synckit.WithRule("admin_accounts",
 			synckit.And(
 				synckit.EventTypeIs("account.updated"),
 				synckit.MetadataEq("account_type", "admin"),
@@ -398,10 +398,10 @@ func main() {
 	// Create test conflicts
 	baseTime := time.Now()
 	timestamp := baseTime.Unix()
-	
+
 	// Create mock transport with remote conflicting events
 	mockTransport := NewMockTransport()
-	
+
 	// Add remote events that will conflict with local events
 	remoteStandardEvent := &UserAccountEvent{
 		EventID:      fmt.Sprintf("remote-standard-%d", timestamp),
@@ -409,15 +409,15 @@ func main() {
 		UserID:       "user-001", // Same user = conflict
 		AccountType:  "standard",
 		Email:        "john.doe@company.com", // Different email
-		DisplayName:  "John D.", // Different name
-		Permissions:  []string{"read"}, // Fewer permissions
+		DisplayName:  "John D.",              // Different name
+		Permissions:  []string{"read"},       // Fewer permissions
 		LastActivity: baseTime.Add(-2 * time.Hour),
 		Priority:     1,
 		ModifiedBy:   "user-001",
 		ModifiedAt:   baseTime.Add(-5 * time.Second), // Older
 	}
 	mockTransport.AddRemoteEvent(remoteStandardEvent, cursor.IntegerCursor{Seq: 1000})
-	
+
 	remotePremiumEvent := &UserAccountEvent{
 		EventID:      fmt.Sprintf("remote-premium-%d", timestamp+1),
 		EventType:    "account.updated",
@@ -432,7 +432,7 @@ func main() {
 		ModifiedAt:   baseTime.Add(15 * time.Second), // Newer
 	}
 	mockTransport.AddRemoteEvent(remotePremiumEvent, cursor.IntegerCursor{Seq: 1001})
-	
+
 	remoteAdminEvent := &UserAccountEvent{
 		EventID:      fmt.Sprintf("remote-admin-%d", timestamp+2),
 		EventType:    "account.updated",
@@ -443,13 +443,13 @@ func main() {
 		Permissions:  []string{"read", "write", "admin", "delete", "system", "super"},
 		LastActivity: baseTime.Add(-10 * time.Minute),
 		Priority:     3,
-		ModifiedBy:   "admin-001", // Different admin
+		ModifiedBy:   "admin-001",                    // Different admin
 		ModifiedAt:   baseTime.Add(25 * time.Second), // Even newer
 	}
 	mockTransport.AddRemoteEvent(remoteAdminEvent, cursor.IntegerCursor{Seq: 1002})
-	
+
 	fmt.Printf("  📡 Set up %d remote conflicting events\n", len(mockTransport.remoteEvents))
-	
+
 	// Create sync manager with mock transport
 	manager, err := synckit.NewManager(
 		synckit.WithStore(store),
@@ -459,7 +459,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create manager: %v", err)
 	}
-
 
 	// Standard user event
 	standardUserEvent := &UserAccountEvent{
@@ -534,7 +533,7 @@ func main() {
 	fmt.Println("\n🎛️ State Machine Status:")
 	currentState := statefulResolver.GetCurrentState()
 	fmt.Printf("  • Current State: %s\n", currentState.String())
-	
+
 	stateHistory := statefulResolver.GetStateHistory()
 	fmt.Printf("  • State History: %d transitions\n", len(stateHistory))
 
@@ -578,7 +577,7 @@ func main() {
 			AccountType:  []string{"standard", "premium", "admin"}[i],
 			Email:        fmt.Sprintf("user%d@example.com", i),
 			DisplayName:  fmt.Sprintf("User %d", i),
-		Permissions:  []string{"read", "write", "admin"}[:i+1],
+			Permissions:  []string{"read", "write", "admin"}[:i+1],
 			LastActivity: time.Now(),
 			Priority:     i + 1,
 			ModifiedBy:   fmt.Sprintf("user-%d", i),
@@ -613,7 +612,7 @@ func main() {
 	if finalMetrics != nil {
 		fmt.Printf("\n🏁 Final Performance Metrics:\n")
 		fmt.Printf("  • Total Operations: %d\n", finalMetrics.TotalConflictsResolved)
-		fmt.Printf("  • Success Rate: %.2f%%\n", 
+		fmt.Printf("  • Success Rate: %.2f%%\n",
 			float64(finalMetrics.AutoResolvedCount)/float64(finalMetrics.TotalConflictsResolved)*100)
 		fmt.Printf("  • Average Processing Time: %v\n", finalMetrics.AverageResolutionTime)
 	}
@@ -632,17 +631,17 @@ func main() {
 
 // StateObserver for real-time monitoring
 type StateObserver struct {
-	name string
+	name            string
 	transitionCount int
 }
 
 func (so *StateObserver) OnTransition(transition statemachine.StateTransition[statemachine.ConflictResolutionState]) {
 	so.transitionCount++
-	fmt.Printf("  🔄 [%s] Observed transition #%d: %s → %s\n", 
+	fmt.Printf("  🔄 [%s] Observed transition #%d: %s → %s\n",
 		so.name, so.transitionCount, transition.From.String(), transition.To.String())
 }
 
 func (so *StateObserver) OnTransitionFailed(from, to statemachine.ConflictResolutionState, err error, metadata map[string]interface{}) {
-	fmt.Printf("  ❌ [%s] Transition failed: %s → %s (error: %v)\n", 
+	fmt.Printf("  ❌ [%s] Transition failed: %s → %s (error: %v)\n",
 		so.name, from.String(), to.String(), err)
 }

@@ -59,7 +59,7 @@ func WithConnectionPoolCheck() DatabaseCheckOption {
 	}
 }
 
-func (d *DatabaseCheck) Name() string     { return d.name }
+func (d *DatabaseCheck) Name() string      { return d.name }
 func (d *DatabaseCheck) Component() string { return "database" }
 
 func (d *DatabaseCheck) Check(ctx context.Context) CheckResult {
@@ -180,7 +180,7 @@ func WithHTTPClient(client *http.Client) HTTPCheckOption {
 	}
 }
 
-func (h *HTTPCheck) Name() string     { return h.name }
+func (h *HTTPCheck) Name() string      { return h.name }
 func (h *HTTPCheck) Component() string { return "http" }
 
 func (h *HTTPCheck) Check(ctx context.Context) CheckResult {
@@ -228,10 +228,10 @@ func (h *HTTPCheck) Check(ctx context.Context) CheckResult {
 
 // TCPCheck performs a TCP connectivity check.
 type TCPCheck struct {
-	name     string
-	address  string
-	timeout  time.Duration
-	dialer   *net.Dialer
+	name    string
+	address string
+	timeout time.Duration
+	dialer  *net.Dialer
 }
 
 // NewTCPCheck creates a new TCP connectivity check.
@@ -262,7 +262,7 @@ func WithTCPTimeout(timeout time.Duration) TCPCheckOption {
 	}
 }
 
-func (t *TCPCheck) Name() string     { return t.name }
+func (t *TCPCheck) Name() string      { return t.name }
 func (t *TCPCheck) Component() string { return "tcp" }
 
 func (t *TCPCheck) Check(ctx context.Context) CheckResult {
@@ -306,7 +306,7 @@ func NewMemoryCheck(name string, thresholdMB uint64) *MemoryCheck {
 	}
 }
 
-func (m *MemoryCheck) Name() string     { return m.name }
+func (m *MemoryCheck) Name() string      { return m.name }
 func (m *MemoryCheck) Component() string { return "system" }
 
 func (m *MemoryCheck) Check(ctx context.Context) CheckResult {
@@ -371,7 +371,7 @@ func (c *CompositeCheck) AddCheck(check HealthCheck) {
 	c.checks = append(c.checks, check)
 }
 
-func (c *CompositeCheck) Name() string     { return c.name }
+func (c *CompositeCheck) Name() string      { return c.name }
 func (c *CompositeCheck) Component() string { return c.comp }
 
 func (c *CompositeCheck) Check(ctx context.Context) CheckResult {
@@ -423,7 +423,7 @@ func (c *CompositeCheck) Check(ctx context.Context) CheckResult {
 
 	result.Status = overallStatus
 	result.Details["sub_checks"] = checkResults
-	
+
 	if len(messages) > 0 {
 		result.Message = fmt.Sprintf("Composite check: %v", messages)
 	} else {

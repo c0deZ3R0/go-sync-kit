@@ -1,5 +1,5 @@
 // Example 4: Conflict Resolution Demo
-// 
+//
 // This example demonstrates:
 // - Different conflict resolution strategies (LWW, FWW, Additive Merge)
 // - Simulating concurrent modifications from multiple clients
@@ -22,15 +22,15 @@ import (
 
 // DocumentEvent represents a document editing event
 type DocumentEvent struct {
-	EventID     string    `json:"id"`
-	EventType   string    `json:"event_type"`
-	DocumentID  string    `json:"document_id"`
-	Content     string    `json:"content"`
-	AuthorID    string    `json:"author_id"`
-	AuthorName  string    `json:"author_name"`
-	EditTime    time.Time `json:"edit_time"`
-	ClientID    string    `json:"client_id"`
-	VersionNum  int       `json:"version_num"`
+	EventID    string    `json:"id"`
+	EventType  string    `json:"event_type"`
+	DocumentID string    `json:"document_id"`
+	Content    string    `json:"content"`
+	AuthorID   string    `json:"author_id"`
+	AuthorName string    `json:"author_name"`
+	EditTime   time.Time `json:"edit_time"`
+	ClientID   string    `json:"client_id"`
+	VersionNum int       `json:"version_num"`
 }
 
 // Implement the Event interface
@@ -67,17 +67,17 @@ type CustomConflictResolver struct {
 
 func (r *CustomConflictResolver) Resolve(ctx context.Context, conflict synckit.Conflict) (synckit.ResolvedConflict, error) {
 	fmt.Printf("🔧 Custom resolver '%s' handling conflict for aggregate: %s\n", r.name, conflict.AggregateID)
-	
+
 	// For this example, we'll implement a "latest author wins" strategy
 	// The Conflict struct has Local and Remote single events, not slices
-	
+
 	var selectedEvent synckit.EventWithVersion
 	var reason string
-	
+
 	// Get the local and remote events
 	localDocEvent, localOk := conflict.Local.Event.Data().(*DocumentEvent)
 	remoteDocEvent, remoteOk := conflict.Remote.Event.Data().(*DocumentEvent)
-	
+
 	if !localOk || !remoteOk {
 		// Fallback to remote if we can't parse
 		selectedEvent = conflict.Remote
@@ -86,7 +86,7 @@ func (r *CustomConflictResolver) Resolve(ctx context.Context, conflict synckit.C
 		// Compare edit times and select the latest
 		if remoteDocEvent.EditTime.After(localDocEvent.EditTime) {
 			selectedEvent = conflict.Remote
-			reason = fmt.Sprintf("Selected remote event from %s (%v) over local from %s (%v)", 
+			reason = fmt.Sprintf("Selected remote event from %s (%v) over local from %s (%v)",
 				remoteDocEvent.AuthorName, remoteDocEvent.EditTime.Format("15:04:05"),
 				localDocEvent.AuthorName, localDocEvent.EditTime.Format("15:04:05"))
 		} else {
@@ -117,7 +117,7 @@ func main() {
 	}
 	defer storeA.Close()
 
-	// Client B store  
+	// Client B store
 	storeB, err := sqlite.NewWithDataSource("client-b.db")
 	if err != nil {
 		log.Fatalf("Failed to create Client B store: %v", err)
@@ -156,7 +156,7 @@ func main() {
 
 		mgrB, err := synckit.NewManager(
 			synckit.WithStore(storeB),
-			synckit.WithNullTransport(), 
+			synckit.WithNullTransport(),
 			strategy.option,
 		)
 		if err != nil {
@@ -165,7 +165,7 @@ func main() {
 
 		// Simulate conflicting edits to the same document
 		baseTime := time.Now()
-		
+
 		// Client A edits the document first
 		eventA := &DocumentEvent{
 			EventID:    fmt.Sprintf("edit-a-%d", i),
@@ -208,14 +208,14 @@ func main() {
 		}
 
 		fmt.Println("\n📅 Conflict Scenario:")
-		fmt.Printf("  🅰️  Client A: '%s' by %s at %s\n", 
+		fmt.Printf("  🅰️  Client A: '%s' by %s at %s\n",
 			eventA.Content[:50]+"...", eventA.AuthorName, eventA.EditTime.Format("15:04:05"))
 		fmt.Printf("  🅱️  Client B: '%s' by %s at %s\n",
 			eventB.Content[:50]+"...", eventB.AuthorName, eventB.EditTime.Format("15:04:05"))
 
 		// Now simulate sync where conflicts need to be resolved
 		fmt.Println("\n🔄 Performing sync operations...")
-		
+
 		// Sync client A (this will work fine)
 		resultA, err := mgrA.Sync(ctx)
 		if err != nil {
@@ -236,16 +236,16 @@ func main() {
 
 		// Show what was resolved
 		fmt.Println("\n✅ Resolution Results:")
-		
+
 		// Load events from both stores to see final state
 		zeroVersion := cursor.IntegerCursor{Seq: 0}
-		
+
 		eventsA, err := storeA.LoadByAggregate(ctx, "shared-doc-001", zeroVersion)
 		if err == nil {
 			fmt.Printf("  📄 Client A final state (%d events):\n", len(eventsA))
 			for _, ev := range eventsA {
 				if docEvent, ok := ev.Event.Data().(*DocumentEvent); ok {
-					fmt.Printf("    📝 %s: '%s' by %s\n", 
+					fmt.Printf("    📝 %s: '%s' by %s\n",
 						ev.Version.String(), docEvent.Content[:40]+"...", docEvent.AuthorName)
 				}
 			}
@@ -268,7 +268,7 @@ func main() {
 		case "Last-Write-Wins":
 			fmt.Println("  • LWW selected Bob's edit (later timestamp)")
 		case "First-Write-Wins":
-			fmt.Println("  • FWW selected Alice's edit (encountered first)")  
+			fmt.Println("  • FWW selected Alice's edit (encountered first)")
 		case "Additive Merge":
 			fmt.Println("  • Additive merge combined both edits if possible")
 		case "Custom Resolver":

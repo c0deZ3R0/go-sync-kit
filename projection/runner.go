@@ -27,23 +27,23 @@ type runner struct {
 // the event store's zero version when no offset has been stored yet.
 func (r *runner) getStartVersion(ctx context.Context) (synckit.Version, error) {
 	projectionName := r.projector.Name()
-	
+
 	offset, err := r.offsets.Get(ctx, projectionName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get offset for projection %s: %w", projectionName, err)
 	}
-	
+
 	if offset != nil {
 		return offset, nil
 	}
-	
+
 	// No stored offset - start from beginning
 	// Use store's ParseVersion with empty string to get zero version
 	zeroVersion, err := r.store.ParseVersion(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create zero version for projection start: %w", err)
 	}
-	
+
 	return zeroVersion, nil
 }
 
@@ -52,7 +52,7 @@ func (r *runner) getStartVersion(ctx context.Context) (synckit.Version, error) {
 func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Version, err error) {
 	projectionName := r.projector.Name()
 	start := time.Now()
-	
+
 	// Record error and return early on failure
 	defer func() {
 		if err != nil && r.metricsEnabled && r.metrics != nil {
@@ -63,7 +63,7 @@ func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Vers
 			r.metrics.RecordProjectionError(projectionName, OperationApplySince, errorType)
 		}
 	}()
-	
+
 	// Get the starting version, handling nil offset gracefully
 	startVersion, err := r.getStartVersion(ctx)
 	if err != nil {
@@ -142,7 +142,7 @@ func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Vers
 	if r.metricsEnabled && r.metrics != nil && totalApplied > 0 {
 		duration := time.Since(start)
 		r.metrics.RecordProjectionOperation(projectionName, OperationApplySince, duration, true, totalApplied)
-		
+
 		// Calculate and record lag if we have events
 		if lastProcessed != nil {
 			// For now, we can't easily calculate lag without event timestamps
@@ -162,7 +162,7 @@ func (r *runner) ApplyBatch(ctx context.Context, batch []synckit.EventWithVersio
 
 	projectionName := r.projector.Name()
 	start := time.Now()
-	
+
 	// Apply the events to the projector
 	if err := r.projector.Apply(ctx, batch); err != nil {
 		if r.metricsEnabled && r.metrics != nil {

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	syncErrors "github.com/c0deZ3R0/go-sync-kit/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ManagerOption is a functional option for configuring a SyncManager via NewManager.
@@ -54,11 +54,12 @@ func WithStore(s EventStore) ManagerOption {
 // WithSQLite constructs and injects a SQLite store.
 // Note: This function is provided as an example. In practice, you should
 // create your SQLite store separately and use WithStore() to avoid import cycles.
-// 
+//
 // Example:
-//   store, err := sqlite.NewWithDataSource("app.db")
-//   if err != nil { /* handle */ }
-//   mgr, err := synckit.NewManager(synckit.WithStore(store), ...)
+//
+//	store, err := sqlite.NewWithDataSource("app.db")
+//	if err != nil { /* handle */ }
+//	mgr, err := synckit.NewManager(synckit.WithStore(store), ...)
 func WithSQLite(path string) ManagerOption {
 	return func(b *SyncManagerBuilder) error {
 		return syncErrors.E(
@@ -76,8 +77,9 @@ func WithSQLite(path string) ManagerOption {
 // separately and use WithTransport() instead.
 //
 // Example:
-//   transport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
-//   mgr, err := synckit.NewManager(synckit.WithTransport(transport), ...)
+//
+//	transport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
+//	mgr, err := synckit.NewManager(synckit.WithTransport(transport), ...)
 func WithHTTPTransport(baseURL string) ManagerOption {
 	return func(b *SyncManagerBuilder) error {
 		return syncErrors.E(
@@ -222,8 +224,8 @@ func (n *nullTransport) Close() error {
 type nullVersion struct{}
 
 func (v *nullVersion) Compare(other Version) int { return 0 }
-func (v *nullVersion) String() string { return "0" }
-func (v *nullVersion) IsZero() bool { return true }
+func (v *nullVersion) String() string            { return "0" }
+func (v *nullVersion) IsZero() bool              { return true }
 
 // WithNullTransport configures a no-op transport for local-only scenarios.
 // Use this when you only need local event storage without remote synchronization.

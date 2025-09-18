@@ -83,7 +83,7 @@ func TestSubscribe_ServerReconnection(t *testing.T) {
 		// Send a test event
 		eventData := struct {
 			Events     []JSONEventWithVersion `json:"events"`
-			NextCursor cursor.WireCursor       `json:"next_cursor"`
+			NextCursor cursor.WireCursor      `json:"next_cursor"`
 		}{
 			Events: []JSONEventWithVersion{
 				{
@@ -216,13 +216,13 @@ func TestSubscribe_ExponentialBackoff(t *testing.T) {
 func TestSubscribe_SuccessfulConnection(t *testing.T) {
 	connectionCount := 0
 	mu := sync.Mutex{}
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		connectionCount++
 		currConnection := connectionCount
 		mu.Unlock()
-		
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -233,7 +233,7 @@ func TestSubscribe_SuccessfulConnection(t *testing.T) {
 			for i := 1; i <= 3; i++ {
 				eventData := struct {
 					Events     []JSONEventWithVersion `json:"events"`
-					NextCursor cursor.WireCursor       `json:"next_cursor"`
+					NextCursor cursor.WireCursor      `json:"next_cursor"`
 				}{
 					Events: []JSONEventWithVersion{
 						{
@@ -251,7 +251,7 @@ func TestSubscribe_SuccessfulConnection(t *testing.T) {
 
 				jsonData, _ := json.Marshal(eventData)
 				fmt.Fprintf(w, "data: %s\n\n", jsonData)
-				
+
 				if f, ok := w.(http.Flusher); ok {
 					f.Flush()
 				}
@@ -336,7 +336,7 @@ func TestSubscribe_HandlerError(t *testing.T) {
 
 		eventData := struct {
 			Events     []JSONEventWithVersion `json:"events"`
-			NextCursor cursor.WireCursor       `json:"next_cursor"`
+			NextCursor cursor.WireCursor      `json:"next_cursor"`
 		}{
 			Events: []JSONEventWithVersion{
 				{
@@ -385,13 +385,13 @@ func TestSubscribe_HandlerError(t *testing.T) {
 func TestSubscribe_InvalidJSON(t *testing.T) {
 	connectionCount := 0
 	mu := sync.Mutex{}
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		connectionCount++
 		currConnection := connectionCount
 		mu.Unlock()
-		
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
@@ -399,17 +399,17 @@ func TestSubscribe_InvalidJSON(t *testing.T) {
 		if currConnection == 1 {
 			// Send invalid JSON
 			fmt.Fprintf(w, "data: {invalid json}\n\n")
-			
+
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
-			
+
 			time.Sleep(50 * time.Millisecond)
-			
+
 			// Then send valid JSON
 			eventData := struct {
 				Events     []JSONEventWithVersion `json:"events"`
-				NextCursor cursor.WireCursor       `json:"next_cursor"`
+				NextCursor cursor.WireCursor      `json:"next_cursor"`
 			}{
 				Events: []JSONEventWithVersion{
 					{
@@ -423,15 +423,15 @@ func TestSubscribe_InvalidJSON(t *testing.T) {
 					},
 				},
 			}
-			
+
 			jsonData, _ := json.Marshal(eventData)
 			fmt.Fprintf(w, "data: %s\n\n", jsonData)
-			
+
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
 		}
-		
+
 		time.Sleep(100 * time.Millisecond)
 	}))
 	defer server.Close()
@@ -489,7 +489,7 @@ func TestSubscribe_ReconnectAfterStreamEnd(t *testing.T) {
 		// Send an event with connection number
 		eventData := struct {
 			Events     []JSONEventWithVersion `json:"events"`
-			NextCursor cursor.WireCursor       `json:"next_cursor"`
+			NextCursor cursor.WireCursor      `json:"next_cursor"`
 		}{
 			Events: []JSONEventWithVersion{
 				{

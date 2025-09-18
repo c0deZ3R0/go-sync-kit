@@ -39,8 +39,8 @@ func (t *TestOffsetStore) Set(ctx context.Context, name string, v synckit.Versio
 
 // TestProjector implements a simple projector for testing
 type TestProjector struct {
-	name     string
-	applied  []synckit.EventWithVersion
+	name        string
+	applied     []synckit.EventWithVersion
 	shouldError bool
 }
 
@@ -59,7 +59,7 @@ func (p *TestProjector) Apply(ctx context.Context, batch []synckit.EventWithVers
 	if p.shouldError {
 		return &TestError{msg: "test error in Apply"}
 	}
-	
+
 	// Append events to applied slice (idempotent behavior would check for duplicates)
 	p.applied = append(p.applied, batch...)
 	return nil
@@ -113,7 +113,7 @@ func (s *TestEventStore) Store(ctx context.Context, event synckit.Event, version
 	if version == nil {
 		version = cursor.IntegerCursor{Seq: uint64(len(s.events) + 1)}
 	}
-	
+
 	s.events = append(s.events, synckit.EventWithVersion{
 		Event:   event,
 		Version: version,
@@ -125,7 +125,7 @@ func (s *TestEventStore) Load(ctx context.Context, since synckit.Version) ([]syn
 	if since == nil {
 		return s.events, nil
 	}
-	
+
 	var result []synckit.EventWithVersion
 	for _, ev := range s.events {
 		if ev.Version.Compare(since) > 0 {
@@ -140,7 +140,7 @@ func (s *TestEventStore) LoadByAggregate(ctx context.Context, aggregateID string
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var result []synckit.EventWithVersion
 	for _, ev := range events {
 		if ev.Event.AggregateID() == aggregateID {
@@ -181,10 +181,10 @@ func TestProjectionInterfaces(t *testing.T) {
 	offsetStore := NewTestOffsetStore()
 	projector := NewTestProjector("test-projector")
 	eventStore := NewTestEventStore()
-	
+
 	// Test OffsetStore interface
 	ctx := context.Background()
-	
+
 	// Test Get when no offset exists
 	offset, err := offsetStore.Get(ctx, "test-projector")
 	if err != nil {
@@ -193,14 +193,14 @@ func TestProjectionInterfaces(t *testing.T) {
 	if offset != nil {
 		t.Fatalf("Expected nil offset, got: %v", offset)
 	}
-	
+
 	// Test Set and Get
 	testVersion := cursor.IntegerCursor{Seq: 42}
 	err = offsetStore.Set(ctx, "test-projector", testVersion)
 	if err != nil {
 		t.Fatalf("Expected no error setting offset, got: %v", err)
 	}
-	
+
 	offset, err = offsetStore.Get(ctx, "test-projector")
 	if err != nil {
 		t.Fatalf("Expected no error getting offset, got: %v", err)
@@ -211,18 +211,18 @@ func TestProjectionInterfaces(t *testing.T) {
 	if offset.Compare(testVersion) != 0 {
 		t.Fatalf("Expected offset %v, got %v", testVersion, offset)
 	}
-	
+
 	// Test Projector interface
 	if projector.Name() != "test-projector" {
 		t.Fatalf("Expected name 'test-projector', got: %s", projector.Name())
 	}
-	
+
 	// Test Runner creation with various options
 	runner := NewRunner(eventStore, offsetStore, projector)
 	if runner == nil {
 		t.Fatalf("Expected runner, got nil")
 	}
-	
+
 	// Test with options
 	runnerWithOptions := NewRunner(eventStore, offsetStore, projector,
 		WithBatchSize(100),
@@ -237,20 +237,20 @@ func TestRunnerOptions(t *testing.T) {
 	offsetStore := NewTestOffsetStore()
 	projector := NewTestProjector("test-projector")
 	eventStore := NewTestEventStore()
-	
+
 	// Test invalid batch size (should be ignored)
 	runner := NewRunner(eventStore, offsetStore, projector,
-		WithBatchSize(-1), // Invalid, should be ignored
-		WithBatchSize(0),  // Invalid, should be ignored
+		WithBatchSize(-1),  // Invalid, should be ignored
+		WithBatchSize(0),   // Invalid, should be ignored
 		WithBatchSize(250), // Valid
 	)
-	
+
 	// We can't directly test the internal batchSize field, but we can verify
 	// the runner was created successfully
 	if runner == nil {
 		t.Fatalf("Expected runner, got nil")
 	}
-	
+
 	// Test nil logger (should be ignored)
 	runnerWithNilLogger := NewRunner(eventStore, offsetStore, projector,
 		WithLogger(nil), // Should be ignored

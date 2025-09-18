@@ -264,14 +264,14 @@ func testConcurrentResolverAccess(t *testing.T) {
 					EventType:   fmt.Sprintf("TestEvent-%d", j%3),
 					AggregateID: fmt.Sprintf("agg-%d-%d", goroutineID, j),
 					Metadata:    map[string]interface{}{"priority": "high", "goroutine": goroutineID},
-			Local: EventWithVersion{
-				Event:   &MultiUserTestEvent{id: fmt.Sprintf("local-%d-%d", goroutineID, j), typ: "TestEvent"},
-			Version: &testVersion{v: j},
-			},
-			Remote: EventWithVersion{
-				Event:   &MultiUserTestEvent{id: fmt.Sprintf("remote-%d-%d", goroutineID, j), typ: "TestEvent"},
-			Version: &testVersion{v: j + 1},
-			},
+					Local: EventWithVersion{
+						Event:   &MultiUserTestEvent{id: fmt.Sprintf("local-%d-%d", goroutineID, j), typ: "TestEvent"},
+						Version: &testVersion{v: j},
+					},
+					Remote: EventWithVersion{
+						Event:   &MultiUserTestEvent{id: fmt.Sprintf("remote-%d-%d", goroutineID, j), typ: "TestEvent"},
+						Version: &testVersion{v: j + 1},
+					},
 				}
 
 				// Each resolution should be deterministic and panic-free
@@ -576,7 +576,7 @@ func mustCreateResolver(t *testing.T, opts ...Option) *DynamicResolver {
 
 func mustCreateSyncManager(t *testing.T, store EventStore, transport Transport, resolver ConflictResolver) SyncManager {
 	t.Helper()
-	
+
 	builder := NewSyncManagerBuilder()
 	sm, err := builder.
 		WithStore(store).
@@ -585,7 +585,7 @@ func mustCreateSyncManager(t *testing.T, store EventStore, transport Transport, 
 		WithBatchSize(10).
 		WithLogger(slog.Default()).
 		Build()
-	
+
 	if err != nil {
 		t.Fatalf("Failed to create sync manager: %v", err)
 	}
@@ -628,8 +628,8 @@ type MultiUserTestEvent struct {
 	meta map[string]interface{}
 }
 
-func (e *MultiUserTestEvent) ID() string                        { return e.id }
-func (e *MultiUserTestEvent) Type() string                      { return e.typ }
-func (e *MultiUserTestEvent) AggregateID() string               { return e.agg }
-func (e *MultiUserTestEvent) Data() interface{}                 { return e.data }
+func (e *MultiUserTestEvent) ID() string                       { return e.id }
+func (e *MultiUserTestEvent) Type() string                     { return e.typ }
+func (e *MultiUserTestEvent) AggregateID() string              { return e.agg }
+func (e *MultiUserTestEvent) Data() interface{}                { return e.data }
 func (e *MultiUserTestEvent) Metadata() map[string]interface{} { return e.meta }

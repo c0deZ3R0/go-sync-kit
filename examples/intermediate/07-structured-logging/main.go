@@ -34,8 +34,8 @@ func main() {
 	)
 
 	// Demonstrate operation logging with duration tracking
-	err := logging.LogOperation(ctx, 
-		logging.Operation("user-authentication"), 
+	err := logging.LogOperation(ctx,
+		logging.Operation("user-authentication"),
 		logging.Component("auth-service"),
 		func() error {
 			// Simulate some work
@@ -43,9 +43,9 @@ func main() {
 			return nil
 		},
 	)
-	
+
 	if err != nil {
-		logging.Error("Authentication operation failed", 
+		logging.Error("Authentication operation failed",
 			slog.String("error", err.Error()))
 	}
 
@@ -58,8 +58,8 @@ func main() {
 		Err:       fmt.Errorf("disk space insufficient"),
 		Retryable: true,
 		Metadata: map[string]interface{}{
-			"disk_usage": "95%",
-			"required_space": "100MB",
+			"disk_usage":      "95%",
+			"required_space":  "100MB",
 			"available_space": "10MB",
 		},
 	}
@@ -76,7 +76,7 @@ func main() {
 			slog.String("path", "/api/sync"),
 			slog.String("user_id", "user123"),
 		),
-		slog.Group("response", 
+		slog.Group("response",
 			slog.Int("status", 200),
 			slog.Duration("latency", 150*time.Millisecond),
 			slog.Int("body_size", 2048),
@@ -90,12 +90,12 @@ func main() {
 	// Demonstrate context-aware logging
 	ctx = context.WithValue(ctx, "request_id", "req-abc123")
 	ctx = context.WithValue(ctx, "trace_id", "trace-xyz789")
-	
-	contextLogger := logging.WithContext(ctx, 
+
+	contextLogger := logging.WithContext(ctx,
 		slog.String("user_id", "user456"),
 		slog.String("session_id", "sess-def456"),
 	)
-	
+
 	contextLogger.Info("Processing user request",
 		slog.String("action", "sync_data"),
 		slog.Int("items_to_sync", 25),
@@ -115,7 +115,7 @@ func main() {
 		slog.Duration("reset_in", 30*time.Second),
 	)
 
-	// Demonstrate custom log levels  
+	// Demonstrate custom log levels
 	logging.Trace("Detailed trace information",
 		slog.String("function", "processRequest"),
 		slog.Any("parameters", []string{"param1", "param2"}),
@@ -124,10 +124,10 @@ func main() {
 	// Demonstrate dynamic level changes
 	if os.Getenv("DEMO_DYNAMIC_LEVEL") == "true" {
 		logger, levelVar := logging.NewLoggerWithDynamicLevel(config)
-		
+
 		logger.Debug("This won't appear at INFO level")
 		logger.Info("This will appear")
-		
+
 		// Change to debug level at runtime
 		levelVar.SetFromString("debug")
 		logger.Debug("This will now appear after level change")

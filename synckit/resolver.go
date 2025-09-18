@@ -30,10 +30,10 @@ type Validator interface {
 
 // resolverOptions holds construction-time options.
 type resolverOptions struct {
-	rules    []Rule
-	fallback ConflictResolver
-	logger   any
-	hooks    Hooks
+	rules     []Rule
+	fallback  ConflictResolver
+	logger    any
+	hooks     Hooks
 	validator Validator
 }
 
@@ -41,10 +41,13 @@ type resolverOptions struct {
 type Option interface{ apply(*resolverOptions) }
 
 type optionFn func(*resolverOptions)
+
 func (f optionFn) apply(o *resolverOptions) { f(o) }
 
 // WithFallback sets the required fallback ConflictResolver.
-func WithFallback(r ConflictResolver) Option { return optionFn(func(o *resolverOptions) { o.fallback = r }) }
+func WithFallback(r ConflictResolver) Option {
+	return optionFn(func(o *resolverOptions) { o.fallback = r })
+}
 
 // WithRule appends a rule with a custom matcher and resolver in insertion order.
 func WithRule(name string, matcher Spec, resolver ConflictResolver) Option {
@@ -86,7 +89,9 @@ var _ ConflictResolver = (*DynamicResolver)(nil)
 // - If provided, Validator must approve the configuration
 func NewDynamicResolver(opts ...Option) (*DynamicResolver, error) {
 	cfg := &resolverOptions{}
-	for _, opt := range opts { opt.apply(cfg) }
+	for _, opt := range opts {
+		opt.apply(cfg)
+	}
 
 	// Basic validation
 	if len(cfg.rules) == 0 && cfg.fallback == nil {
@@ -94,14 +99,16 @@ func NewDynamicResolver(opts ...Option) (*DynamicResolver, error) {
 	}
 	for i, r := range cfg.rules {
 		if r.Matcher == nil {
-			return nil, errors.New("rule has nil matcher at index "+itoa(i))
+			return nil, errors.New("rule has nil matcher at index " + itoa(i))
 		}
 		if r.Resolver == nil {
-			return nil, errors.New("rule has nil resolver at index "+itoa(i))
+			return nil, errors.New("rule has nil resolver at index " + itoa(i))
 		}
 	}
 	if cfg.validator != nil {
-		if err := cfg.validator.Validate(cfg); err != nil { return nil, err }
+		if err := cfg.validator.Validate(cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	return &DynamicResolver{
@@ -117,35 +124,54 @@ func NewDynamicResolver(opts ...Option) (*DynamicResolver, error) {
 func (d *DynamicResolver) Resolve(ctx context.Context, c Conflict) (ResolvedConflict, error) {
 	for _, r := range d.rules {
 		if r.Matcher != nil && r.Matcher(c) {
-			if d.hooks.OnRuleMatched != nil { d.hooks.OnRuleMatched(c, r) }
+			if d.hooks.OnRuleMatched != nil {
+				d.hooks.OnRuleMatched(c, r)
+			}
 			res, err := r.Resolver.Resolve(ctx, c)
 			if err != nil {
-			if d.hooks.OnError != nil { d.hooks.OnError(c, err) }
-			return ResolvedConflict{}, err
+				if d.hooks.OnError != nil {
+					d.hooks.OnError(c, err)
+				}
+				return ResolvedConflict{}, err
 			}
-			if d.hooks.OnResolved != nil { d.hooks.OnResolved(c, res) }
+			if d.hooks.OnResolved != nil {
+				d.hooks.OnResolved(c, res)
+			}
 			return res, nil
 		}
 	}
 	if d.fallback == nil {
-	if d.hooks.OnError != nil { d.hooks.OnError(c, errors.New("no rule matched and no fallback configured")) }
-	return ResolvedConflict{}, errors.New("no rule matched and no fallback configured")
+		if d.hooks.OnError != nil {
+			d.hooks.OnError(c, errors.New("no rule matched and no fallback configured"))
+		}
+		return ResolvedConflict{}, errors.New("no rule matched and no fallback configured")
 	}
-	if d.hooks.OnFallback != nil { d.hooks.OnFallback(c) }
+	if d.hooks.OnFallback != nil {
+		d.hooks.OnFallback(c)
+	}
 	res, err := d.fallback.Resolve(ctx, c)
 	if err != nil {
-		if d.hooks.OnError != nil { d.hooks.OnError(c, err) }
+		if d.hooks.OnError != nil {
+			d.hooks.OnError(c, err)
+		}
 		return ResolvedConflict{}, err
 	}
-	if d.hooks.OnResolved != nil { d.hooks.OnResolved(c, res) }
+	if d.hooks.OnResolved != nil {
+		d.hooks.OnResolved(c, res)
+	}
 	return res, nil
 }
 
 // itoa avoids importing strconv for a simple positive int to string conversion.
 func itoa(i int) string {
-	if i == 0 { return "0" }
+	if i == 0 {
+		return "0"
+	}
 	neg := false
-	if i < 0 { neg = true; i = -i }
+	if i < 0 {
+		neg = true
+		i = -i
+	}
 	buf := [20]byte{}
 	n := len(buf)
 	for i > 0 {
@@ -153,6 +179,9 @@ func itoa(i int) string {
 		buf[n] = byte('0' + i%10)
 		i /= 10
 	}
-	if neg { n--; buf[n] = '-' }
+	if neg {
+		n--
+		buf[n] = '-'
+	}
 	return string(buf[n:])
 }

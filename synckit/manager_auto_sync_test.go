@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-
 func TestBatchProcessContextCancellation(t *testing.T) {
 	// Create events to process (reduced from 1000 to 100 to prevent timeouts)
 	localEvents := make([]EventWithVersion, 100)

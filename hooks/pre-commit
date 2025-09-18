@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+echo "[pre-commit] gofmt check..."
+unformatted="$(gofmt -l . || true)"
+if [ -n "$unformatted" ]; then
+  echo "Files need gofmt:"
+  echo "$unformatted"
+  echo "Run: go fmt ./..."
+  exit 1
+fi
+
+echo "[pre-commit] go vet..."
+go vet ./...
+
+echo "[pre-commit] go test..."
+go test ./... -count=1
+
+# Reminder to update IMPLEMENTATION_PLAN (non-blocking)
+if ! git diff --cached --name-only | grep -E '(^|/).*IMPLEMENTATION_PLAN' >/dev/null 2>&1; then
+  echo "[pre-commit] Reminder: update *IMPLEMENTATION_PLAN (not blocking)."
+fi

@@ -1,6 +1,6 @@
 package sse
 
-	import (
+import (
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,11 +8,10 @@ package sse
 	"net/http"
 	"time"
 
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/logging"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
-
 
 type Server struct {
 	Store     synckit.EventStore
@@ -108,19 +107,19 @@ func (s *Server) Handler() http.Handler {
 				continue
 			}
 
-		// Convert events to JSON serializable format
-		jsonEvents := make([]JSONEventWithVersion, len(events))
-		for i, ev := range events {
-			jsonEvents[i] = toJSONEventWithVersion(ev)
-		}
+			// Convert events to JSON serializable format
+			jsonEvents := make([]JSONEventWithVersion, len(events))
+			for i, ev := range events {
+				jsonEvents[i] = toJSONEventWithVersion(ev)
+			}
 
-		payload := struct {
-			Events     []JSONEventWithVersion `json:"events"`
-			NextCursor cursor.WireCursor       `json:"next_cursor"`
-		}{
-			Events:     jsonEvents,
-			NextCursor: cursor.MustMarshalWire(nextCur),
-		}
+			payload := struct {
+				Events     []JSONEventWithVersion `json:"events"`
+				NextCursor cursor.WireCursor      `json:"next_cursor"`
+			}{
+				Events:     jsonEvents,
+				NextCursor: cursor.MustMarshalWire(nextCur),
+			}
 			b, _ := json.Marshal(payload)
 			s.Logger.Debug("Sending events to SSE client",
 				slog.Int("event_count", len(events)),
@@ -138,7 +137,7 @@ func (s *Server) Handler() http.Handler {
 func loadNext(ctx context.Context, store synckit.EventStore, cur cursor.Cursor, batch int) ([]synckit.EventWithVersion, cursor.Cursor, error) {
 	// For initial MVP, call Load since version or a cursor-aware LoadNext if available.
 	// Return events and a new cursor (e.g., last seen version).
-	
+
 	// Convert cursor to version for store.Load
 	var sinceVersion synckit.Version
 	if cur != nil {
@@ -149,7 +148,7 @@ func loadNext(ctx context.Context, store synckit.EventStore, cur cursor.Cursor, 
 			sinceVersion = vc
 		}
 	}
-	
+
 	evs, err := store.Load(ctx, sinceVersion)
 	if err != nil {
 		return nil, nil, err

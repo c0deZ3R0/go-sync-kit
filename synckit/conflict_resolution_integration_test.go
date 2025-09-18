@@ -138,18 +138,18 @@ type ConflictResolutionTestEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (e *ConflictResolutionTestEvent) ID() string                         { return e.id }
-func (e *ConflictResolutionTestEvent) Type() string                       { return e.eventType }
-func (e *ConflictResolutionTestEvent) AggregateID() string                { return e.aggregateID }
-func (e *ConflictResolutionTestEvent) Data() interface{}                  { return e.data }
-func (e *ConflictResolutionTestEvent) Metadata() map[string]interface{}   { return e.metadata }
+func (e *ConflictResolutionTestEvent) ID() string                       { return e.id }
+func (e *ConflictResolutionTestEvent) Type() string                     { return e.eventType }
+func (e *ConflictResolutionTestEvent) AggregateID() string              { return e.aggregateID }
+func (e *ConflictResolutionTestEvent) Data() interface{}                { return e.data }
+func (e *ConflictResolutionTestEvent) Metadata() map[string]interface{} { return e.metadata }
 
 // ConflictResolutionTestVersion implements the Version interface for testing
 type ConflictResolutionTestVersion struct {
 	version string
 }
 
-func (v *ConflictResolutionTestVersion) String() string                    { return v.version }
+func (v *ConflictResolutionTestVersion) String() string { return v.version }
 func (v *ConflictResolutionTestVersion) Compare(other Version) int {
 	if other == nil {
 		return 1

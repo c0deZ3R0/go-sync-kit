@@ -11,22 +11,22 @@ type ConflictResolutionState int
 const (
 	// DCRIdle indicates the conflict resolver is idle and ready for new conflicts
 	DCRIdle ConflictResolutionState = iota
-	
+
 	// DCRAnalyzing indicates the conflict is being analyzed and metadata extracted
 	DCRAnalyzing
-	
+
 	// DCRApplyingRules indicates rules are being evaluated and applied to the conflict
 	DCRApplyingRules
-	
+
 	// DCRResolved indicates the conflict was successfully resolved automatically
 	DCRResolved
-	
+
 	// DCRManualReview indicates the conflict requires manual review
 	DCRManualReview
-	
+
 	// DCREscalated indicates the conflict was escalated to a higher authority
 	DCREscalated
-	
+
 	// DCRFailed indicates the conflict resolution process failed
 	DCRFailed
 )
@@ -56,15 +56,15 @@ func (s ConflictResolutionState) String() string {
 // ConflictResolutionStateMachine manages the state of conflict resolution processes
 type ConflictResolutionStateMachine struct {
 	stateMachine StateMachine[ConflictResolutionState]
-	
+
 	// Additional conflict resolution specific state
 	currentConflictID string
-	resolutionPath    []string              // Track which rules were applied
-	matchedRules      []string              // Track which rules matched
-	failedRules       []string              // Track which rules failed
+	resolutionPath    []string // Track which rules were applied
+	matchedRules      []string // Track which rules matched
+	failedRules       []string // Track which rules failed
 	startTime         time.Time
 	analysisMetadata  map[string]interface{}
-	
+
 	// Thread safety
 	mu sync.RWMutex
 }
@@ -74,33 +74,33 @@ func NewConflictResolutionStateMachine(config *StateMachineConfig[ConflictResolu
 	if config == nil {
 		// Define valid state transitions for conflict resolution
 		transitionRules := TransitionRules[ConflictResolutionState]{
-			DCRIdle: {DCRAnalyzing},
-			DCRAnalyzing: {DCRApplyingRules, DCRFailed},
+			DCRIdle:          {DCRAnalyzing},
+			DCRAnalyzing:     {DCRApplyingRules, DCRFailed},
 			DCRApplyingRules: {DCRResolved, DCRManualReview, DCREscalated, DCRFailed},
-			DCRResolved: {DCRIdle},
-			DCRManualReview: {DCRResolved, DCREscalated, DCRFailed, DCRIdle},
-			DCREscalated: {DCRResolved, DCRFailed, DCRIdle},
-			DCRFailed: {DCRIdle},
+			DCRResolved:      {DCRIdle},
+			DCRManualReview:  {DCRResolved, DCREscalated, DCRFailed, DCRIdle},
+			DCREscalated:     {DCRResolved, DCRFailed, DCRIdle},
+			DCRFailed:        {DCRIdle},
 		}
 		config = &StateMachineConfig[ConflictResolutionState]{
 			InitialState:    DCRIdle,
 			TransitionRules: transitionRules,
 			MaxHistorySize:  100,
 			EnableMetrics:   true,
-			Name:           "ConflictResolutionStateMachine",
+			Name:            "ConflictResolutionStateMachine",
 		}
 	}
 
 	// Define valid state transitions for conflict resolution if not provided
 	if config.TransitionRules == nil {
 		config.TransitionRules = TransitionRules[ConflictResolutionState]{
-			DCRIdle: {DCRAnalyzing},
-			DCRAnalyzing: {DCRApplyingRules, DCRFailed},
+			DCRIdle:          {DCRAnalyzing},
+			DCRAnalyzing:     {DCRApplyingRules, DCRFailed},
 			DCRApplyingRules: {DCRResolved, DCRManualReview, DCREscalated, DCRFailed},
-			DCRResolved: {DCRIdle},
-			DCRManualReview: {DCRResolved, DCREscalated, DCRFailed, DCRIdle},
-			DCREscalated: {DCRResolved, DCRFailed, DCRIdle},
-			DCRFailed: {DCRIdle},
+			DCRResolved:      {DCRIdle},
+			DCRManualReview:  {DCRResolved, DCREscalated, DCRFailed, DCRIdle},
+			DCREscalated:     {DCRResolved, DCRFailed, DCRIdle},
+			DCRFailed:        {DCRIdle},
 		}
 	}
 
@@ -111,7 +111,7 @@ func NewConflictResolutionStateMachine(config *StateMachineConfig[ConflictResolu
 		fallbackConfig.Name = "ConflictResolutionStateMachine"
 		sm, _ = New(fallbackConfig)
 	}
-	
+
 	return &ConflictResolutionStateMachine{
 		stateMachine:     sm,
 		resolutionPath:   make([]string, 0),
@@ -241,14 +241,14 @@ func (sm *ConflictResolutionStateMachine) GetResolutionSummary() *ConflictResolu
 
 // ConflictResolutionSummary provides a summary of a conflict resolution process
 type ConflictResolutionSummary struct {
-	ConflictID       string                    `json:"conflict_id"`
-	CurrentState     ConflictResolutionState   `json:"current_state"`
-	ResolutionPath   []string                  `json:"resolution_path"`
-	MatchedRules     []string                  `json:"matched_rules"`
-	FailedRules      []string                  `json:"failed_rules"`
-	AnalysisMetadata map[string]interface{}    `json:"analysis_metadata"`
-	Duration         time.Duration             `json:"duration"`
-	StartTime        time.Time                 `json:"start_time"`
+	ConflictID       string                  `json:"conflict_id"`
+	CurrentState     ConflictResolutionState `json:"current_state"`
+	ResolutionPath   []string                `json:"resolution_path"`
+	MatchedRules     []string                `json:"matched_rules"`
+	FailedRules      []string                `json:"failed_rules"`
+	AnalysisMetadata map[string]interface{}  `json:"analysis_metadata"`
+	Duration         time.Duration           `json:"duration"`
+	StartTime        time.Time               `json:"start_time"`
 }
 
 // IsTerminalState returns true if the current state is a terminal state

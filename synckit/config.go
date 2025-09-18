@@ -14,12 +14,12 @@ import (
 // ConfigLoader provides dynamic loading and validation of conflict resolution rules
 // from YAML or JSON configuration files with runtime update capabilities.
 type ConfigLoader struct {
-	mu              sync.RWMutex
-	currentConfig   *RuleConfig
-	validators      []ConfigValidator
-	watchers        []ConfigWatcher
-	transformers    []ConfigTransformer
-	logger          Logger
+	mu            sync.RWMutex
+	currentConfig *RuleConfig
+	validators    []ConfigValidator
+	watchers      []ConfigWatcher
+	transformers  []ConfigTransformer
+	logger        Logger
 }
 
 // RuleConfig represents the complete configuration structure for conflict resolution rules.
@@ -28,13 +28,13 @@ type RuleConfig struct {
 	Name        string                 `json:"name" yaml:"name"`
 	Description string                 `json:"description,omitempty" yaml:"description,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	
+
 	// Global settings
 	Settings ConfigSettings `json:"settings,omitempty" yaml:"settings,omitempty"`
-	
+
 	// Rule groups
 	Groups []GroupConfig `json:"groups" yaml:"groups"`
-	
+
 	// Global rules (not in any group)
 	Rules []RuleConfigEntry `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
@@ -50,7 +50,7 @@ type ConfigSettings struct {
 
 // TimeoutSettings contains timeout configurations.
 type TimeoutSettings struct {
-	ResolutionTimeoutMs int `json:"resolution_timeout_ms,omitempty" yaml:"resolution_timeout_ms,omitempty"`
+	ResolutionTimeoutMs   int `json:"resolution_timeout_ms,omitempty" yaml:"resolution_timeout_ms,omitempty"`
 	ManualReviewTimeoutMs int `json:"manual_review_timeout_ms,omitempty" yaml:"manual_review_timeout_ms,omitempty"`
 }
 
@@ -62,38 +62,38 @@ type LimitSettings struct {
 
 // GroupConfig represents a rule group configuration.
 type GroupConfig struct {
-	Name        string              `json:"name" yaml:"name"`
-	Description string              `json:"description,omitempty" yaml:"description,omitempty"`
-	Enabled     *bool               `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	Fallback    string              `json:"fallback,omitempty" yaml:"fallback,omitempty"`
-	Rules       []RuleConfigEntry   `json:"rules" yaml:"rules"`
-	SubGroups   []GroupConfig       `json:"subgroups,omitempty" yaml:"subgroups,omitempty"`
+	Name        string                 `json:"name" yaml:"name"`
+	Description string                 `json:"description,omitempty" yaml:"description,omitempty"`
+	Enabled     *bool                  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	Fallback    string                 `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	Rules       []RuleConfigEntry      `json:"rules" yaml:"rules"`
+	SubGroups   []GroupConfig          `json:"subgroups,omitempty" yaml:"subgroups,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // RuleConfigEntry represents a single rule configuration.
 type RuleConfigEntry struct {
-	Name        string                 `json:"name" yaml:"name"`
-	Description string                 `json:"description,omitempty" yaml:"description,omitempty"`
-	Enabled     *bool                  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
-	Priority    int                    `json:"priority,omitempty" yaml:"priority,omitempty"`
-	
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	Enabled     *bool  `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	Priority    int    `json:"priority,omitempty" yaml:"priority,omitempty"`
+
 	// Matching conditions
 	Conditions MatchConditions `json:"conditions" yaml:"conditions"`
-	
+
 	// Resolution configuration
 	Resolution ResolutionConfig `json:"resolution" yaml:"resolution"`
-	
+
 	// Metadata for custom extensions
 	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // MatchConditions defines when a rule should be applied.
 type MatchConditions struct {
-	EventTypes    []string          `json:"event_types,omitempty" yaml:"event_types,omitempty"`
-	AggregateIDs  []string          `json:"aggregate_ids,omitempty" yaml:"aggregate_ids,omitempty"`
-	Fields        []string          `json:"fields,omitempty" yaml:"fields,omitempty"`
-	CustomMatch   map[string]string `json:"custom_match,omitempty" yaml:"custom_match,omitempty"`
+	EventTypes   []string          `json:"event_types,omitempty" yaml:"event_types,omitempty"`
+	AggregateIDs []string          `json:"aggregate_ids,omitempty" yaml:"aggregate_ids,omitempty"`
+	Fields       []string          `json:"fields,omitempty" yaml:"fields,omitempty"`
+	CustomMatch  map[string]string `json:"custom_match,omitempty" yaml:"custom_match,omitempty"`
 }
 
 // ResolutionConfig defines how conflicts should be resolved.
@@ -128,11 +128,11 @@ func NewConfigLoader(opts ...ConfigLoaderOption) *ConfigLoader {
 		watchers:     make([]ConfigWatcher, 0),
 		transformers: make([]ConfigTransformer, 0),
 	}
-	
+
 	for _, opt := range opts {
 		opt.apply(cl)
 	}
-	
+
 	return cl
 }
 
@@ -179,22 +179,22 @@ func WithConfigLogger(logger Logger) ConfigLoaderOption {
 func (cl *ConfigLoader) LoadFromFile(filepath string) error {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
-	
+
 	if cl.logger != nil {
 		cl.logger.Debug("Loading configuration from file", "path", filepath)
 	}
-	
+
 	file, err := os.Open(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to open config file %s: %w", filepath, err)
 	}
 	defer file.Close()
-	
+
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", filepath, err)
 	}
-	
+
 	return cl.loadFromBytes(data, detectFormat(filepath))
 }
 
@@ -202,13 +202,13 @@ func (cl *ConfigLoader) LoadFromFile(filepath string) error {
 func (cl *ConfigLoader) LoadFromBytes(data []byte, format string) error {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
-	
+
 	return cl.loadFromBytes(data, format)
 }
 
 func (cl *ConfigLoader) loadFromBytes(data []byte, format string) error {
 	var config RuleConfig
-	
+
 	switch strings.ToLower(format) {
 	case "yaml", "yml":
 		if err := yaml.Unmarshal(data, &config); err != nil {
@@ -221,7 +221,7 @@ func (cl *ConfigLoader) loadFromBytes(data []byte, format string) error {
 	default:
 		return fmt.Errorf("unsupported config format: %s", format)
 	}
-	
+
 	return cl.applyConfig(&config)
 }
 
@@ -238,7 +238,7 @@ func (cl *ConfigLoader) applyConfig(config *RuleConfig) error {
 		}
 		config = transformed
 	}
-	
+
 	// Validate configuration
 	for _, validator := range cl.validators {
 		if err := validator.Validate(config); err != nil {
@@ -248,10 +248,10 @@ func (cl *ConfigLoader) applyConfig(config *RuleConfig) error {
 			return fmt.Errorf("validator %s failed: %w", validator.Name(), err)
 		}
 	}
-	
+
 	oldConfig := cl.currentConfig
 	cl.currentConfig = config
-	
+
 	// Notify watchers
 	for _, watcher := range cl.watchers {
 		go func(w ConfigWatcher) {
@@ -265,11 +265,11 @@ func (cl *ConfigLoader) applyConfig(config *RuleConfig) error {
 			w.OnConfigChanged(oldConfig, config)
 		}(watcher)
 	}
-	
+
 	if cl.logger != nil {
 		cl.logger.Debug("Configuration applied successfully", "version", config.Version, "groups", len(config.Groups))
 	}
-	
+
 	return nil
 }
 
@@ -277,7 +277,7 @@ func (cl *ConfigLoader) applyConfig(config *RuleConfig) error {
 func (cl *ConfigLoader) GetCurrentConfig() *RuleConfig {
 	cl.mu.RLock()
 	defer cl.mu.RUnlock()
-	
+
 	return cl.currentConfig
 }
 
@@ -286,13 +286,13 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 	cl.mu.RLock()
 	config := cl.currentConfig
 	cl.mu.RUnlock()
-	
+
 	if config == nil {
 		return nil, fmt.Errorf("no configuration loaded")
 	}
-	
+
 	var options []Option
-	
+
 	// Set global fallback if specified
 	if config.Settings.DefaultFallback != "" {
 		fallback, err := cl.createResolverFromStrategy(config.Settings.DefaultFallback, nil)
@@ -301,7 +301,7 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 		}
 		options = append(options, WithFallback(fallback))
 	}
-	
+
 	// Add global rules
 	for _, ruleConfig := range config.Rules {
 		rule, err := cl.buildRule(ruleConfig)
@@ -310,7 +310,7 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 		}
 		options = append(options, WithRule(rule.Name, rule.Matcher, rule.Resolver))
 	}
-	
+
 	// Note: Group support would require CompositeResolver integration
 	// For now, we'll add group rules as individual rules with namespaced names
 	for _, groupConfig := range config.Groups {
@@ -324,24 +324,24 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 			options = append(options, WithRule(namespacedName, rule.Matcher, rule.Resolver))
 		}
 	}
-	
+
 	return NewDynamicResolver(options...)
 }
 
 // buildRuleGroup creates a RuleGroup from configuration.
 func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 	opts := make([]RuleGroupOption, 0)
-	
+
 	if config.Description != "" {
 		opts = append(opts, WithDescription(config.Description))
 	}
-	
+
 	enabled := true
 	if config.Enabled != nil {
 		enabled = *config.Enabled
 	}
 	opts = append(opts, WithEnabled(enabled))
-	
+
 	if config.Fallback != "" {
 		fallback, err := cl.createResolverFromStrategy(config.Fallback, nil)
 		if err != nil {
@@ -349,9 +349,9 @@ func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 		}
 		opts = append(opts, WithGroupFallback(fallback))
 	}
-	
+
 	group := NewRuleGroup(config.Name, opts...)
-	
+
 	// Add rules to group
 	for _, ruleConfig := range config.Rules {
 		rule, err := cl.buildRule(ruleConfig)
@@ -360,7 +360,7 @@ func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 		}
 		group.AddRule(rule)
 	}
-	
+
 	// Add subgroups
 	for _, subGroupConfig := range config.SubGroups {
 		subGroup, err := cl.buildRuleGroup(subGroupConfig)
@@ -369,7 +369,7 @@ func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 		}
 		group.AddSubGroup(subGroup)
 	}
-	
+
 	return group, nil
 }
 
@@ -380,48 +380,48 @@ func (cl *ConfigLoader) buildRule(config RuleConfigEntry) (Rule, error) {
 	if err != nil {
 		return Rule{}, fmt.Errorf("failed to build matcher: %w", err)
 	}
-	
+
 	// Build resolver
 	resolver, err := cl.createResolverFromStrategy(config.Resolution.Strategy, config.Resolution.Options)
 	if err != nil {
 		return Rule{}, fmt.Errorf("failed to create resolver: %w", err)
 	}
-	
+
 	rule := Rule{
 		Name:     config.Name,
 		Matcher:  matcher,
 		Resolver: resolver,
 	}
-	
+
 	return rule, nil
 }
 
 // buildMatcher creates a Spec from conditions.
 func (cl *ConfigLoader) buildMatcher(conditions MatchConditions) (Spec, error) {
 	var matchers []Spec
-	
+
 	// Event type matchers
 	for _, eventType := range conditions.EventTypes {
 		matchers = append(matchers, EventTypeIs(eventType))
 	}
-	
+
 	// Field matchers
 	for _, field := range conditions.Fields {
 		matchers = append(matchers, FieldChanged(field))
 	}
-	
+
 	// Aggregate ID matchers
 	for _, aggID := range conditions.AggregateIDs {
 		matchers = append(matchers, AggregateIDMatches(aggID))
 	}
-	
+
 	// Combine matchers
 	if len(matchers) == 0 {
 		return AlwaysMatch(), nil
 	} else if len(matchers) == 1 {
 		return matchers[0], nil
 	}
-	
+
 	// Use AND logic for multiple conditions
 	return AndMatcher(matchers...), nil
 }
@@ -468,11 +468,11 @@ func (v *BasicValidator) Validate(config *RuleConfig) error {
 	if config.Version == "" {
 		return fmt.Errorf("configuration version is required")
 	}
-	
+
 	if config.Name == "" {
 		return fmt.Errorf("configuration name is required")
 	}
-	
+
 	// Validate groups
 	groupNames := make(map[string]bool)
 	for _, group := range config.Groups {
@@ -483,17 +483,17 @@ func (v *BasicValidator) Validate(config *RuleConfig) error {
 			return fmt.Errorf("duplicate group name: %s", group.Name)
 		}
 		groupNames[group.Name] = true
-		
+
 		if err := v.validateRules(group.Rules, group.Name); err != nil {
 			return fmt.Errorf("invalid rules in group %s: %w", group.Name, err)
 		}
 	}
-	
+
 	// Validate global rules
 	if err := v.validateRules(config.Rules, "global"); err != nil {
 		return fmt.Errorf("invalid global rules: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -507,7 +507,7 @@ func (v *BasicValidator) validateRules(rules []RuleConfigEntry, context string) 
 			return fmt.Errorf("duplicate rule name: %s in %s", rule.Name, context)
 		}
 		ruleNames[rule.Name] = true
-		
+
 		if rule.Resolution.Strategy == "" {
 			return fmt.Errorf("resolution strategy is required for rule %s in %s", rule.Name, context)
 		}
@@ -534,11 +534,11 @@ func (w *LoggingWatcher) OnConfigChanged(oldConfig, newConfig *RuleConfig) {
 	if w.logger == nil {
 		return
 	}
-	
+
 	if oldConfig == nil {
 		w.logger.Debug("Initial configuration loaded", "version", newConfig.Version, "groups", len(newConfig.Groups))
 	} else {
-		w.logger.Debug("Configuration updated", 
+		w.logger.Debug("Configuration updated",
 			"old_version", oldConfig.Version,
 			"new_version", newConfig.Version,
 			"old_groups", len(oldConfig.Groups),

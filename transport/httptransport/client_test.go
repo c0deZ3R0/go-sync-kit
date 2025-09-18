@@ -102,7 +102,7 @@ func TestWithLimitsOverride(t *testing.T) {
 // TestWithVersionParser tests that WithVersionParser option properly sets the version parser
 func TestWithVersionParser(t *testing.T) {
 	baseURL := "http://example.com/sync"
-	
+
 	// Create a custom version parser function
 	customParser := func(ctx context.Context, s string) (synckit.Version, error) {
 		v, err := strconv.ParseInt(s, 10, 64)
@@ -238,14 +238,14 @@ func TestToHTTPTransport(t *testing.T) {
 // TestOptionsOrdering tests that the last option takes precedence when options conflict
 func TestOptionsOrdering(t *testing.T) {
 	baseURL := "http://example.com/sync"
-	
+
 	firstLimits := Limits{
 		MaxBodyBytes:         8 << 20,
 		MaxDecompressedBytes: 64 << 20,
 		EnableGzip:           true,
 		GzipMinBytes:         2 << 20,
 	}
-	
+
 	secondLimits := Limits{
 		MaxBodyBytes:         16 << 20,
 		MaxDecompressedBytes: 128 << 20,

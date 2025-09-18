@@ -1,8 +1,8 @@
 package sse
 
 import (
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // JSONEvent is a JSON-serializable representation of an Event

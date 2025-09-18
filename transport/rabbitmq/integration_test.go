@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
 // MockEvent implements synckit.Event for testing
@@ -24,20 +24,20 @@ type MockEvent struct {
 	metadata    map[string]interface{}
 }
 
-func (e MockEvent) ID() string                            { return e.id }
-func (e MockEvent) Type() string                          { return e.eventType }
-func (e MockEvent) AggregateID() string                   { return e.aggregateID }
-func (e MockEvent) Data() interface{}                     { return e.data }
-func (e MockEvent) Metadata() map[string]interface{}      { return e.metadata }
-func (e MockEvent) MarshalJSON() ([]byte, error)          { return json.Marshal(e.data) }
-func (e *MockEvent) UnmarshalJSON(data []byte) error      { return json.Unmarshal(data, &e.data) }
+func (e MockEvent) ID() string                       { return e.id }
+func (e MockEvent) Type() string                     { return e.eventType }
+func (e MockEvent) AggregateID() string              { return e.aggregateID }
+func (e MockEvent) Data() interface{}                { return e.data }
+func (e MockEvent) Metadata() map[string]interface{} { return e.metadata }
+func (e MockEvent) MarshalJSON() ([]byte, error)     { return json.Marshal(e.data) }
+func (e *MockEvent) UnmarshalJSON(data []byte) error { return json.Unmarshal(data, &e.data) }
 
 // MockVersion implements synckit.Version
 type MockVersion struct {
 	value int64
 }
 
-func (v MockVersion) String() string                  { return fmt.Sprintf("%d", v.value) }
+func (v MockVersion) String() string { return fmt.Sprintf("%d", v.value) }
 func (v MockVersion) Compare(other synckit.Version) int {
 	if otherMock, ok := other.(MockVersion); ok {
 		if v.value < otherMock.value {
@@ -49,7 +49,7 @@ func (v MockVersion) Compare(other synckit.Version) int {
 	}
 	return -1
 }
-func (v MockVersion) IsZero() bool                    { return v.value == 0 }
+func (v MockVersion) IsZero() bool { return v.value == 0 }
 
 // Test configuration
 func getTestConfig() *Config {
@@ -132,9 +132,9 @@ func TestIntegration_PushAndSubscribe(t *testing.T) {
 	// Setup test data
 	events := []synckit.EventWithVersion{
 		{
-			Event:   MockEvent{
-				id:          "event-1", 
-				eventType:   "user.created", 
+			Event: MockEvent{
+				id:          "event-1",
+				eventType:   "user.created",
 				aggregateID: "user-123",
 				data:        map[string]interface{}{"name": "John"},
 				metadata:    map[string]interface{}{"source": "test"},
@@ -142,9 +142,9 @@ func TestIntegration_PushAndSubscribe(t *testing.T) {
 			Version: MockVersion{value: 1},
 		},
 		{
-			Event:   MockEvent{
-				id:          "event-2", 
-				eventType:   "user.updated", 
+			Event: MockEvent{
+				id:          "event-2",
+				eventType:   "user.updated",
 				aggregateID: "user-123",
 				data:        map[string]interface{}{"name": "Jane"},
 				metadata:    map[string]interface{}{"source": "test"},
@@ -163,7 +163,7 @@ func TestIntegration_PushAndSubscribe(t *testing.T) {
 		receivedMu.Lock()
 		allReceived = append(allReceived, events...)
 		receivedMu.Unlock()
-		
+
 		receivedEvents <- events
 		return nil
 	}
@@ -198,7 +198,7 @@ func TestIntegration_PushAndSubscribe(t *testing.T) {
 	defer receivedMu.Unlock()
 
 	assert.Equal(t, len(events), len(allReceived))
-	
+
 	// Create maps for easy comparison (order may vary)
 	expectedMap := make(map[string]synckit.EventWithVersion)
 	for _, event := range events {
@@ -233,13 +233,13 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	// Test push without connection
 	events := []synckit.EventWithVersion{
 		{Event: MockEvent{
-			id:          "test", 
+			id:          "test",
 			eventType:   "test",
-			aggregateID: "agg-test", 
+			aggregateID: "agg-test",
 			data:        map[string]interface{}{},
 		}},
 	}
-	
+
 	err := transport.Push(ctx, events)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not connected")
@@ -298,7 +298,7 @@ func TestIntegration_MultiplePublishers(t *testing.T) {
 	// Create multiple publishers
 	const numPublishers = 3
 	const eventsPerPublisher = 5
-	
+
 	var publisherWg sync.WaitGroup
 	publisherWg.Add(numPublishers)
 
@@ -371,7 +371,7 @@ func TestIntegration_MultiplePublishers(t *testing.T) {
 	}
 
 	for i := 0; i < numPublishers; i++ {
-		assert.Equal(t, eventsPerPublisher, publisherCounts[i], 
+		assert.Equal(t, eventsPerPublisher, publisherCounts[i],
 			"Publisher %d should have %d events", i, eventsPerPublisher)
 	}
 }
@@ -443,13 +443,13 @@ func TestIntegration_HandlerError(t *testing.T) {
 	case received := <-successEvents:
 		assert.Len(t, received, 1)
 		assert.Equal(t, "error-test", received[0].Event.ID())
-		
+
 		// Verify multiple attempts were made
 		mu.Lock()
 		finalAttemptCount := attemptCount
 		mu.Unlock()
 		assert.GreaterOrEqual(t, finalAttemptCount, 3, "Handler should have been called at least 3 times")
-		
+
 	case <-timeout:
 		mu.Lock()
 		finalAttemptCount := attemptCount

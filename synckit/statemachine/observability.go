@@ -6,24 +6,24 @@ import (
 	"log/slog"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ObservabilityHooks integrates state machines with existing observability infrastructure.
 type ObservabilityHooks[T comparable] struct {
 	// MetricsCollector for recording state machine metrics
 	MetricsCollector StateMetricsCollector
-	
+
 	// Tracer for distributed tracing integration
 	Tracer StateTracer
-	
+
 	// HealthUpdater for health check integration
 	HealthUpdater StateHealthUpdater
-	
+
 	// Logger for structured logging
 	Logger *slog.Logger
-	
+
 	// ComponentName identifies the component for observability
 	ComponentName string
 }
@@ -33,16 +33,16 @@ type ObservabilityHooks[T comparable] struct {
 type StateMetricsCollector interface {
 	// RecordStateTransition records a successful state transition
 	RecordStateTransition(component, from, to string, duration time.Duration, metadata map[string]interface{})
-	
+
 	// RecordStateTransitionError records a failed state transition
 	RecordStateTransitionError(component, from, to, errorType string, metadata map[string]interface{})
-	
+
 	// RecordCurrentState updates the current state gauge
 	RecordCurrentState(component, state string)
-	
+
 	// RecordStateDuration records time spent in a state
 	RecordStateDuration(component, state string, duration time.Duration)
-	
+
 	// RecordStateTransitionLatency records how long a transition took
 	RecordStateTransitionLatency(component, from, to string, latency time.Duration)
 }
@@ -51,10 +51,10 @@ type StateMetricsCollector interface {
 type StateTracer interface {
 	// StartStateTransition starts a new span for a state transition
 	StartStateTransition(ctx context.Context, component, from, to string) (context.Context, trace.Span)
-	
+
 	// RecordTransitionSuccess records successful transition attributes
 	RecordTransitionSuccess(span trace.Span, component, from, to, transitionID string, duration time.Duration, metadata map[string]interface{})
-	
+
 	// RecordTransitionError records failed transition error
 	RecordTransitionError(span trace.Span, component, from, to string, err error, metadata map[string]interface{})
 }
@@ -63,7 +63,7 @@ type StateTracer interface {
 type StateHealthUpdater interface {
 	// UpdateComponentState updates the health check state for a component
 	UpdateComponentState(component, state string, metadata map[string]interface{})
-	
+
 	// RecordStateError records a state-related error for health monitoring
 	RecordStateError(component, state string, err error)
 }
@@ -78,10 +78,10 @@ func NewObservabilityHooks[T comparable](
 ) *ObservabilityHooks[T] {
 	return &ObservabilityHooks[T]{
 		MetricsCollector: metricsCollector,
-		Tracer:          tracer,
-		HealthUpdater:   healthUpdater,
-		Logger:          logger,
-		ComponentName:   componentName,
+		Tracer:           tracer,
+		HealthUpdater:    healthUpdater,
+		Logger:           logger,
+		ComponentName:    componentName,
 	}
 }
 
@@ -89,7 +89,7 @@ func NewObservabilityHooks[T comparable](
 func (h *ObservabilityHooks[T]) OnTransition(transition StateTransition[T]) {
 	fromStr := fmt.Sprintf("%v", transition.From)
 	toStr := fmt.Sprintf("%v", transition.To)
-	
+
 	// Record metrics
 	if h.MetricsCollector != nil {
 		h.MetricsCollector.RecordStateTransition(
@@ -98,12 +98,12 @@ func (h *ObservabilityHooks[T]) OnTransition(transition StateTransition[T]) {
 		h.MetricsCollector.RecordCurrentState(h.ComponentName, toStr)
 		h.MetricsCollector.RecordStateDuration(h.ComponentName, fromStr, transition.Duration)
 	}
-	
+
 	// Update health status
 	if h.HealthUpdater != nil {
 		h.HealthUpdater.UpdateComponentState(h.ComponentName, toStr, transition.Metadata)
 	}
-	
+
 	// Structured logging
 	if h.Logger != nil {
 		h.Logger.Info("State transition completed",
@@ -121,23 +121,23 @@ func (h *ObservabilityHooks[T]) OnTransitionFailed(from, to T, err error, metada
 	fromStr := fmt.Sprintf("%v", from)
 	toStr := fmt.Sprintf("%v", to)
 	errorType := "transition_failed"
-	
+
 	if err != nil {
 		errorType = err.Error()
 	}
-	
+
 	// Record error metrics
 	if h.MetricsCollector != nil {
 		h.MetricsCollector.RecordStateTransitionError(
 			h.ComponentName, fromStr, toStr, errorType, metadata,
 		)
 	}
-	
+
 	// Record health error
 	if h.HealthUpdater != nil {
 		h.HealthUpdater.RecordStateError(h.ComponentName, fromStr, err)
 	}
-	
+
 	// Error logging
 	if h.Logger != nil {
 		h.Logger.Error("State transition failed",
@@ -235,7 +235,7 @@ func (a *SyncKitTracerAdapter) RecordTransitionSuccess(span trace.Span, componen
 		attribute.String("state.transition_id", transitionID),
 		attribute.Int64("state.duration_ms", duration.Milliseconds()),
 	)
-	
+
 	// Add metadata as span attributes
 	if metadata != nil {
 		for key, value := range metadata {
@@ -248,7 +248,7 @@ func (a *SyncKitTracerAdapter) RecordTransitionSuccess(span trace.Span, componen
 func (a *SyncKitTracerAdapter) RecordTransitionError(span trace.Span, component, from, to string, err error, metadata map[string]interface{}) {
 	description := fmt.Sprintf("State transition failed: %s -> %s", from, to)
 	a.tracer.RecordError(span, err, description)
-	
+
 	// Add error-specific attributes
 	span.SetAttributes(
 		attribute.String("state.component", component),
@@ -262,10 +262,10 @@ func (a *SyncKitTracerAdapter) RecordTransitionError(span trace.Span, component,
 type StateHealthStatus string
 
 const (
-	StateHealthHealthy    StateHealthStatus = "healthy"
-	StateHealthDegraded   StateHealthStatus = "degraded"
-	StateHealthUnhealthy  StateHealthStatus = "unhealthy"
-	StateHealthCritical   StateHealthStatus = "critical"
+	StateHealthHealthy   StateHealthStatus = "healthy"
+	StateHealthDegraded  StateHealthStatus = "degraded"
+	StateHealthUnhealthy StateHealthStatus = "unhealthy"
+	StateHealthCritical  StateHealthStatus = "critical"
 )
 
 // DefaultStateHealthUpdater provides a simple health updater implementation.
@@ -275,7 +275,7 @@ type DefaultStateHealthUpdater struct {
 		UpdateStatus(component string, status string, metadata map[string]interface{})
 		RecordError(component string, err error)
 	}
-	
+
 	// stateHealthMap maps states to health statuses
 	stateHealthMap map[string]StateHealthStatus
 }
@@ -291,21 +291,21 @@ func NewDefaultStateHealthUpdater(
 		healthChecker: healthChecker,
 		stateHealthMap: map[string]StateHealthStatus{
 			// Sync states
-			"idle":                 StateHealthHealthy,
-			"initializing":         StateHealthHealthy,
-			"pushing":              StateHealthHealthy,
-			"pulling":              StateHealthHealthy,
-			"resolving_conflicts":  StateHealthDegraded,
-			"completed":            StateHealthHealthy,
-			"failed":               StateHealthCritical,
-			"cancelled":            StateHealthDegraded,
-			
+			"idle":                StateHealthHealthy,
+			"initializing":        StateHealthHealthy,
+			"pushing":             StateHealthHealthy,
+			"pulling":             StateHealthHealthy,
+			"resolving_conflicts": StateHealthDegraded,
+			"completed":           StateHealthHealthy,
+			"failed":              StateHealthCritical,
+			"cancelled":           StateHealthDegraded,
+
 			// Transport states (for future use)
-			"connected":            StateHealthHealthy,
-			"connecting":           StateHealthDegraded,
-			"disconnected":         StateHealthUnhealthy,
-			"reconnecting":         StateHealthDegraded,
-			"transport_failed":     StateHealthCritical,
+			"connected":        StateHealthHealthy,
+			"connecting":       StateHealthDegraded,
+			"disconnected":     StateHealthUnhealthy,
+			"reconnecting":     StateHealthDegraded,
+			"transport_failed": StateHealthCritical,
 		},
 	}
 }
@@ -315,26 +315,26 @@ func (h *DefaultStateHealthUpdater) UpdateComponentState(component, state string
 	if h.healthChecker == nil {
 		return
 	}
-	
+
 	// Map state to health status
 	healthStatus := StateHealthHealthy // default
 	if status, exists := h.stateHealthMap[state]; exists {
 		healthStatus = status
 	}
-	
+
 	// Update health status
 	healthMetadata := map[string]interface{}{
-		"state": state,
+		"state":     state,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	
+
 	// Include original metadata
 	if metadata != nil {
 		for key, value := range metadata {
 			healthMetadata[key] = value
 		}
 	}
-	
+
 	h.healthChecker.UpdateStatus(component, string(healthStatus), healthMetadata)
 }
 
@@ -343,7 +343,7 @@ func (h *DefaultStateHealthUpdater) RecordStateError(component, state string, er
 	if h.healthChecker == nil {
 		return
 	}
-	
+
 	h.healthChecker.RecordError(component, err)
 }
 
@@ -364,15 +364,15 @@ func CreateObservableStateMachine[T comparable](
 		logger,
 		componentName,
 	)
-	
+
 	// Create the state machine
 	stateMachine, err := New(config)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Subscribe to state changes
 	stateMachine.Subscribe(hooks)
-	
+
 	return stateMachine, nil
 }
