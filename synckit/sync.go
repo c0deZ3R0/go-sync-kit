@@ -110,6 +110,9 @@ type SyncOptions struct {
 	// ConflictResolver to use for handling conflicts
 	ConflictResolver ConflictResolver
 
+	// Feature flag: opt-in to the new VersionedResolver path (experimental)
+	UseVersionedResolver bool
+
 	// Filter can be used to sync only specific events
 	Filter func(Event) bool
 
