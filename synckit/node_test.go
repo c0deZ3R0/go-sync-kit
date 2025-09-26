@@ -298,3 +298,137 @@ func TestNewHTTPClientNode(t *testing.T) {
 		}
 	})
 }
+
+// TestSyncNodeLifecycle ensures that SyncNode correctly exposes lifecycle methods
+// (StartAutoSync, StopAutoSync, Close, etc.) identical to SyncManager.
+// This test locks in behavior to prevent regressions if we ever switch from type alias to wrapper struct.
+func TestSyncNodeLifecycle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a simple in-memory node with sync interval for StartAutoSync
+	node, err := NewNode(
+		WithStore(&TestEventStore{}),
+		WithTransport(&TestTransport{}),
+		WithSyncInterval(100*time.Millisecond), // Required for StartAutoSync
+	)
+	if err != nil {
+		t.Fatalf("failed to create SyncNode: %v", err)
+	}
+
+	// Test that SyncNode exposes the same interface as SyncManager
+	var _ SyncManager = node // This ensures SyncNode has all SyncManager methods
+
+	// Start auto sync
+	if err := node.StartAutoSync(ctx); err != nil {
+		t.Errorf("StartAutoSync failed: %v", err)
+	}
+
+	// Give it a brief moment to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Stop auto sync
+	if err := node.StopAutoSync(); err != nil {
+		t.Errorf("StopAutoSync failed: %v", err)
+	}
+
+	// Subscribe should work (testing another lifecycle method)
+	if err := node.Subscribe(func(result *SyncResult) {
+		// Simple callback for testing
+	}); err != nil {
+		t.Errorf("Subscribe failed: %v", err)
+	}
+
+	// Close should work without panic
+	if err := node.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+
+	// This test ensures that if SyncNode is ever changed from a type alias
+	// to a wrapper struct, all lifecycle methods must be properly forwarded.
+}
+
+// TestSyncNodeManagerIdenticalBehavior verifies that SyncNode behaves identically to SyncManager.
+// This test will catch any behavioral differences if SyncNode is ever changed from type alias to wrapper.
+func TestSyncNodeManagerIdenticalBehavior(t *testing.T) {
+	ctx := context.Background()
+
+	// Create identical configurations
+	store1, store2 := &TestEventStore{}, &TestEventStore{}
+	transport1, transport2 := &TestTransport{}, &TestTransport{}
+
+	// Create SyncManager (current implementation)
+	manager, err := NewManager(
+		WithStore(store1),
+		WithTransport(transport1),
+	)
+	if err != nil {
+		t.Fatalf("failed to create SyncManager: %v", err)
+	}
+	defer manager.Close()
+
+	// Create SyncNode (façade)
+	node, err := NewNode(
+		WithStore(store2),
+		WithTransport(transport2),
+	)
+	if err != nil {
+		t.Fatalf("failed to create SyncNode: %v", err)
+	}
+	defer node.Close()
+
+	// Test Sync operation - should behave identically
+	managerResult, managerErr := manager.Sync(ctx)
+	nodeResult, nodeErr := node.Sync(ctx)
+
+	// Both should succeed or fail in the same way
+	if (managerErr == nil) != (nodeErr == nil) {
+		t.Errorf("Sync behavior differs: manager error=%v, node error=%v", managerErr, nodeErr)
+	}
+
+	if managerErr == nil && nodeErr == nil {
+		// Both succeeded - results should be comparable
+		if managerResult.EventsPushed != nodeResult.EventsPushed {
+			t.Errorf("EventsPushed differs: manager=%d, node=%d", 
+				managerResult.EventsPushed, nodeResult.EventsPushed)
+		}
+		if managerResult.EventsPulled != nodeResult.EventsPulled {
+			t.Errorf("EventsPulled differs: manager=%d, node=%d", 
+				managerResult.EventsPulled, nodeResult.EventsPulled)
+		}
+	}
+
+	// Test Push operation - should behave identically
+	managerPush, managerPushErr := manager.Push(ctx)
+	nodePush, nodePushErr := node.Push(ctx)
+
+	if (managerPushErr == nil) != (nodePushErr == nil) {
+		t.Errorf("Push behavior differs: manager error=%v, node error=%v", managerPushErr, nodePushErr)
+	}
+
+	if managerPushErr == nil && nodePushErr == nil {
+		if managerPush.EventsPushed != nodePush.EventsPushed {
+			t.Errorf("Push EventsPushed differs: manager=%d, node=%d", 
+				managerPush.EventsPushed, nodePush.EventsPushed)
+		}
+	}
+
+	// Test Pull operation - should behave identically
+	managerPull, managerPullErr := manager.Pull(ctx)
+	nodePull, nodePullErr := node.Pull(ctx)
+
+	if (managerPullErr == nil) != (nodePullErr == nil) {
+		t.Errorf("Pull behavior differs: manager error=%v, node error=%v", managerPullErr, nodePullErr)
+	}
+
+	if managerPullErr == nil && nodePullErr == nil {
+		if managerPull.EventsPulled != nodePull.EventsPulled {
+			t.Errorf("Pull EventsPulled differs: manager=%d, node=%d", 
+				managerPull.EventsPulled, nodePull.EventsPulled)
+		}
+	}
+
+	// This test ensures SyncNode and SyncManager are behaviorally identical.
+	// If SyncNode becomes a wrapper struct, this test will verify all methods
+	// are properly forwarded with identical behavior.
+}
