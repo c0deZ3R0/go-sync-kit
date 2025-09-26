@@ -5,11 +5,19 @@ These examples demonstrate Go Sync Kit's HTTP transport capabilities using the n
 ## 🚀 Quick Start
 
 ### 1. Run the Server
+
+**Simple Version (Quick Start):**
 ```bash
 cd http_server
 go run main.go
 ```
-Server starts on port 8080 and exposes `/sync` endpoint.
+
+**Production Version (With Graceful Shutdown):**
+```bash
+cd http_server
+go run main_production.go
+```
+Both start on port 8080 and expose `/sync` endpoint.
 
 ### 2. Run the Client
 ```bash
@@ -22,11 +30,14 @@ Client connects to server and performs a sync operation.
 ## 🎯 What These Examples Show
 
 ### HTTP Server (`http_server/`)
-- Uses `synckit.NewHTTPServerNode()` preset
-- SQLite event store (`server.db`)
-- HTTP transport in server mode
-- Exposes RESTful `/sync` endpoint
-- Production-ready server setup
+- **`main.go`**: Simple version for quick understanding
+  - Uses `synckit.NewHTTPServerNode()` preset
+  - Basic HTTP server setup with `log.Fatal`
+- **`main_production.go`**: Production-ready version with:
+  - Graceful shutdown handling (SIGINT/SIGTERM)
+  - HTTP server timeouts and configuration
+  - Proper resource cleanup logging
+  - Signal handling with context cancellation
 
 ### HTTP Client (`http_client/`) 
 - Uses `synckit.NewHTTPClientNode()` preset
@@ -55,11 +66,13 @@ Client connects to server and performs a sync operation.
 ## 🌐 Production Notes
 
 **For Production:**
+- Use `main_production.go` for graceful shutdown handling
 - Replace `sqlite.New()` with `postgres.New()` 
 - Add authentication/authorization to HTTP transport
 - Configure proper logging and monitoring
 - Use environment variables for connection strings
 - Add TLS/HTTPS configuration
+- Consider load balancing and reverse proxy setup
 
 **Scaling:**
 - Multiple clients can sync with single server
