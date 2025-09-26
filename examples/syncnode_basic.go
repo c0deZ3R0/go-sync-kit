@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/c0deZ3R0/go-sync-kit/storage/memstore"
@@ -13,11 +12,11 @@ import (
 )
 
 func main() {
-	fmt.Println("SyncNode Basic Example")
-	fmt.Println("=====================")
+	log.Printf("SyncNode Basic Example")
+	log.Printf("=====================")
 
 	// Example 1: Using NewNode with individual options (recommended)
-	fmt.Println("\n1. Creating SyncNode with NewNode():")
+	log.Printf("\n1. Creating SyncNode with NewNode():")
 	
 	store := memstore.New()
 	transport := memchan.New(16)
@@ -33,10 +32,10 @@ func main() {
 	}
 	defer node.Close()
 
-	fmt.Printf("✓ SyncNode created successfully\n")
+	log.Printf("✓ SyncNode created successfully")
 
 	// Example 2: Using preset function for in-memory setup
-	fmt.Println("\n2. Creating SyncNode with preset function:")
+	log.Printf("\n2. Creating SyncNode with preset function:")
 	
 	store2 := memstore.New()
 	transport2 := memchan.New(32)
@@ -47,10 +46,10 @@ func main() {
 	}
 	defer inMemoryNode.Close()
 
-	fmt.Printf("✓ In-memory SyncNode created successfully\n")
+	log.Printf("✓ In-memory SyncNode created successfully")
 
 	// Example 3: Performing sync operations
-	fmt.Println("\n3. Performing sync operations:")
+	log.Printf("\n3. Performing sync operations:")
 	
 	ctx := context.Background()
 
@@ -59,7 +58,7 @@ func main() {
 	if err != nil {
 		log.Printf("Sync failed: %v", err)
 	} else {
-		fmt.Printf("✓ Sync completed: %d events pushed, %d events pulled\n", 
+		log.Printf("✓ Sync completed: %d events pushed, %d events pulled", 
 			result.EventsPushed, result.EventsPulled)
 	}
 
@@ -68,7 +67,7 @@ func main() {
 	if err != nil {
 		log.Printf("Push failed: %v", err)
 	} else {
-		fmt.Printf("✓ Push completed: %d events pushed\n", pushResult.EventsPushed)
+		log.Printf("✓ Push completed: %d events pushed", pushResult.EventsPushed)
 	}
 
 	// Pull operation
@@ -76,15 +75,15 @@ func main() {
 	if err != nil {
 		log.Printf("Pull failed: %v", err)
 	} else {
-		fmt.Printf("✓ Pull completed: %d events pulled\n", pullResult.EventsPulled)
+		log.Printf("✓ Pull completed: %d events pulled", pullResult.EventsPulled)
 	}
 
-	fmt.Println("\n4. SyncNode API Benefits:")
-	fmt.Println("   • Cleaner, more intuitive API")
-	fmt.Println("   • Preset functions for common configurations")
-	fmt.Println("   • Better documentation and examples")
-	fmt.Println("   • Full backward compatibility with SyncManager")
-	fmt.Println("   • Improved error handling and validation")
+	log.Printf("\n4. SyncNode API Benefits:")
+	log.Printf("   • Cleaner, more intuitive API")
+	log.Printf("   • Preset functions for common configurations")
+	log.Printf("   • Better documentation and examples")
+	log.Printf("   • Full backward compatibility with SyncManager")
+	log.Printf("   • Improved error handling and validation")
 
-	fmt.Println("\nExample completed successfully!")
+	log.Printf("\nExample completed successfully!")
 }

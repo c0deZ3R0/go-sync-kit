@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/c0deZ3R0/go-sync-kit/storage/sqlite"
@@ -13,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Go Sync Kit HTTP Client Example ===")
+	log.Printf("=== Go Sync Kit HTTP Client Example ===")
 
 	// Local store (each client maintains its own DB)
 	store, err := sqlite.New(&sqlite.Config{DataSourceName: "client.db"})
@@ -39,6 +38,6 @@ func main() {
 		log.Fatalf("sync failed: %v", err)
 	}
 
-	fmt.Printf("✅ Sync complete: pushed %d, pulled %d, conflicts %d\n",
+	log.Printf("✅ Sync complete: pushed %d, pulled %d, conflicts %d",
 		result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
 }

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -13,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Go Sync Kit HTTP Server Example ===")
+	log.Printf("=== Go Sync Kit HTTP Server Example ===")
 
 	// Event store (SQLite here, could be Postgres in prod)
 	store, err := sqlite.New(&sqlite.Config{DataSourceName: "server.db"})
@@ -36,6 +35,6 @@ func main() {
 	handler := httptransport.NewSyncHandler(store, nil, nil, nil)
 	http.Handle("/sync", handler)
 
-	fmt.Println("✅ Sync server listening on :8080")
+	log.Printf("✅ Sync server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
