@@ -24,8 +24,7 @@ func TestNewNode(t *testing.T) {
 			t.Fatal("Expected node to be non-nil")
 		}
 
-		// Verify it implements SyncNode interface (which is SyncManager)
-		var _ SyncNode = node
+		// Verify it implements SyncNode interface (ensured by compile-time check in node.go)
 	})
 
 	t.Run("fails without store", func(t *testing.T) {
@@ -133,8 +132,7 @@ func TestNewInMemoryNode(t *testing.T) {
 			t.Fatal("Expected node to be non-nil")
 		}
 
-		// Verify it implements SyncNode interface
-		var _ SyncNode = node
+		// Verify it implements SyncNode interface (ensured by compile-time check in node.go)
 	})
 
 	t.Run("fails with nil store", func(t *testing.T) {
@@ -218,8 +216,7 @@ func TestNewHTTPServerNode(t *testing.T) {
 			t.Fatal("Expected node to be non-nil")
 		}
 
-		// Verify it implements SyncNode interface
-		var _ SyncNode = node
+		// Verify it implements SyncNode interface (ensured by compile-time check in node.go)
 	})
 
 	t.Run("fails with nil store", func(t *testing.T) {
@@ -266,8 +263,7 @@ func TestNewHTTPClientNode(t *testing.T) {
 			t.Fatal("Expected node to be non-nil")
 		}
 
-		// Verify it implements SyncNode interface
-		var _ SyncNode = node
+		// Verify it implements SyncNode interface (ensured by compile-time check in node.go)
 	})
 
 	t.Run("fails with nil store", func(t *testing.T) {

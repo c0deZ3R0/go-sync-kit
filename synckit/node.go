@@ -11,7 +11,6 @@ func NewNode(opts ...ManagerOption) (SyncNode, error) {
 	return NewManager(opts...)
 }
 
-// Compile-time check: ensure SyncNode always satisfies SyncManager.
-// This guarantees that if SyncNode becomes a real struct wrapper later,
-// missing method forwards will be caught by the compiler.
+// Compile-time check: ensure SyncNode satisfies SyncManager.
+// If SyncNode evolves into a struct wrapper later, missing method forwards will cause compile-time errors.
 var _ SyncManager = (SyncNode)(nil)
