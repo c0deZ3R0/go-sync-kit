@@ -101,7 +101,7 @@ func Trace(msg string, attrs ...slog.Attr) {
 	for i, attr := range attrs {
 		args[i] = attr
 	}
-	Default().Log(nil, slog.Level(LevelTrace), msg, args...)
+	Default().Log(context.Background(), slog.Level(LevelTrace), msg, args...)
 }
 
 // Fatal logs at fatal level and exits the program
@@ -110,7 +110,7 @@ func Fatal(msg string, attrs ...slog.Attr) {
 	for i, attr := range attrs {
 		args[i] = attr
 	}
-	Default().Log(nil, slog.Level(LevelFatal), msg, args...)
+	Default().Log(context.Background(), slog.Level(LevelFatal), msg, args...)
 	os.Exit(1)
 }
 
