@@ -3,6 +3,7 @@ package synckit
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestNewNode(t *testing.T) {
@@ -39,6 +40,18 @@ func TestNewNode(t *testing.T) {
 		}
 	})
 
+	t.Run("fails without transport", func(t *testing.T) {
+		store := &TestEventStore{}
+
+		_, err := NewNode(
+			WithStore(store),
+		)
+
+		if err == nil {
+			t.Fatal("Expected error when transport is missing")
+		}
+	})
+
 	t.Run("works with all lifecycle methods", func(t *testing.T) {
 		store := &TestEventStore{}
 		transport := &TestTransport{}
@@ -46,6 +59,7 @@ func TestNewNode(t *testing.T) {
 		node, err := NewNode(
 			WithStore(store),
 			WithTransport(transport),
+			WithSyncInterval(time.Second), // Required for StartAutoSync
 		)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -78,6 +92,23 @@ func TestNewNode(t *testing.T) {
 		}
 		if pullResult == nil {
 			t.Error("Expected pull result to be non-nil")
+		}
+
+		// Test auto sync lifecycle
+		if err := node.StartAutoSync(ctx); err != nil {
+			t.Errorf("StartAutoSync failed: %v", err)
+		}
+
+		if err := node.StopAutoSync(); err != nil {
+			t.Errorf("StopAutoSync failed: %v", err)
+		}
+
+		// Test subscription
+		subscribeErr := node.Subscribe(func(result *SyncResult) {
+			// Simple callback for testing
+		})
+		if subscribeErr != nil {
+			t.Errorf("Subscribe failed: %v", subscribeErr)
 		}
 
 		// Test close
