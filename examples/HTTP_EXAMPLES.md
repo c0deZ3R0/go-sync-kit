@@ -27,6 +27,35 @@ go run main.go
 ```
 Client connects to server and performs a sync operation.
 
+## 📡 Real-time Events with SSE
+
+The HTTP examples show **request/response sync operations**. For **real-time event streaming**, Go Sync Kit also provides **SSE (Server-Sent Events) transport**:
+
+### HTTP vs SSE Transport:
+- **HTTP Transport** (`/sync`): Request/response for Push/Pull operations
+- **SSE Transport** (`/sse`): Real-time streaming for Subscribe operations
+
+### Hybrid Usage Pattern:
+```go
+// HTTP transport for sync operations
+httpTransport := httptransport.NewTransport("http://server:8080/sync", nil, nil, nil)
+
+// SSE transport for real-time subscriptions  
+sseTransport := sse.NewClient("http://server:8080/sse", nil)
+
+// Use HTTP for push/pull, SSE for real-time events
+result, err := syncNode.Sync(ctx) // Uses HTTP transport
+sseTransport.Subscribe(ctx, eventHandler) // Real-time via SSE
+```
+
+### SSE Examples & Documentation:
+- 📖 **SSE Transport Guide**: `transport/sse/README.md`
+- 🧪 **SSE Usage Examples**: `transport/sse/example_test.go`
+- 🔧 **Server Setup**: See SSE server examples in transport package
+- 📊 **Real-time Architecture**: Combine HTTP sync with SSE streaming
+
+---
+
 ## 🎯 What These Examples Show
 
 ### HTTP Server (`http_server/`)
@@ -53,13 +82,25 @@ Client connects to server and performs a sync operation.
 - **Type Safe**: Full compile-time checking
 - **Clean Separation**: Server/client concerns clearly separated
 
-## 🏗️ Architecture
+## 🏧️ Architecture
 
+### HTTP Transport (Request/Response)
 ```
 ┌─────────────┐    HTTP    ┌─────────────┐
 │   Client    │◄─────────►│   Server    │
 │             │ /sync      │             │  
 │ client.db   │            │ server.db   │
+└─────────────┘            └─────────────┘
+```
+
+### Combined HTTP + SSE (Hybrid Real-time)
+```
+┌─────────────┐    HTTP     ┌─────────────┐
+│   Client    │◄─────────►│   Server    │
+│             │ /sync      │             │
+│             │            │             │
+│             │◄── SSE ───│             │
+│ client.db   │ /sse       │ server.db   │
 └─────────────┘            └─────────────┘
 ```
 
@@ -73,6 +114,7 @@ Client connects to server and performs a sync operation.
 - Use environment variables for connection strings
 - Add TLS/HTTPS configuration
 - Consider load balancing and reverse proxy setup
+- **For Real-time**: Add SSE transport alongside HTTP for live event streaming
 
 **Scaling:**
 - Multiple clients can sync with single server
