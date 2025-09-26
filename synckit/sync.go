@@ -153,6 +153,8 @@ type SyncOptions struct {
 
 // SyncManager coordinates the synchronization process between local and remote stores.
 // This is the main entry point for the sync package.
+//
+// Deprecated: use SyncNode (node.go) instead.
 type SyncManager interface {
 	// Sync performs a bidirectional sync operation
 	Sync(ctx context.Context) (*SyncResult, error)
