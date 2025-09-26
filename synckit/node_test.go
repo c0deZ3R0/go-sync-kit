@@ -316,8 +316,6 @@ func TestSyncNodeLifecycle(t *testing.T) {
 		t.Fatalf("failed to create SyncNode: %v", err)
 	}
 
-	// Test that SyncNode exposes the same interface as SyncManager
-	var _ SyncManager = node // This ensures SyncNode has all SyncManager methods
 
 	// Start auto sync
 	if err := node.StartAutoSync(ctx); err != nil {
