@@ -1,5 +1,9 @@
 package synckit
 
+import (
+	"errors"
+)
+
 // Preset configurations for common SyncNode use cases.
 // These functions provide convenient ways to create SyncNodes with typical configurations.
 // To avoid import cycles, actual store/transport instances should be created by the caller.
@@ -13,6 +17,12 @@ package synckit
 //	transport := memchan.New(16)
 //	node, err := synckit.NewInMemoryNode(store, transport)
 func NewInMemoryNode(store EventStore, transport Transport) (SyncNode, error) {
+	if store == nil {
+		return nil, errors.New("store cannot be nil")
+	}
+	if transport == nil {
+		return nil, errors.New("transport cannot be nil")
+	}
 	return NewNode(
 		WithStore(store),
 		WithTransport(transport),
@@ -28,6 +38,12 @@ func NewInMemoryNode(store EventStore, transport Transport) (SyncNode, error) {
 //	transport := httptransport.NewTransport("", nil, nil, nil) // Configure for server use
 //	node, err := synckit.NewHTTPServerNode(store, transport)
 func NewHTTPServerNode(store EventStore, transport Transport) (SyncNode, error) {
+	if store == nil {
+		return nil, errors.New("store cannot be nil")
+	}
+	if transport == nil {
+		return nil, errors.New("transport cannot be nil")
+	}
 	return NewNode(
 		WithStore(store),
 		WithTransport(transport),
@@ -43,6 +59,12 @@ func NewHTTPServerNode(store EventStore, transport Transport) (SyncNode, error) 
 //	transport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 //	node, err := synckit.NewHTTPClientNode(store, transport)
 func NewHTTPClientNode(store EventStore, transport Transport) (SyncNode, error) {
+	if store == nil {
+		return nil, errors.New("store cannot be nil")
+	}
+	if transport == nil {
+		return nil, errors.New("transport cannot be nil")
+	}
 	return NewNode(
 		WithStore(store),
 		WithTransport(transport),
