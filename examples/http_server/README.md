@@ -57,3 +57,21 @@ CMD ["./server"]
 - **Development/Learning**: Use `main.go` for simplicity
 - **Production**: Use `main_production.go` for proper shutdown handling
 - **Docker/K8s**: Always use `main_production.go` for graceful container lifecycle
+
+## 🗃️ Database Files
+
+Both examples create a `server.db` SQLite file that **persists between runs**:
+
+```bash
+# Clean slate - delete the database file
+rm server.db    # Unix/Mac
+del server.db   # Windows
+
+# Then run the example again
+go run main.go
+```
+
+**Why persistence matters:**
+- Events accumulate across runs (useful for testing sync)
+- Database schema is created on first run
+- Delete the file to start fresh or test initial sync scenarios

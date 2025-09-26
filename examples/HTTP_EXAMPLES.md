@@ -82,6 +82,22 @@ sseTransport.Subscribe(ctx, eventHandler) // Real-time via SSE
 - **Type Safe**: Full compile-time checking
 - **Clean Separation**: Server/client concerns clearly separated
 
+## 🗃️ Database Persistence
+
+**Important**: SQLite database files (`client.db`, `server.db`) **persist between runs**.
+
+```bash
+# For a clean slate, delete the database files:
+rm *.db        # Unix/Mac
+del *.db       # Windows
+```
+
+**When to reset:**
+- Testing initial sync scenarios
+- Clearing accumulated test data
+- Starting fresh after schema changes
+- Demonstrating first-run behavior
+
 ## 🏧️ Architecture
 
 ### HTTP Transport (Request/Response)

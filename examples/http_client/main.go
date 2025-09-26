@@ -15,6 +15,7 @@ func main() {
 	log.Printf("=== Go Sync Kit HTTP Client Example ===")
 
 	// Local store (each client maintains its own DB)
+	// Note: client.db persists between runs; delete it if you want a clean slate
 	store, err := sqlite.New(&sqlite.Config{DataSourceName: "client.db"})
 	if err != nil {
 		log.Fatalf("failed to create store: %v", err)
