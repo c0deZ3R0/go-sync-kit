@@ -1,0 +1,138 @@
+# HTTP Client/Server Examples
+
+These examples demonstrate Go Sync Kit's HTTP transport capabilities using the new **SyncNode** presets.
+
+## 🚀 Quick Start
+
+### 1. Run the Server
+
+**Simple Version (Quick Start):**
+```bash
+cd http_server
+go run main.go
+```
+
+**Production Version (With Graceful Shutdown):**
+```bash
+cd http_server
+go run main_production.go
+```
+Both start on port 8080 and expose `/sync` endpoint.
+
+### 2. Run the Client
+```bash
+# In another terminal
+cd http_client  
+go run main.go
+```
+Client connects to server and performs a sync operation.
+
+## 📡 Real-time Events with SSE
+
+The HTTP examples show **request/response sync operations**. For **real-time event streaming**, Go Sync Kit also provides **SSE (Server-Sent Events) transport**:
+
+### HTTP vs SSE Transport:
+- **HTTP Transport** (`/sync`): Request/response for Push/Pull operations
+- **SSE Transport** (`/sse`): Real-time streaming for Subscribe operations
+
+### Hybrid Usage Pattern:
+```go
+// HTTP transport for sync operations
+httpTransport := httptransport.NewTransport("http://server:8080/sync", nil, nil, nil)
+
+// SSE transport for real-time subscriptions  
+sseTransport := sse.NewClient("http://server:8080/sse", nil)
+
+// Use HTTP for push/pull, SSE for real-time events
+result, err := syncNode.Sync(ctx) // Uses HTTP transport
+sseTransport.Subscribe(ctx, eventHandler) // Real-time via SSE
+```
+
+### SSE Examples & Documentation:
+- 📖 **SSE Transport Guide**: `transport/sse/README.md`
+- 🧪 **SSE Usage Examples**: `transport/sse/example_test.go`
+- 🔧 **Server Setup**: See SSE server examples in transport package
+- 📊 **Real-time Architecture**: Combine HTTP sync with SSE streaming
+
+---
+
+## 🎯 What These Examples Show
+
+### HTTP Server (`http_server/`)
+- **`main.go`**: Simple version for quick understanding
+  - Uses `synckit.NewHTTPServerNode()` preset
+  - Basic HTTP server setup with `log.Fatal`
+- **`main_production.go`**: Production-ready version with:
+  - Graceful shutdown handling (SIGINT/SIGTERM)
+  - HTTP server timeouts and configuration
+  - Proper resource cleanup logging
+  - Signal handling with context cancellation
+
+### HTTP Client (`http_client/`) 
+- Uses `synckit.NewHTTPClientNode()` preset
+- SQLite event store (`client.db`)  
+- HTTP transport pointing to server
+- Performs sync operations against server
+- Real client-server synchronization
+
+## 🔧 Key Benefits
+
+- **Zero Boilerplate**: Presets handle all the setup
+- **Production Ready**: Drop-in SQLite → PostgreSQL swap
+- **Type Safe**: Full compile-time checking
+- **Clean Separation**: Server/client concerns clearly separated
+
+## 🗃️ Database Persistence
+
+**Important**: SQLite database files (`client.db`, `server.db`) **persist between runs**.
+
+```bash
+# For a clean slate, delete the database files:
+rm *.db        # Unix/Mac
+del *.db       # Windows
+```
+
+**When to reset:**
+- Testing initial sync scenarios
+- Clearing accumulated test data
+- Starting fresh after schema changes
+- Demonstrating first-run behavior
+
+## 🏧️ Architecture
+
+### HTTP Transport (Request/Response)
+```
+┌─────────────┐    HTTP    ┌─────────────┐
+│   Client    │◄─────────►│   Server    │
+│             │ /sync      │             │  
+│ client.db   │            │ server.db   │
+└─────────────┘            └─────────────┘
+```
+
+### Combined HTTP + SSE (Hybrid Real-time)
+```
+┌─────────────┐    HTTP     ┌─────────────┐
+│   Client    │◄─────────►│   Server    │
+│             │ /sync      │             │
+│             │            │             │
+│             │◄── SSE ───│             │
+│ client.db   │ /sse       │ server.db   │
+└─────────────┘            └─────────────┘
+```
+
+## 🌐 Production Notes
+
+**For Production:**
+- Use `main_production.go` for graceful shutdown handling
+- Replace `sqlite.New()` with `postgres.New()` 
+- Add authentication/authorization to HTTP transport
+- Configure proper logging and monitoring
+- Use environment variables for connection strings
+- Add TLS/HTTPS configuration
+- Consider load balancing and reverse proxy setup
+- **For Real-time**: Add SSE transport alongside HTTP for live event streaming
+
+**Scaling:**
+- Multiple clients can sync with single server
+- Server can handle concurrent sync requests
+- Database handles conflict resolution automatically

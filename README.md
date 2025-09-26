@@ -156,6 +156,88 @@ Each example is self-contained with its own `go.mod` and includes detailed comme
 - Production deployment patterns with monitoring
 - Custom metrics for business KPIs and multi-environment setups
 
+## SyncNode API - Preferred Interface
+
+### Migration from SyncManager
+
+**SyncNode** is the preferred API for new code. It provides the same functionality as `SyncManager` with a cleaner, more intuitive interface.
+
+#### Quick Migration Guide
+
+**Old (Deprecated):**
+```go
+import "github.com/c0deZ3R0/go-sync-kit/synckit"
+
+// Old way - still works but deprecated
+manager, err := synckit.NewManager(
+    synckit.WithStore(store),
+    synckit.WithTransport(transport),
+    synckit.WithLWW(), // Last-Write-Wins conflict resolution
+)
+```
+
+**New (Preferred):**
+```go
+import "github.com/c0deZ3R0/go-sync-kit/synckit"
+
+// New way - preferred for all new code
+node, err := synckit.NewNode(
+    synckit.WithStore(store),
+    synckit.WithTransport(transport),
+    synckit.WithLWW(), // Last-Write-Wins conflict resolution
+)
+```
+
+#### Preset Functions
+
+SyncNode includes convenient preset functions for common configurations:
+
+```go
+// In-memory development setup
+store := memstore.New()
+transport := memchan.New(16)
+node, err := synckit.NewInMemoryNode(store, transport)
+
+// HTTP client setup  
+store := sqlite.New("client.db")
+transport := httptransport.NewTransport("http://server:8080/sync", nil, nil, nil)
+node, err := synckit.NewHTTPClientNode(store, transport)
+
+// HTTP server setup
+store := postgres.New("connection-string")
+transport := httptransport.NewTransport("", nil, nil, nil) // Configure for server use
+node, err := synckit.NewHTTPServerNode(store, transport)
+```
+
+#### API Compatibility
+
+- **100% Compatible**: SyncNode provides exactly the same methods as SyncManager
+- **Future-Proof**: May evolve into an enhanced struct while maintaining compatibility
+- **Same Performance**: Currently a type alias with zero overhead
+
+#### All SyncManager Methods Available
+
+```go
+// Core sync operations
+result, err := node.Sync(ctx)
+result, err := node.Push(ctx) 
+result, err := node.Pull(ctx)
+
+// Lifecycle management
+err := node.StartAutoSync(ctx)
+err := node.StopAutoSync()
+err := node.Close()
+
+// Event subscription
+err := node.Subscribe(func(result *SyncResult) {
+    // Handle sync events
+})
+```
+
+---
+
+**Recommendation:** Use `SyncNode` for all new projects and gradually migrate existing `SyncManager` usage when convenient.
+
 ## Quick Start
 
 ### ⚡ Functional Options API (New & Recommended)
@@ -163,8 +245,8 @@ Each example is self-contained with its own `go.mod` and includes detailed comme
 Go Sync Kit now provides a simplified functional options API that makes configuration cleaner and more discoverable:
 
 ```go
-// Create a manager with functional options
-manager, err := synckit.NewManager(
+// Create a node with functional options (preferred)
+node, err := synckit.NewNode(
     synckit.WithStore(store),               // SQLite, BadgerDB, etc.
     synckit.WithNullTransport(),           // Local-only (no network)
     synckit.WithLWW(),                     // Last-Write-Wins conflict resolution
@@ -223,7 +305,7 @@ func main() {
     // Create HTTP transport
     transport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
-    mgr, err := synckit.NewManager(
+    node, err := synckit.NewNode(
         synckit.WithStore(store),
         synckit.WithTransport(transport),
         synckit.WithLWW(),
@@ -231,10 +313,10 @@ func main() {
         synckit.WithTimeout(30*time.Second),
     )
     if err != nil {
-        log.Fatalf("Failed to create manager: %v", err)
+        log.Fatalf("Failed to create node: %v", err)
     }
 
-    if err := mgr.Sync(context.Background()); err != nil {
+    if err := node.Sync(context.Background()); err != nil {
         log.Fatalf("Sync failed: %v", err)
     }
     
@@ -303,8 +385,8 @@ func main() {
         SyncInterval: 10 * time.Second,
     }
 
-    // Create and start SyncManager
-    syncManager, err := synckit.NewManager(
+    // Create and start SyncNode
+    syncNode, err := synckit.NewNode(
         synckit.WithStore(store),
         synckit.WithTransport(clientTransport),
         synckit.WithLWW(),
@@ -312,12 +394,12 @@ func main() {
         synckit.WithSyncInterval(syncOptions.SyncInterval),
     )
     if err != nil {
-        log.Fatalf("Failed to create sync manager: %v", err)
+        log.Fatalf("Failed to create sync node: %v", err)
     }
     ctx := context.Background()
 
     // Run synchronization
-    result, err := syncManager.Sync(ctx)
+    result, err := syncNode.Sync(ctx)
     if err != nil {
         log.Fatalf("Sync error: %v", err)
     }
@@ -379,8 +461,8 @@ func main() {
         ConflictResolver: &LastWriteWinsResolver{},
     }
 
-    // Create sync manager  
-    syncManager, err := synckit.NewManager(
+    // Create sync node  
+    syncNode, err := synckit.NewNode(
         synckit.WithStore(store),
         synckit.WithTransport(transport),
         synckit.WithConflictResolver(options.ConflictResolver),
@@ -388,12 +470,12 @@ func main() {
         synckit.WithSyncInterval(options.SyncInterval),
     )
     if err != nil {
-        log.Fatalf("Failed to create sync manager: %v", err)
+        log.Fatalf("Failed to create sync node: %v", err)
     }
 
     // Perform sync
     ctx := context.Background()
-    result, err := syncManager.Sync(ctx)
+    result, err := syncNode.Sync(ctx)
     if err != nil {
         log.Fatalf("Sync failed: %v", err)
     }
@@ -763,18 +845,18 @@ httpTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, n
 // Use SSE transport for real-time Subscribe operations  
 sseTransport := sse.NewClient("http://localhost:8080", nil)
 
-// Create SyncManager with HTTP transport (SSE used separately for real-time)
-syncManager, err := synckit.NewManager(
+// Create SyncNode with HTTP transport (SSE used separately for real-time)
+syncNode, err := synckit.NewNode(
     synckit.WithStore(store),
     synckit.WithTransport(httpTransport),
     synckit.WithLWW(),  // or your preferred conflict resolution
 )
 if err != nil {
-    log.Fatalf("Failed to create sync manager: %v", err)
+    log.Fatalf("Failed to create sync node: %v", err)
 }
 
 // Run periodic sync via HTTP
-result, err := syncManager.Sync(ctx)
+result, err := syncNode.Sync(ctx)
 
 // Run real-time subscription via SSE
 go sseTransport.Subscribe(ctx, eventHandler)
@@ -787,14 +869,14 @@ import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport"
 // Create HTTP transport client
 clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
-// Use with SyncManager
-syncManager, err := synckit.NewManager(
+// Use with SyncNode
+syncNode, err := synckit.NewNode(
     synckit.WithStore(store),
     synckit.WithTransport(clientTransport),
     synckit.WithLWW(),  // or your preferred options
 )
 if err != nil {
-    log.Fatalf("Failed to create sync manager: %v", err)
+    log.Fatalf("Failed to create sync node: %v", err)
 }
 ```
 
@@ -903,8 +985,8 @@ handler := httptransport.NewSyncHandler(store, logger, nil, nil)
     // 3. Create HTTP client transport
     clientTransport := httptransport.NewTransport("http://localhost:8080/sync", nil, nil, nil)
 
-    // 4. Create sync manager using functional options
-    syncManager, err := synckit.NewManager(
+    // 4. Create sync node using functional options
+    syncNode, err := synckit.NewNode(
         synckit.WithStore(store),
         synckit.WithTransport(clientTransport),
         synckit.WithLWW(),
@@ -912,12 +994,12 @@ handler := httptransport.NewSyncHandler(store, logger, nil, nil)
         synckit.WithSyncInterval(10*time.Second),
     )
     if err != nil {
-        log.Fatalf("Failed to create sync manager: %v", err)
+        log.Fatalf("Failed to create sync node: %v", err)
     }
 
     // 6. Perform synchronization
     ctx := context.Background()
-    result, err := syncManager.Sync(ctx)
+    result, err := syncNode.Sync(ctx)
     if err != nil {
         log.Fatalf("Sync failed: %v", err)
     }
@@ -1002,8 +1084,8 @@ metricsCollector := metrics.NewCollector()
 // Register with Prometheus (optional - auto-registered by default)
 prometheus.MustRegister(metricsCollector)
 
-// Create sync manager with metrics
-manager, err := synckit.NewManager(
+// Create sync node with metrics
+node, err := synckit.NewNode(
     synckit.WithStore(store),
     synckit.WithTransport(transport),
     synckit.WithMetrics(metricsCollector),
@@ -1061,8 +1143,8 @@ healthManager.AddCheck("transport", health.NewTransportCheck(transport))
 healthManager.AddCheck("memory", health.NewMemoryCheck(100*1024*1024)) // 100MB limit
 healthManager.AddCheck("disk", health.NewDiskSpaceCheck("/tmp", 1024*1024*1024)) // 1GB limit
 
-// Create sync manager with health checks
-manager, err := synckit.NewManager(
+// Create sync node with health checks
+node, err := synckit.NewNode(
     synckit.WithStore(store),
     synckit.WithTransport(transport),
     synckit.WithHealthChecks(healthManager),
@@ -1267,18 +1349,18 @@ healthManager := health.NewManagerWithConfig(healthConfig)
 ```go
 // Start automatic sync every 30 seconds
 ctx := context.Background()
-err := syncManager.StartAutoSync(ctx)
+err := syncNode.StartAutoSync(ctx)
 if err != nil {
     log.Fatal(err)
 }
 
 // Stop automatic sync
-err = syncManager.StopAutoSync()
+err = syncNode.StopAutoSync()
 ```
 
 ### Event Subscriptions
 ```go
-err := syncManager.Subscribe(func(result *sync.SyncResult) {
+err := syncNode.Subscribe(func(result *sync.SyncResult) {
     log.Printf("Sync completed: %d events pushed, %d pulled, %d conflicts resolved",
         result.EventsPushed, result.EventsPulled, result.ConflictsResolved)
     
@@ -1291,10 +1373,10 @@ err := syncManager.Subscribe(func(result *sync.SyncResult) {
 ### Manual Push/Pull
 ```go
 // Push only local changes
-result, err := syncManager.Push(ctx)
+result, err := syncNode.Push(ctx)
 
 // Pull only remote changes  
-result, err := syncManager.Pull(ctx)
+result, err := syncNode.Pull(ctx)
 ```
 
 ## Testing

@@ -15,6 +15,9 @@ type ManagerOption func(*SyncManagerBuilder) error
 
 // NewManager constructs a SyncManager using functional options on top of the existing builder.
 // It keeps your builder for advanced use while offering a concise, discoverable API.
+//
+// Deprecated: NewManager is deprecated. Use NewNode() instead, which provides
+// the same functionality with a cleaner API. See node.go for details.
 func NewManager(opts ...ManagerOption) (SyncManager, error) {
 	const op = "synckit.NewManager"
 
