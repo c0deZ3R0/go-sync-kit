@@ -1143,14 +1143,17 @@ Comprehensive tests for all new features.
 - [ ] Create `query_test.go`
 - [ ] Update `http.go` to use structured errors
 
-### Phase 2: Storage Layer ✅
-- [ ] Update `synckit/types/interfaces.go` with variadic filters
-- [ ] Implement filtering in `storage/memstore/memstore.go`
-- [ ] Add tests for memstore filtering
-- [ ] Implement filtering in `storage/sqlite/store.go`
-- [ ] Add tests for SQLite filtering
-- [ ] Implement filtering in `storage/postgres/store.go`
-- [ ] Add tests for Postgres filtering
+### Phase 2: Storage Layer ✅ **COMPLETE**
+- [x] Update `synckit/types/interfaces.go` with variadic filters
+- [x] Implement filtering in `storage/memstore/memstore.go`
+- [x] Add tests for memstore filtering
+- [x] Implement filtering in `storage/sqlite/store.go`
+- [x] Add tests for SQLite filtering
+- [x] Implement filtering in `storage/postgres/store.go`
+- [x] Add tests for Postgres filtering
+- [x] Update all test mocks to support new interface signature
+
+**Commit:** `feat(storage): add filtering support to EventStore interface` (b643b4d)
 
 ### Phase 3: HTTP Handler Updates ✅
 - [ ] Update `handlePull` with query parsing
