@@ -3,7 +3,7 @@
 Branch: feat/public-api-ergonomics
 Status: In Progress
 Owner: blain
-Last updated: 2025-10-06T11:13:00Z
+Last updated: 2025-10-06T11:17:00Z
 
 Project rules honored:
 - Test often; commit only with 100% passing tests
@@ -85,17 +85,15 @@ Acceptance criteria:
 Risks/notes:
 - Avoid duplication between New(cfg) and functional options path; prefer single wiring function.
 
-### Milestone 3 — Stabilize interfaces
-Goal: freeze Store and Transport interfaces and related types in synckit/types with forward-compat Filter; add GoDoc “Implementors” hints.
+### Milestone 3 — Stabilize interfaces ✅ COMPLETE
+Goal: freeze EventStore and Transport interfaces and related types in synckit/types with forward-compat Filter; add GoDoc “Implementors” hints.
 
-Planned changes:
-- Ensure synckit/types includes:
-  - Store interface: Push, Pull, Latest
-  - Transport interface: Push, Pull, Subscribe
-  - Filter struct {Key, Value string}
-  - Event, EventWithVersion, Version, EventHandler, etc. (as currently defined) consolidated or referenced
-- Update in-repo implementations and call sites to conform to these signatures if any drift exists.
-- Add GoDoc comments to each interface with guidance and implementation notes (latency/ordering/cursor semantics, error handling expectations).
+Planned changes (executed):
+- Added synckit/types/interfaces.go defining EventStore and Transport (matching existing shapes for backward compatibility)
+- Added EventHandler alias and Filter type (forward-compat) with documentation
+- Updated synckit/sync.go to alias EventStore and Transport to synckit/types (no behavior change)
+- Kept CursorTransport in synckit to avoid introducing cycles to types (depends on cursor)
+- Added implementor guidance in interface comments
 
 Files (new/updated):
 - synckit/types/*.go (updated or new store.go/transport.go as needed)
@@ -106,7 +104,7 @@ Tests/validation:
 - Minimal behavior tests around Push/Pull/Subscribe contracts using fakes, where applicable.
 
 Acceptance criteria:
-- Interfaces are in synckit/types and imported by synckit/api.go
+- Interfaces are in synckit/types and synckit aliases point to them
 - All in-repo implementations compile and tests pass
 
 Risks/notes:
@@ -156,6 +154,7 @@ Checklist for each commit:
 ## Completed actions
 - ✅ Milestone 1: Created synckit/api.go (documentation), synckit/doc.go (package overview), and synckit/api_test.go (compile checks). Tests pass, build succeeds.
 - ✅ Milestone 2: Added synckit/canonical_config.go with Config, CursorMode, RetryPolicy, Validate(), and New(cfg). Unit tests comprehensive. Backward compatible with functional options.
+- ✅ Milestone 3: Stabilized EventStore and Transport in synckit/types with implementor hints; synckit now aliases to types; added Filter for forward-compat. Build and tests are green.
 
 ## Next action
-- Proceed with Milestone 3: Stabilize interfaces in synckit/types - add Store/Transport interfaces with docs, compile-time conformance checks, update call sites.
+- Polish: examples and README snippet updates (optional); vet/staticcheck.
