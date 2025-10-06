@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	serverAddr = ":8080"
+	serverAddr = ":8081"
 	hmacSecret = "your-hmac-secret-key-change-in-production"
 )
 
@@ -212,7 +212,7 @@ func seedDemoEvents(store *memstore.MemStore) {
 }
 
 func printUsageInstructions() {
-	fmt.Println(`
+	fmt.Print(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                   Go-Sync-Kit Enterprise Server Running                      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
