@@ -3,7 +3,7 @@
 Branch: feat/public-api-ergonomics
 Status: In Progress
 Owner: blain
-Last updated: 2025-10-06T11:05:00Z
+Last updated: 2025-10-06T11:10:00Z
 
 Project rules honored:
 - Test often; commit only with 100% passing tests
@@ -52,8 +52,10 @@ Acceptance criteria:
 Risks/notes:
 - Name collisions in synckit package; ensure no conflicting exported identifiers.
 
-### Milestone 2 — Canonical config path
+### Milestone 2 — Canonical config path ✅ COMPLETE
 Goal: keep functional options but add a canonical `Config` and `New(Config)` with validation.
+
+**Status:** COMPLETE (2025-10-06T11:10:00Z)
 
 Planned changes:
 - Add synckit/config.go with:
@@ -130,7 +132,13 @@ Risks/notes:
    - Added synckit/api_test.go with compile-time checks for import surface
    - All tests pass: `go test ./synckit/... && go build ./...`
    - Commit: "feat: add single import surface documentation and tests (Milestone 1)"
-2. M2: Add synckit/config.go types and Validate(); introduce newManagerFromConfig(cfg); wire New(cfg); add unit tests.
+2. ✅ M2: Add synckit/canonical_config.go types and Validate(); introduce newManagerFromConfig(cfg); wire New(cfg); add unit tests. (COMPLETE)
+   - Added synckit/canonical_config.go with Config struct, CursorMode, RetryPolicy, Validate(), New(cfg), and newManagerFromConfig()
+   - Added synckit/canonical_config_test.go with comprehensive validation and constructor tests
+   - Config struct bridges to existing SyncManagerBuilder to avoid duplication
+   - Functional options remain supported (backward compatible)
+   - All tests pass: `go test ./synckit/...`
+   - Commit: "feat: add canonical Config and New(cfg) constructor (Milestone 2)"
 3. M2: Bridge existing functional options to use shared wiring; tests ensuring equivalence; docs updated.
 4. M3: Finalize synckit/types interfaces (store.go/transport.go); add docs; add compile-time conformance checks; fix call sites; tests.
 5. Polish: examples and README snippet updates (optional); vet/staticcheck.
@@ -147,6 +155,7 @@ Checklist for each commit:
 
 ## Completed actions
 - ✅ Milestone 1: Created synckit/api.go (documentation), synckit/doc.go (package overview), and synckit/api_test.go (compile checks). Tests pass, build succeeds.
+- ✅ Milestone 2: Added synckit/canonical_config.go with Config, CursorMode, RetryPolicy, Validate(), and New(cfg). Unit tests comprehensive. Backward compatible with functional options.
 
 ## Next action
-- Proceed with Milestone 2: Add synckit/config.go with Config struct, CursorMode, RetryPolicy, Validate() method, and New(cfg) constructor.
+- Proceed with Milestone 3: Stabilize interfaces in synckit/types - add Store/Transport interfaces with docs, compile-time conformance checks, update call sites.
