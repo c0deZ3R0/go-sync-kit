@@ -1175,13 +1175,15 @@ Comprehensive tests for all new features.
 
 **Commit:** `feat(http): Phase 5 - Add idempotency support` (00297ef)
 
-### Phase 6: Middleware ✅
-- [ ] Create `middleware/middleware.go`
-- [ ] Create `middleware/bearer.go`
-- [ ] Create `middleware/tenant.go`
-- [ ] Create `middleware/hmac.go`
-- [ ] Add tests for all middleware
-- [ ] Add example usage in examples/
+### Phase 6: Middleware ✅ **COMPLETE**
+- [x] Create `middleware/middleware.go`
+- [x] Create `middleware/bearer.go`
+- [x] Create `middleware/tenant.go`
+- [x] Create `middleware/hmac.go`
+- [x] Add tests for all middleware
+- [ ] Add example usage in examples/ (deferred)
+
+**Commit:** `feat(http): Phase 6 - Add authentication middleware` (2d4414a)
 
 ### Phase 7: Documentation ✅
 - [ ] Create `docs/http-spec.md`
