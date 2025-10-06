@@ -1,8 +1,8 @@
 // Package synckit - aliases for backward compatibility and future expansion
 package synckit
 
-// This file is reserved for any future backward compatibility aliases
-// or type aliases that might be needed for the synckit package consolidation.
-//
-// Currently, all core interfaces (Event, Version, EventStore, Transport, ConflictResolver)
-// are defined directly in the synckit package, so no aliases are needed at this time.
+import "github.com/c0deZ3R0/go-sync-kit/synckit/types"
+
+// Filter is an alias for types.Filter for convenience.
+// It represents a key-value pair used for filtering events in Store/Transport operations.
+type Filter = types.Filter
