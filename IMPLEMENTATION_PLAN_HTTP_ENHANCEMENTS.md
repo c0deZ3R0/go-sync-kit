@@ -1176,19 +1176,26 @@ Comprehensive tests for all new features.
 **Commit:** `feat(http): Phase 5 - Add idempotency support` (00297ef)
 
 ### Phase 6: Middleware ✅ **COMPLETE**
-- [x] Create `middleware/middleware.go`
-- [x] Create `middleware/bearer.go`
-- [x] Create `middleware/tenant.go`
-- [x] Create `middleware/hmac.go`
-- [x] Add tests for all middleware
+- [x] Create `middleware/middleware.go` with Chain function and context keys
+- [x] Create `middleware/bearer.go` with BearerAuth middleware
+- [x] Create `middleware/tenant.go` with TenantExtractor middleware
+- [x] Create `middleware/hmac.go` with HMACValidator middleware
+- [x] Add comprehensive tests for all middleware components
+- [x] Add tests for middleware chaining and integration
+- [x] Add context helper functions (UserIDFromContext, TenantFromContext)
+- [x] Create HTTP API specification document (`docs/http-spec.md`)
 - [ ] Add example usage in examples/ (deferred)
 
-**Commit:** `feat(http): Phase 6 - Add authentication middleware` (2d4414a)
+**Commit:** `feat(middleware): Implement authentication and authorization middleware (Phase 6)` (856a800)
 
-### Phase 7: Documentation ✅
-- [ ] Create `docs/http-spec.md`
-- [ ] Update README with new features
-- [ ] Add migration guide for existing users
+### Phase 7: Documentation ✅ **COMPLETE**
+- [x] Create `docs/http-spec.md` (completed in Phase 6)
+- [x] Update README with HTTP enterprise features section
+- [x] Add migration guide (`docs/MIGRATION_GUIDE_HTTP.md`)
+- [x] Add code examples for all new features
+- [x] Document backward compatibility guarantees
+
+**Commit:** `docs(http): Phase 7 - Complete documentation and migration guide` (pending)
 
 ### Phase 8: Testing & Integration ✅
 - [ ] Create integration test suite

@@ -112,6 +112,50 @@ res, _ := node.Sync(context.Background())
 - **Full walk-throughs**: [`examples/HTTP_EXAMPLES.md`](examples/HTTP_EXAMPLES.md)
 - **Production server with graceful shutdown**: [`examples/http_server/main_production.go`](examples/http_server/main_production.go)
 
+### HTTP Enterprise Features (v0.24+)
+
+The HTTP transport now includes production-ready enterprise features:
+
+**✨ Structured Error Responses** – Standardized JSON error format with codes
+```json
+{"error": {"code": "INVALID_CURSOR", "message": "...", "op": "pull"}}
+```
+
+**🔍 Advanced Filtering** – Query by type, tenant, aggregate_id
+```bash
+curl "http://localhost:8080/sync/pull?since=42&type=OrderCreated&tenant=acme&limit=100"
+```
+
+**🏢 Multitenancy Support** – Tenant isolation via headers
+```go
+req.Header.Set("X-SyncKit-Tenant", "acme-corp")
+```
+
+**🔒 Idempotency Keys** – Prevent duplicate event processing
+```go
+req.Header.Set("Idempotency-Key", uuid.New().String())
+```
+
+**🛡️ Authentication Middleware** – Bearer token, HMAC, custom validators
+```go
+import "github.com/c0deZ3R0/go-sync-kit/transport/httptransport/middleware"
+
+// Bearer token authentication
+authMiddleware := middleware.BearerAuth(func(token string) (userID, tenantID string, err error) {
+	return validateToken(token) // your validation logic
+})
+
+// Apply to handler
+handler := middleware.Chain(
+	httptransport.NewSyncHandler(store, nil, nil, nil),
+	authMiddleware,
+	middleware.TenantExtractor("X-SyncKit-Tenant"),
+)
+```
+
+**📖 Full API Reference**: [`docs/http-spec.md`](docs/http-spec.md)  
+**📖 Migration Guide**: [`docs/MIGRATION_GUIDE_HTTP.md`](docs/MIGRATION_GUIDE_HTTP.md)
+
 ---
 
 ## Core Concepts
