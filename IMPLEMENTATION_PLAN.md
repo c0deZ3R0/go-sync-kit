@@ -3,7 +3,7 @@
 Branch: feat/public-api-ergonomics
 Status: In Progress
 Owner: blain
-Last updated: 2025-10-06T11:10:00Z
+Last updated: 2025-10-06T11:13:00Z
 
 Project rules honored:
 - Test often; commit only with 100% passing tests
@@ -127,8 +127,8 @@ Risks/notes:
 
 ## Commit plan (update after each commit)
 1. ✅ M1: Add synckit/api.go with type aliases; add doc.go; compile check; tests green. (COMPLETE)
-   - Added synckit/api.go as documentation file (types already aliased in sync.go/conflict.go)
-   - Added synckit/doc.go with package overview and usage examples
+- Added synckit/doc.go with package overview and usage examples (now the single source for package docs)
+- Consolidated API surface docs into synckit/doc.go; removed synckit/api.go to avoid duplication
    - Added synckit/api_test.go with compile-time checks for import surface
    - All tests pass: `go test ./synckit/... && go build ./...`
    - Commit: "feat: add single import surface documentation and tests (Milestone 1)"
