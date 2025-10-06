@@ -20,6 +20,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // MockEvent implements the synckit.Event interface for testing
@@ -67,7 +68,7 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 	return nil
 }
 
-func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStore) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -80,7 +81,7 @@ func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]syn
 	return result, nil
 }
 
-func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 

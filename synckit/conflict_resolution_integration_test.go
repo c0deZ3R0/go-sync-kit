@@ -178,11 +178,11 @@ func (m *MockEventStore) Store(ctx context.Context, event Event, version Version
 	return nil
 }
 
-func (m *MockEventStore) Load(ctx context.Context, since Version) ([]EventWithVersion, error) {
+func (m *MockEventStore) Load(ctx context.Context, since Version, filters ...Filter) ([]EventWithVersion, error) {
 	return []EventWithVersion{}, nil
 }
 
-func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since Version) ([]EventWithVersion, error) {
+func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since Version, filters ...Filter) ([]EventWithVersion, error) {
 	return []EventWithVersion{}, nil
 }
 

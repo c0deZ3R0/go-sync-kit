@@ -404,8 +404,8 @@ func (s *PostgresEventStore) Store(ctx context.Context, event synckit.Event, ver
 	return nil
 }
 
-// Load retrieves all events since a given version.
-func (s *PostgresEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// Load retrieves all events since a given version with optional filters.
+func (s *PostgresEventStore) Load(ctx context.Context, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -418,8 +418,41 @@ func (s *PostgresEventStore) Load(ctx context.Context, since synckit.Version) ([
 		return nil, ErrIncompatibleVersion
 	}
 
-	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > $1 ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
+	// Build query with filters
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > $1`
+	args := []interface{}{int64(sinceCursor.Seq)}
+	paramIndex := 2
+
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
+
+	// Add type filter
+	if eventType, ok := filterMap["type"]; ok {
+		query += fmt.Sprintf(" AND event_type = $%d", paramIndex)
+		args = append(args, eventType)
+		paramIndex++
+	}
+
+	// Add aggregate_id filter
+	if aggregateID, ok := filterMap["aggregate_id"]; ok {
+		query += fmt.Sprintf(" AND aggregate_id = $%d", paramIndex)
+		args = append(args, aggregateID)
+		paramIndex++
+	}
+
+	// Add tenant filter (from metadata JSON)
+	if tenant, ok := filterMap["tenant"]; ok {
+		query += fmt.Sprintf(" AND metadata->>'tenant' = $%d", paramIndex)
+		args = append(args, tenant)
+		paramIndex++
+	}
+
+	query += " ORDER BY version ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "postgres", fmt.Errorf("failed to query events: %w", err))
 	}
@@ -428,8 +461,8 @@ func (s *PostgresEventStore) Load(ctx context.Context, since synckit.Version) ([
 	return s.scanEvents(rows)
 }
 
-// LoadByAggregate retrieves events for a specific aggregate since a given version.
-func (s *PostgresEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// LoadByAggregate retrieves events for a specific aggregate since a given version with optional filters.
+func (s *PostgresEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -442,8 +475,34 @@ func (s *PostgresEventStore) LoadByAggregate(ctx context.Context, aggregateID st
 		return nil, ErrIncompatibleVersion
 	}
 
-	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = $1 AND version > $2 ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
+	// Build query with filters
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = $1 AND version > $2`
+	args := []interface{}{aggregateID, int64(sinceCursor.Seq)}
+	paramIndex := 3
+
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
+
+	// Add type filter
+	if eventType, ok := filterMap["type"]; ok {
+		query += fmt.Sprintf(" AND event_type = $%d", paramIndex)
+		args = append(args, eventType)
+		paramIndex++
+	}
+
+	// Add tenant filter (from metadata JSON)
+	if tenant, ok := filterMap["tenant"]; ok {
+		query += fmt.Sprintf(" AND metadata->>'tenant' = $%d", paramIndex)
+		args = append(args, tenant)
+		paramIndex++
+	}
+
+	query += " ORDER BY version ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, syncErrors.NewWithComponent(syncErrors.OpLoad, "postgres", fmt.Errorf("failed to query events by aggregate: %w", err))
 	}

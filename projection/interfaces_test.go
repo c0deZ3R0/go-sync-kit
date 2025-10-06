@@ -9,6 +9,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // Test implementations for testing purposes
@@ -121,7 +122,7 @@ func (s *TestEventStore) Store(ctx context.Context, event synckit.Event, version
 	return nil
 }
 
-func (s *TestEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (s *TestEventStore) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	if since == nil {
 		return s.events, nil
 	}
@@ -135,7 +136,7 @@ func (s *TestEventStore) Load(ctx context.Context, since synckit.Version) ([]syn
 	return result, nil
 }
 
-func (s *TestEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (s *TestEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	events, err := s.Load(ctx, since)
 	if err != nil {
 		return nil, err
