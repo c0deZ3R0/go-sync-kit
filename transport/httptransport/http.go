@@ -12,6 +12,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/logging"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // Operation constants for consistent error reporting
@@ -272,6 +273,25 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 			slog.String("remote_addr", r.RemoteAddr))
 		respondWithStructuredError(w, r, opPull, ErrCodeInvalidCursor, err.Error(), h.options)
 		return
+	}
+
+	// Extract tenant from header (if not already in query params)
+	if tenant := ExtractTenant(r); tenant != "" {
+		// Check if tenant filter already exists
+		tenantExists := false
+		for _, f := range query.Filters {
+			if f.Key == "tenant" {
+				tenantExists = true
+				break
+			}
+		}
+		// Add tenant filter if not already present
+		if !tenantExists {
+			query.Filters = append(query.Filters, types.Filter{
+				Key:   "tenant",
+				Value: tenant,
+			})
+		}
 	}
 
 	h.logger.Debug("Parsed pull query",
