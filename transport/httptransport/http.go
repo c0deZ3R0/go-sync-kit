@@ -42,11 +42,12 @@ type SyncHooks struct {
 
 // SyncHandler is an http.Handler that serves sync requests.
 type SyncHandler struct {
-	store         synckit.EventStore
-	logger        *slog.Logger
-	versionParser VersionParser
-	options       *ServerOptions
-	hooks         *SyncHooks
+	store              synckit.EventStore
+	logger             *slog.Logger
+	versionParser      VersionParser
+	options            *ServerOptions
+	hooks              *SyncHooks
+	idempotencyTracker *IdempotencyTracker
 }
 
 // NewSyncHandler creates a new handler for serving sync endpoints.
@@ -72,12 +73,16 @@ func NewSyncHandlerWithHooks(store synckit.EventStore, logger *slog.Logger, pars
 	if options == nil {
 		options = DefaultServerOptions()
 	}
+	// Initialize idempotency tracker with 10 minute expiration, 1000 max entries
+	tracker := NewIdempotencyTracker(10*time.Minute, 1000)
+
 	return &SyncHandler{
-		store:         store,
-		logger:        logger,
-		versionParser: parser,
-		options:       options,
-		hooks:         hooks,
+		store:              store,
+		logger:             logger,
+		versionParser:      parser,
+		options:            options,
+		hooks:              hooks,
+		idempotencyTracker: tracker,
 	}
 }
 
@@ -117,6 +122,20 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		slog.String("method", r.Method),
 		slog.String("remote_addr", r.RemoteAddr),
 		slog.String("user_agent", r.UserAgent()))
+
+	// Check for idempotency key in header
+	idempotencyKey := r.Header.Get(HeaderIdempotencyKey)
+	if idempotencyKey != "" {
+		// Check if request was already processed
+		if cached, exists := h.idempotencyTracker.Check(idempotencyKey); exists {
+			h.logger.Info("Returning cached response for duplicate request",
+				slog.String("idempotency_key", idempotencyKey),
+				slog.String("remote_addr", r.RemoteAddr))
+			// Return cached response
+			h.respond(w, r, http.StatusOK, cached)
+			return
+		}
+	}
 
 	if r.Method != http.MethodPost {
 		h.logger.Warn("Push request with invalid method",
@@ -205,8 +224,19 @@ func (h *SyncHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 		slog.Int("committed_count", len(committedEvents)),
 		slog.String("remote_addr", r.RemoteAddr))
 
-	// Send response first
-	h.respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	// Prepare response
+	response := map[string]string{"status": "ok"}
+
+	// Record idempotency key if provided
+	if idempotencyKey != "" {
+		h.idempotencyTracker.Record(idempotencyKey, response)
+		h.logger.Debug("Recorded idempotency key",
+			slog.String("idempotency_key", idempotencyKey),
+			slog.String("remote_addr", r.RemoteAddr))
+	}
+
+	// Send response
+	h.respond(w, r, http.StatusOK, response)
 
 	// Call AfterCommit hook asynchronously if there are committed events
 	if h.hooks != nil && h.hooks.AfterCommit != nil && len(committedEvents) > 0 {
