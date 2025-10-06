@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -32,3 +33,25 @@ const (
 	// ContextKeyUserID stores the authenticated user ID in the request context
 	ContextKeyUserID ContextKey = "user_id"
 )
+
+// UserIDFromContext extracts the user ID from the context.
+// Returns the user ID and true if found, empty string and false otherwise.
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	val := ctx.Value(ContextKeyUserID)
+	if val == nil {
+		return "", false
+	}
+	userID, ok := val.(string)
+	return userID, ok
+}
+
+// TenantFromContext extracts the tenant ID from the context.
+// Returns the tenant ID and true if found, empty string and false otherwise.
+func TenantFromContext(ctx context.Context) (string, bool) {
+	val := ctx.Value(ContextKeyTenant)
+	if val == nil {
+		return "", false
+	}
+	tenantID, ok := val.(string)
+	return tenantID, ok
+}
