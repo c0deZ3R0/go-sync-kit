@@ -24,6 +24,7 @@ import (
 
 // TestEndToEndPullWithFiltering tests complete pull flow with various filters
 func TestEndToEndPullWithFiltering(t *testing.T) {
+	t.Parallel() // Safe to run in parallel as each test creates its own server
 	store := memstore.New()
 	ctx := context.Background()
 
@@ -108,6 +109,7 @@ func TestEndToEndPullWithFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Don't use t.Parallel() here as all subtests share the same server
 			url := server.URL + "/pull" + tt.queryParams
 			resp, err := http.Get(url)
 			if err != nil {
@@ -151,6 +153,7 @@ func TestEndToEndPullWithFiltering(t *testing.T) {
 
 // TestMultitenancyIsolation ensures tenant isolation works correctly
 func TestMultitenancyIsolation(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	ctx := context.Background()
 
@@ -212,6 +215,7 @@ func TestMultitenancyIsolation(t *testing.T) {
 
 // TestIdempotencyKeyHandling tests idempotency across multiple requests
 func TestIdempotencyKeyHandling(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -302,6 +306,7 @@ func TestIdempotencyKeyHandling(t *testing.T) {
 
 // TestMiddlewareChainAuthentication tests complete middleware chain
 func TestMiddlewareChainAuthentication(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 
 	// Token validator
@@ -383,6 +388,7 @@ func TestMiddlewareChainAuthentication(t *testing.T) {
 
 // TestHMACSignatureValidation tests HMAC authentication
 func TestHMACSignatureValidation(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	secret := []byte("test-secret-key")
 
@@ -470,6 +476,7 @@ func TestHMACSignatureValidation(t *testing.T) {
 
 // TestStructuredErrorResponses tests error response format
 func TestStructuredErrorResponses(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -552,6 +559,7 @@ func TestStructuredErrorResponses(t *testing.T) {
 
 // TestConcurrentRequests tests handling of concurrent requests
 func TestConcurrentRequests(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -622,6 +630,7 @@ func TestConcurrentRequests(t *testing.T) {
 }
 // TestBackwardCompatibility_v023_Client tests that old clients work with new servers
 func TestBackwardCompatibility_v023_Client(t *testing.T) {
+	t.Parallel() // Safe to run in parallel
 	store := memstore.New()
 	ctx := context.Background()
 
@@ -719,6 +728,7 @@ func TestBackwardCompatibility_v023_Client(t *testing.T) {
 
 // TestMiddlewareCombinations tests various middleware stacks
 func TestMiddlewareCombinations(t *testing.T) {
+	t.Parallel() // Safe to run in parallel - each subtest creates its own server
 	store := memstore.New()
 
 	tests := []struct {
