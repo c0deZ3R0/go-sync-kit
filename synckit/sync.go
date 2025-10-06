@@ -27,47 +27,17 @@ type EventWithVersion = types.EventWithVersion
 
 // EventStore provides persistence for events.
 // Implementations can use any storage backend (SQLite, BadgerDB, PostgreSQL, etc.).
-type EventStore interface {
-	// Store persists an event to the store
-	Store(ctx context.Context, event Event, version Version) error
-
-	// Load retrieves all events since the given version
-	Load(ctx context.Context, since Version) ([]EventWithVersion, error)
-
-	// LoadByAggregate retrieves events for a specific aggregate since the given version
-	LoadByAggregate(ctx context.Context, aggregateID string, since Version) ([]EventWithVersion, error)
-
-	// LatestVersion returns the latest version in the store
-	LatestVersion(ctx context.Context) (Version, error)
-
-	// ParseVersion converts a string representation into a Version
-	// This allows different storage implementations to handle their own version formats
-	ParseVersion(ctx context.Context, versionStr string) (Version, error)
-
-	// Close closes the store and releases resources
-	Close() error
-}
+//
+// This is now an alias to the stabilized interface in synckit/types.
+type EventStore = types.EventStore
 
 // ConflictResolver is now defined in conflict.go
 
 // Transport handles the actual network communication between clients and servers.
 // Implementations can use HTTP, gRPC, WebSockets, NATS, etc.
-type Transport interface {
-	// Push sends events to the remote endpoint
-	Push(ctx context.Context, events []EventWithVersion) error
-
-	// Pull retrieves events from the remote endpoint since the given version
-	Pull(ctx context.Context, since Version) ([]EventWithVersion, error)
-
-	// GetLatestVersion efficiently retrieves the latest version from remote without pulling events
-	GetLatestVersion(ctx context.Context) (Version, error)
-
-	// Subscribe listens for real-time updates (optional for polling-based transports)
-	Subscribe(ctx context.Context, handler func([]EventWithVersion) error) error
-
-	// Close closes the transport connection
-	Close() error
-}
+//
+// This is now an alias to the stabilized interface in synckit/types.
+type Transport = types.Transport
 
 // CursorTransport extends Transport with cursor-based capabilities.
 type CursorTransport interface {
