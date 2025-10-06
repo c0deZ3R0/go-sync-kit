@@ -252,52 +252,59 @@ func (h *SyncHandler) handleLatestVersion(w http.ResponseWriter, r *http.Request
 }
 
 func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
-	sinceStr := r.URL.Query().Get("since")
-	if sinceStr == "" {
-		sinceStr = "0"
-	}
-
 	h.logger.Debug("Handling pull request",
 		slog.String("method", r.Method),
-		slog.String("since_version", sinceStr),
 		slog.String("remote_addr", r.RemoteAddr))
 
 	if r.Method != http.MethodGet {
 		h.logger.Warn("Pull request with invalid method",
 			slog.String("method", r.Method),
 			slog.String("remote_addr", r.RemoteAddr))
-		h.respondErr(w, r, http.StatusMethodNotAllowed, "method not allowed")
+		respondWithStructuredError(w, r, opPull, ErrCodeInvalidRequest, "method not allowed", h.options)
 		return
 	}
 
-	// Use the injected version parser to handle version parsing
-	// This decouples the transport from specific version implementations
-	version, err := h.versionParser(r.Context(), sinceStr)
+	// Parse query parameters (since, limit, filters)
+	query, err := ParsePullQuery(r.Context(), r, h.versionParser)
 	if err != nil {
-		h.logger.Warn("Invalid since version in pull request",
-			slog.String("since_version", sinceStr),
+		h.logger.Warn("Invalid pull query parameters",
 			slog.String("error", err.Error()),
 			slog.String("remote_addr", r.RemoteAddr))
-		h.respondErr(w, r, http.StatusBadRequest, "invalid 'since' version: "+err.Error())
+		respondWithStructuredError(w, r, opPull, ErrCodeInvalidCursor, err.Error(), h.options)
 		return
 	}
+
+	h.logger.Debug("Parsed pull query",
+		slog.String("since", query.Since.String()),
+		slog.Int("limit", query.Limit),
+		slog.Int("filter_count", len(query.Filters)),
+		slog.String("remote_addr", r.RemoteAddr))
 
 	// Call BeforePull hook if configured
 	if h.hooks != nil && h.hooks.BeforePull != nil {
 		h.logger.Debug("Calling BeforePull hook",
-			slog.String("since_version", sinceStr),
+			slog.String("since_version", query.Since.String()),
 			slog.String("remote_addr", r.RemoteAddr))
-		h.hooks.BeforePull(r.Context(), version)
+		h.hooks.BeforePull(r.Context(), query.Since)
 	}
 
-	events, err := h.store.Load(r.Context(), version)
+	// Load events with filters
+	events, err := h.store.Load(r.Context(), query.Since, query.Filters...)
 	if err != nil {
 		h.logger.Error("Failed to load events from store",
 			slog.String("error", err.Error()),
-			slog.String("since_version", sinceStr),
+			slog.String("since_version", query.Since.String()),
 			slog.String("remote_addr", r.RemoteAddr))
-		h.respondErr(w, r, http.StatusInternalServerError, "could not load events")
+		respondWithStructuredError(w, r, opPull, ErrCodeInternal, "failed to load events", h.options)
 		return
+	}
+
+	// Apply limit to result set
+	if len(events) > query.Limit {
+		h.logger.Debug("Applying limit to events",
+			slog.Int("original_count", len(events)),
+			slog.Int("limit", query.Limit))
+		events = events[:query.Limit]
 	}
 
 	// Convert events to JSON format for response
@@ -308,7 +315,8 @@ func (h *SyncHandler) handlePull(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("Successfully pulled events",
 		slog.Int("event_count", len(events)),
-		slog.String("since_version", sinceStr),
+		slog.String("since_version", query.Since.String()),
+		slog.Int("filter_count", len(query.Filters)),
 		slog.String("remote_addr", r.RemoteAddr))
 	h.respond(w, r, http.StatusOK, jsonEvents)
 }

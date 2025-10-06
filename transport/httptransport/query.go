@@ -23,14 +23,16 @@ func ParsePullQuery(ctx context.Context, r *http.Request, parser VersionParser) 
 		Filters: make([]types.Filter, 0),
 	}
 
-	// Parse 'since' cursor
-	if since := r.URL.Query().Get("since"); since != "" {
-		version, err := parser(ctx, since)
-		if err != nil {
-			return nil, fmt.Errorf("invalid since cursor: %w", err)
-		}
-		query.Since = version
+	// Parse 'since' cursor (default to "0" if not provided)
+	sinceStr := r.URL.Query().Get("since")
+	if sinceStr == "" {
+		sinceStr = "0"
 	}
+	version, err := parser(ctx, sinceStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid since cursor: %w", err)
+	}
+	query.Since = version
 
 	// Parse 'limit'
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
