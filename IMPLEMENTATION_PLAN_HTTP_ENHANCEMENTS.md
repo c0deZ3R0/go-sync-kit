@@ -1218,6 +1218,48 @@ Comprehensive tests for all new features.
 - [x] Performance benchmarks added (`benchmark_test.go`)
 - [x] Fix integration test port conflicts with t.Parallel()
 - [x] All tests passing (100%)
+- [x] **Create enterprise HTTP server example** (`examples/http_enterprise/`)
+  - Complete production-ready server with authentication
+  - Bearer token authentication with multi-tenant support
+  - Middleware chaining (auth, tenant extraction, HMAC validation)
+  - Idempotency key support for duplicate request protection
+  - Structured logging with slog (JSON output)
+  - Observability hooks for pull/commit events
+  - Seeded demo data for acme-corp (4 events) and globex-inc (2 events)
+  - Comprehensive README with quick start, curl examples, production deployment guide
+  - Server features: compression, size limits, timeouts, tenant isolation, graceful shutdown
+  - Formatted usage instructions on startup
+  - Complete go.mod setup and verified working binary
+
+**Files Added:**
+- `transport/httptransport/integration_test.go` - 845 lines, 10 test functions, 35+ scenarios
+- `transport/httptransport/security_test.go` - 503 lines, 6 test functions, 20+ security scenarios
+- `transport/httptransport/benchmark_test.go` - Already existing, compression benchmarks
+- `examples/http_enterprise/README.md` - 408 lines, comprehensive guide
+- `examples/http_enterprise/server/main.go` - 283 lines, production-ready server
+- `examples/http_enterprise/server/go.mod` - Complete module setup
+
+**Coverage:**
+- Integration tests: End-to-end HTTP flows with real servers
+- Security tests: Enterprise-grade security validation
+- Backward compatibility: v0.23 client support verified
+- Concurrent access: 50 simultaneous requests tested
+- All packages: 100% test pass rate
+- Example application: Enterprise HTTP server fully functional and verified
+
+**Commits:**
+1. ✅ `test(http): add comprehensive security tests for HTTP transport` (commit 7a45f2e)
+2. ✅ `feat: add enterprise HTTP server example with auth, multitenancy, and security features` (commit 73d523f)
+- [x] Add comprehensive security test suite (`security_test.go`)
+- [x] Test decompression bomb protection (zip bomb attacks)
+- [x] Test header injection protection (CRLF, null bytes)
+- [x] Test path traversal protection (directory traversal attacks)
+- [x] Test JSON injection protection (deeply nested, excessive keys)
+- [x] Test content-type confusion attacks
+- [x] Test concurrent load from same client (DoS protection)
+- [x] Performance benchmarks added (`benchmark_test.go`)
+- [x] Fix integration test port conflicts with t.Parallel()
+- [x] All tests passing (100%)
 
 **Files Added:**
 - `transport/httptransport/integration_test.go` - 845 lines, 10 test functions, 35+ scenarios
