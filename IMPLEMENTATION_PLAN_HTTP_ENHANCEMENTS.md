@@ -1167,11 +1167,13 @@ Comprehensive tests for all new features.
 - [ ] Update handlers to use tenant header
 - [ ] Add tests for tenant extraction
 
-### Phase 5: Idempotency ✅
-- [ ] Create `idempotency.go` with tracker
-- [ ] Create `idempotency_test.go`
-- [ ] Update `handlePush` with idempotency
-- [ ] Add integration tests
+### Phase 5: Idempotency ✅ **COMPLETE**
+- [x] Create `idempotency.go` with tracker
+- [x] Create `idempotency_test.go`
+- [x] Update `handlePush` with idempotency
+- [x] Add integration tests
+
+**Commit:** `feat(http): Phase 5 - Add idempotency support` (00297ef)
 
 ### Phase 6: Middleware ✅
 - [ ] Create `middleware/middleware.go`
