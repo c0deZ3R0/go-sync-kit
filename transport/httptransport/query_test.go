@@ -26,7 +26,7 @@ func mockVersionParser(ctx context.Context, s string) (types.Version, error) {
 
 func TestParsePullQuery_Defaults(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/pull", nil)
-	
+
 	query, err := ParsePullQuery(context.Background(), req, mockVersionParser)
 	if err != nil {
 		t.Fatalf("ParsePullQuery() error = %v", err)
@@ -50,7 +50,7 @@ func TestParsePullQuery_Defaults(t *testing.T) {
 
 func TestParsePullQuery_WithSince(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=42", nil)
-	
+
 	query, err := ParsePullQuery(context.Background(), req, mockVersionParser)
 	if err != nil {
 		t.Fatalf("ParsePullQuery() error = %v", err)
@@ -115,9 +115,9 @@ func TestParsePullQuery_WithLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/pull?limit="+tt.limit, nil)
-			
+
 			query, err := ParsePullQuery(context.Background(), req, mockVersionParser)
-			
+
 			if tt.expectErr {
 				if err == nil {
 					t.Errorf("ParsePullQuery() expected error, got nil")
@@ -182,7 +182,7 @@ func TestParsePullQuery_WithFilters(t *testing.T) {
 				for _, f := range filters {
 					found[f.Key] = f.Value
 				}
-				
+
 				if found["type"] != "OrderCreated" {
 					t.Errorf("Expected type=OrderCreated")
 				}
@@ -199,7 +199,7 @@ func TestParsePullQuery_WithFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.queryString, nil)
-			
+
 			query, err := ParsePullQuery(context.Background(), req, mockVersionParser)
 			if err != nil {
 				t.Fatalf("ParsePullQuery() error = %v", err)
@@ -217,9 +217,9 @@ func TestParsePullQuery_WithFilters(t *testing.T) {
 }
 
 func TestParsePullQuery_CompleteQuery(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, 
+	req := httptest.NewRequest(http.MethodGet,
 		"/pull?since=100&limit=50&type=OrderCreated&tenant=acme-corp", nil)
-	
+
 	query, err := ParsePullQuery(context.Background(), req, mockVersionParser)
 	if err != nil {
 		t.Fatalf("ParsePullQuery() error = %v", err)
@@ -259,7 +259,7 @@ func TestParsePullQuery_CompleteQuery(t *testing.T) {
 
 func TestParsePullQuery_InvalidSince(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/pull?since=invalid", nil)
-	
+
 	_, err := ParsePullQuery(context.Background(), req, mockVersionParser)
 	if err == nil {
 		t.Error("ParsePullQuery() expected error for invalid since")
@@ -308,7 +308,7 @@ func TestGetFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			value, found := GetFilter(filters, tt.key)
-			
+
 			if found != tt.wantFound {
 				t.Errorf("GetFilter() found = %v, want %v", found, tt.wantFound)
 			}
@@ -324,7 +324,7 @@ func TestGetFilter_EmptyFilters(t *testing.T) {
 	var filters []types.Filter
 
 	value, found := GetFilter(filters, "type")
-	
+
 	if found {
 		t.Error("GetFilter() should not find in empty filters")
 	}

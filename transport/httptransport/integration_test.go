@@ -628,6 +628,7 @@ func TestConcurrentRequests(t *testing.T) {
 		}
 	}
 }
+
 // TestBackwardCompatibility_v023_Client tests that old clients work with new servers
 func TestBackwardCompatibility_v023_Client(t *testing.T) {
 	t.Parallel() // Safe to run in parallel
@@ -682,9 +683,9 @@ func TestBackwardCompatibility_v023_Client(t *testing.T) {
 			Event: JSONEvent{
 				ID:          uuid.New().String(),
 				Type:        "OldClientEvent",
-			AggregateID: "test-old",
-			Data:        map[string]interface{}{"value": 999},
-			Metadata:    map[string]interface{}{},
+				AggregateID: "test-old",
+				Data:        map[string]interface{}{"value": 999},
+				Metadata:    map[string]interface{}{},
 			},
 			Version: "6",
 		}

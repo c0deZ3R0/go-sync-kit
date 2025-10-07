@@ -21,45 +21,45 @@ import (
 // TestSecurityDecompressionBomb tests protection against compression bomb attacks
 func TestSecurityDecompressionBomb(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
 	opts := &ServerOptions{
-		MaxRequestSize:      10 * 1024 * 1024,  // 10MB compressed max
-		MaxDecompressedSize: 20 * 1024 * 1024,  // 20MB decompressed max
+		MaxRequestSize:      10 * 1024 * 1024, // 10MB compressed max
+		MaxDecompressedSize: 20 * 1024 * 1024, // 20MB decompressed max
 		CompressionEnabled:  true,
 	}
-	
+
 	handler := NewSyncHandler(store, nil, nil, opts)
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	tests := []struct {
 		name               string
-		uncompressedSize   int      // Size of uncompressed data
-		compressionRatio   float64  // Approximate compression ratio
+		uncompressedSize   int     // Size of uncompressed data
+		compressionRatio   float64 // Approximate compression ratio
 		expectRejection    bool
 		expectedStatusCode int
 	}{
 		{
 			name:               "normal_compressed_request",
 			uncompressedSize:   1024 * 1024, // 1MB
-			compressionRatio:   0.1,          // Compresses well
+			compressionRatio:   0.1,         // Compresses well
 			expectRejection:    false,
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:               "decompression_bomb_25MB",
 			uncompressedSize:   25 * 1024 * 1024, // 25MB uncompressed (exceeds 20MB limit)
-			compressionRatio:   0.01,              // Extreme compression (25MB → ~250KB)
-			expectRejection:    false, // NOTE: Currently not caught due to test payload structure
-			expectedStatusCode: http.StatusOK, // The actual JSON is small after compression
+			compressionRatio:   0.01,             // Extreme compression (25MB → ~250KB)
+			expectRejection:    false,            // NOTE: Currently not caught due to test payload structure
+			expectedStatusCode: http.StatusOK,    // The actual JSON is small after compression
 		},
 		{
 			name:               "decompression_bomb_100MB",
 			uncompressedSize:   100 * 1024 * 1024, // 100MB uncompressed
-			compressionRatio:   0.01,               // 100MB → ~1MB compressed
-			expectRejection:    false, // NOTE: Currently not caught due to test payload structure  
-			expectedStatusCode: http.StatusOK, // The actual JSON is small after compression
+			compressionRatio:   0.01,              // 100MB → ~1MB compressed
+			expectRejection:    false,             // NOTE: Currently not caught due to test payload structure
+			expectedStatusCode: http.StatusOK,     // The actual JSON is small after compression
 		},
 	}
 
@@ -67,12 +67,12 @@ func TestSecurityDecompressionBomb(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create highly compressible data (repeated bytes)
 			uncompressedData := bytes.Repeat([]byte("A"), tt.uncompressedSize)
-			
+
 			// Wrap in minimal valid JSON event array
 			jsonData := []byte(fmt.Sprintf(`[{"event":{"id":"%s","type":"Test","aggregate_id":"test","data":"%s"},"version":"1"}]`,
 				uuid.New().String(),
 				string(uncompressedData[:min(100, len(uncompressedData))]))) // Only use first 100 chars in JSON
-			
+
 			// Compress the data
 			var compressed bytes.Buffer
 			gzWriter := gzip.NewWriter(&compressed)
@@ -110,7 +110,7 @@ func TestSecurityDecompressionBomb(t *testing.T) {
 // TestSecurityHeaderInjection tests protection against malicious headers
 func TestSecurityHeaderInjection(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -164,7 +164,7 @@ func TestSecurityHeaderInjection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := []byte(`[]`) // Empty events array
 			req, _ := http.NewRequest("POST", server.URL+"/push", bytes.NewBuffer(body))
-			
+
 			for key, value := range tt.headers {
 				req.Header.Set(key, value)
 			}
@@ -196,7 +196,7 @@ func TestSecurityHeaderInjection(t *testing.T) {
 // TestSecurityPathTraversal tests protection against path traversal attacks
 func TestSecurityPathTraversal(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -264,7 +264,7 @@ func TestSecurityPathTraversal(t *testing.T) {
 // TestSecurityJSONInjection tests protection against JSON-based attacks
 func TestSecurityJSONInjection(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -333,7 +333,7 @@ func TestSecurityJSONInjection(t *testing.T) {
 // TestSecurityContentTypeConfusion tests content-type validation
 func TestSecurityContentTypeConfusion(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
@@ -402,9 +402,9 @@ func TestSecurityContentTypeConfusion(t *testing.T) {
 // TestSecurityConcurrentRequestsFromSameClient tests handling of rapid requests
 func TestSecurityConcurrentRequestsFromSameClient(t *testing.T) {
 	t.Parallel()
-	
+
 	store := memstore.New()
-	
+
 	// Pre-populate store with events
 	ctx := context.Background()
 	for i := 0; i < 10; i++ {
@@ -420,7 +420,7 @@ func TestSecurityConcurrentRequestsFromSameClient(t *testing.T) {
 			t.Fatalf("Failed to store event: %v", err)
 		}
 	}
-	
+
 	handler := NewSyncHandler(store, nil, nil, nil)
 	server := httptest.NewServer(handler)
 	defer server.Close()
@@ -474,7 +474,7 @@ func createDeeplyNestedJSON(depth int) string {
 	// Create JSON with nested objects
 	var builder strings.Builder
 	builder.WriteString(`[{"event":{"id":"test","type":"Test","aggregate_id":"agg","data":`)
-	
+
 	for i := 0; i < depth; i++ {
 		builder.WriteString(`{"nested":`)
 	}
@@ -482,7 +482,7 @@ func createDeeplyNestedJSON(depth int) string {
 	for i := 0; i < depth; i++ {
 		builder.WriteString(`}`)
 	}
-	
+
 	builder.WriteString(`},"version":"1"}]`)
 	return builder.String()
 }
@@ -491,14 +491,14 @@ func createJSONWithManyKeys(numKeys int) string {
 	// Create JSON with many keys in metadata
 	var builder strings.Builder
 	builder.WriteString(`[{"event":{"id":"test","type":"Test","aggregate_id":"agg","data":"test","metadata":{`)
-	
+
 	for i := 0; i < numKeys; i++ {
 		if i > 0 {
 			builder.WriteString(`,`)
 		}
 		builder.WriteString(fmt.Sprintf(`"key%d":"value%d"`, i, i))
 	}
-	
+
 	builder.WriteString(`}},"version":"1"}]`)
 	return builder.String()
 }
