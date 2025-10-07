@@ -20,6 +20,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // MockEvent implements the synckit.Event interface for testing
@@ -67,20 +68,60 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 	return nil
 }
 
-func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStore) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
+
+	// Build filter map
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
 
 	var result []synckit.EventWithVersion
 	for _, ev := range m.events {
 		if ev.Version.Compare(since) > 0 {
-			result = append(result, ev)
+			// Apply filters
+			if matchesFilters(ev.Event, filterMap) {
+				result = append(result, ev)
+			}
 		}
 	}
 	return result, nil
 }
 
-func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// matchesFilters checks if an event matches all provided filters
+func matchesFilters(event synckit.Event, filters map[string]string) bool {
+	// Check type filter
+	if eventType, ok := filters["type"]; ok {
+		if event.Type() != eventType {
+			return false
+		}
+	}
+
+	// Check aggregate_id filter
+	if aggregateID, ok := filters["aggregate_id"]; ok {
+		if event.AggregateID() != aggregateID {
+			return false
+		}
+	}
+
+	// Check tenant filter (from metadata)
+	if tenant, ok := filters["tenant"]; ok {
+		meta := event.Metadata()
+		if meta == nil {
+			return false
+		}
+		eventTenant, exists := meta["tenant"]
+		if !exists || eventTenant != tenant {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -776,8 +817,9 @@ func TestSyncHandler_HandlePull_MethodNotAllowed(t *testing.T) {
 
 	handler.handlePull(w, req)
 
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405, got %d", w.Code)
+	// With structured errors, method not allowed returns 400 (INVALID_REQUEST)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
@@ -819,13 +861,13 @@ func TestSyncHandler_HandlePull_WithCustomParser(t *testing.T) {
 		t.Errorf("Expected status 400 for invalid version format, got %d", w.Code)
 	}
 
-	// Verify error message
-	var response map[string]string
+	// Verify structured error response
+	var response ErrorResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Errorf("Failed to decode response: %v", err)
 	}
-	if !strings.Contains(response["error"], "version must start with 'v'") {
-		t.Errorf("Expected error message about version format, got: %s", response["error"])
+	if !strings.Contains(response.Error.Message, "version must start with 'v'") {
+		t.Errorf("Expected error message about version format, got: %s", response.Error.Message)
 	}
 }
 
@@ -1334,3 +1376,192 @@ func TestSyncHandler_DeterministicDecompressedSizeOverflow(t *testing.T) {
 //
 // Future implementation should create legitimate cursor API payloads that actually
 // exceed size limits without relying on ignored fields.
+
+// Test filtered pull with type filter
+func TestSyncHandler_HandlePull_WithTypeFilter(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Store events of different types
+	store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	// Pull with type filter
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0&type=OrderCreated", nil)
+	w := httptest.NewRecorder()
+
+	handler.handlePull(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var jsonEvents []JSONEventWithVersion
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&jsonEvents))
+
+	// Should only return OrderCreated events
+	assert.Equal(t, 2, len(jsonEvents))
+	assert.Equal(t, "OrderCreated", jsonEvents[0].Event.Type)
+	assert.Equal(t, "OrderCreated", jsonEvents[1].Event.Type)
+}
+
+// Test filtered pull with limit
+func TestSyncHandler_HandlePull_WithLimit(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Store many events
+	for i := 1; i <= 10; i++ {
+		store.Store(ctx, &MockEvent{
+			id:          fmt.Sprintf("evt-%d", i),
+			eventType:   "TestEvent",
+			aggregateID: "agg-1",
+			data:        fmt.Sprintf("data-%d", i),
+		}, cursor.IntegerCursor{Seq: uint64(i)})
+	}
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	// Pull with limit=5
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0&limit=5", nil)
+	w := httptest.NewRecorder()
+
+	handler.handlePull(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var jsonEvents []JSONEventWithVersion
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&jsonEvents))
+
+	// Should only return 5 events
+	assert.Equal(t, 5, len(jsonEvents))
+}
+
+// Test filtered pull with invalid limit
+func TestSyncHandler_HandlePull_WithInvalidLimit(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	tests := []struct {
+		name        string
+		limitParam  string
+		expectError bool
+	}{
+		{"negative limit", "limit=-1", true},
+		{"zero limit", "limit=0", true},
+		{"too large limit", "limit=2000", true},
+		{"invalid format", "limit=abc", true},
+		{"valid limit", "limit=100", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/pull?since=0&"+tt.limitParam, nil)
+			w := httptest.NewRecorder()
+
+			handler.handlePull(w, req)
+
+			if tt.expectError {
+				assert.Equal(t, http.StatusBadRequest, w.Code)
+			} else {
+				assert.Equal(t, http.StatusOK, w.Code)
+			}
+		})
+	}
+}
+
+// Test filtered pull with aggregate_id filter
+func TestSyncHandler_HandlePull_WithAggregateFilter(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Store events for different aggregates
+	store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "order-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	store.Store(ctx, &MockEvent{id: "3", eventType: "TestEvent", aggregateID: "order-1", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	// Pull with aggregate_id filter
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0&aggregate_id=order-1", nil)
+	w := httptest.NewRecorder()
+
+	handler.handlePull(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var jsonEvents []JSONEventWithVersion
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&jsonEvents))
+
+	// Should only return events for order-1
+	assert.Equal(t, 2, len(jsonEvents))
+	for _, evt := range jsonEvents {
+		assert.Equal(t, "order-1", evt.Event.AggregateID)
+	}
+}
+
+// Test filtered pull with combined filters
+func TestSyncHandler_HandlePull_WithCombinedFilters(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Store various events
+	store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+	store.Store(ctx, &MockEvent{id: "4", eventType: "OrderCreated", aggregateID: "order-1", data: "data4"}, cursor.IntegerCursor{Seq: 4})
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	// Pull with type AND aggregate_id filter
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0&type=OrderCreated&aggregate_id=order-1", nil)
+	w := httptest.NewRecorder()
+
+	handler.handlePull(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var jsonEvents []JSONEventWithVersion
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&jsonEvents))
+
+	// Should only return OrderCreated events for order-1
+	assert.Equal(t, 2, len(jsonEvents))
+	for _, evt := range jsonEvents {
+		assert.Equal(t, "OrderCreated", evt.Event.Type)
+		assert.Equal(t, "order-1", evt.Event.AggregateID)
+	}
+}
+
+// Test backward compatibility - pull without filters
+func TestSyncHandler_HandlePull_BackwardCompatibility(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Store some events
+	store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "agg-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "agg-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+
+	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
+
+	// Pull without any filters (old style)
+	req := httptest.NewRequest(http.MethodGet, "/pull?since=0", nil)
+	w := httptest.NewRecorder()
+
+	handler.handlePull(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var jsonEvents []JSONEventWithVersion
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&jsonEvents))
+
+	// Should return all events
+	assert.Equal(t, 2, len(jsonEvents))
+}

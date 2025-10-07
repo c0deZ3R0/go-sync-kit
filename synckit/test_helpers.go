@@ -34,11 +34,11 @@ func (m *TestEventStore) Store(_ context.Context, event Event, version Version) 
 	return nil
 }
 
-func (m *TestEventStore) Load(_ context.Context, _ Version) ([]EventWithVersion, error) {
+func (m *TestEventStore) Load(_ context.Context, _ Version, _ ...Filter) ([]EventWithVersion, error) {
 	return m.events, nil
 }
 
-func (m *TestEventStore) LoadByAggregate(_ context.Context, _ string, _ Version) ([]EventWithVersion, error) {
+func (m *TestEventStore) LoadByAggregate(_ context.Context, _ string, _ Version, _ ...Filter) ([]EventWithVersion, error) {
 	return nil, nil
 }
 
