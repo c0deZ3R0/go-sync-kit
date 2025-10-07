@@ -1,6 +1,11 @@
 # go-sync-kit
 
-> **⚠️ DISCLAIMER:** This library is under active development and has not been thoroughly tested in production environments. Use with caution in production systems. We recommend thorough testing in staging environments before deploying to production. Contributions, bug reports, and production feedback are welcome!
+> **⚠️ DISCLAIMER:** This library is under active development and has not been thoroughly tested in production environments. **Breaking changes may occur between versions** as we iterate on the API design. Use with caution in production systems. We recommend:
+> - Pinning to specific versions in your `go.mod`
+> - Thoroughly testing in staging environments before deploying to production
+> - Reviewing release notes and migration guides when upgrading
+> 
+> Contributions, bug reports, and production feedback are welcome!
 
 Tiny, composable building blocks for **event sync** in Go.
 
