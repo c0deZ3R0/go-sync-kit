@@ -238,7 +238,7 @@ func (th *TimeoutHandler[T]) handleTimeoutFail(state T) {
 }
 
 // handleTimeoutReset resets the state machine to its initial state on timeout.
-func (th *TimeoutHandler[T]) handleTimeoutReset(state T) {
+func (th *TimeoutHandler[T]) handleTimeoutReset(_ T) {
 	// Reset to initial state - we need to access the initial state from config
 	// This is a simplified implementation - in practice you might want to store the initial state
 	// or provide it through configuration

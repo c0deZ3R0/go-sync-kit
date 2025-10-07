@@ -354,7 +354,7 @@ func TestSyncHandler_CompressedRequests(t *testing.T) {
 	})
 }
 
-func setupTestStore(t *testing.T) (*MockEventStore, func()) {
+func setupTestStore(_ *testing.T) (*MockEventStore, func()) {
 	store := NewMockEventStore()
 	cleanup := func() {}
 	return store, cleanup

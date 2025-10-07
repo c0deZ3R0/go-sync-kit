@@ -999,7 +999,7 @@ func (sm *syncManager) isTransportHealthyForSync() bool {
 
 // runProjectionsAfterSync executes all configured projection runners after a successful sync.
 // It uses a worker pool to limit concurrency and applies timeouts to prevent hanging.
-func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *SyncResult) error {
+func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, _ *SyncResult) error {
 	// Early return if no projections are configured
 	if sm.projectionConfig == nil || !sm.projectionConfig.RunOnSync || len(sm.projectionConfig.Runners) == 0 {
 		sm.logger.Debug("No projections configured to run after sync")

@@ -560,7 +560,7 @@ func (u *testUser) Close() {
 	}
 }
 
-func newTestUser(name string, t *testing.T) *testUser {
+func newTestUser(name string, _ *testing.T) *testUser {
 	store := &MockEventStore{}
 	return &testUser{name: name, store: store}
 }
