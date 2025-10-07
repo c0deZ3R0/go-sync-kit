@@ -1470,8 +1470,8 @@ func TestSyncHandler_HandlePull_WithAggregateFilter(t *testing.T) {
 	ctx := context.Background()
 	// Store events for different aggregates
 	_ = store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
-	store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "order-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
-	store.Store(ctx, &MockEvent{id: "3", eventType: "TestEvent", aggregateID: "order-1", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+	_ = store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "order-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	_ = store.Store(ctx, &MockEvent{id: "3", eventType: "TestEvent", aggregateID: "order-1", data: "data3"}, cursor.IntegerCursor{Seq: 3})
 
 	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
@@ -1500,10 +1500,10 @@ func TestSyncHandler_HandlePull_WithCombinedFilters(t *testing.T) {
 
 	ctx := context.Background()
 	// Store various events
-	store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
-	store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
-	store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
-	store.Store(ctx, &MockEvent{id: "4", eventType: "OrderCreated", aggregateID: "order-1", data: "data4"}, cursor.IntegerCursor{Seq: 4})
+	_ = store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	_ = store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	_ = store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+	_ = store.Store(ctx, &MockEvent{id: "4", eventType: "OrderCreated", aggregateID: "order-1", data: "data4"}, cursor.IntegerCursor{Seq: 4})
 
 	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
@@ -1533,8 +1533,8 @@ func TestSyncHandler_HandlePull_BackwardCompatibility(t *testing.T) {
 
 	ctx := context.Background()
 	// Store some events
-	store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "agg-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
-	store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "agg-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	_ = store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "agg-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	_ = store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "agg-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
 
 	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 

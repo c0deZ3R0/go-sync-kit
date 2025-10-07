@@ -329,9 +329,8 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 }
 
 // buildRuleGroup creates a RuleGroup from configuration.
-// Note: Currently unused but reserved for future CompositeResolver integration
-//
-//nolint:unused // Reserved for future CompositeResolver feature
+// Reserved for future CompositeResolver integration.
+// Currently tested to ensure it works correctly when needed.
 func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 	opts := make([]RuleGroupOption, 0)
 
@@ -430,7 +429,7 @@ func (cl *ConfigLoader) buildMatcher(conditions MatchConditions) (Spec, error) {
 }
 
 // createResolverFromStrategy creates a ConflictResolver from strategy name and options.
-func (cl *ConfigLoader) createResolverFromStrategy(strategy string, options map[string]interface{}) (ConflictResolver, error) {
+func (cl *ConfigLoader) createResolverFromStrategy(strategy string, _ map[string]interface{}) (ConflictResolver, error) {
 	switch strings.ToLower(strategy) {
 	case "last_write_wins", "lww":
 		return &LastWriteWinsResolver{}, nil
