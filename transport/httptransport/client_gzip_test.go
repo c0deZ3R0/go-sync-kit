@@ -100,7 +100,7 @@ func TestPushGzipCompressionThreshold(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": "ok"}`))
+				_, _ = w.Write([]byte(`{"status": "ok"}`))
 			}))
 			defer server.Close()
 
@@ -152,8 +152,8 @@ func TestPushGzipWithCustomThreshold(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+	w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -186,8 +186,8 @@ func TestPushGzipDisabled(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+	w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -222,7 +222,7 @@ func TestPushGzipContentType(t *testing.T) {
 		receivedContentType = r.Header.Get("Content-Type")
 		receivedContentEncoding = r.Header.Get("Content-Encoding")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+	_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -274,7 +274,7 @@ func TestPushGzipAcceptEncoding(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				receivedAcceptEncoding = r.Header.Get("Accept-Encoding")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": "ok"}`))
+	_, _ = w.Write([]byte(`{"status": "ok"}`))
 			}))
 			defer server.Close()
 

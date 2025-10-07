@@ -14,7 +14,9 @@ func Example_basic() {
 	fmt.Printf("New clock: %s\n", clock.String())
 
 	// Increment when a node creates an event
-	clock.Increment("node-1")
+	if err := clock.Increment("node-1"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("After increment: %s\n", clock.String())
 
 	// Create another clock from JSON
@@ -54,30 +56,46 @@ func Example_distributedScenario() {
 	fmt.Printf("Node C: %s\n", nodeC.String())
 
 	fmt.Println("\n=== Node A creates an event ===")
-	nodeA.Increment("A")
+	if err := nodeA.Increment("A"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Node A: %s\n", nodeA.String())
 
 	fmt.Println("\n=== Node B creates an event independently ===")
-	nodeB.Increment("B")
+	if err := nodeB.Increment("B"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Node B: %s\n", nodeB.String())
 	fmt.Printf("A concurrent with B: %t\n", nodeA.IsConcurrentWith(nodeB))
 
 	fmt.Println("\n=== Node B receives A's state and creates another event ===")
-	nodeB.Merge(nodeA)
-	nodeB.Increment("B")
+	if err := nodeB.Merge(nodeA); err != nil {
+		log.Fatal(err)
+	}
+	if err := nodeB.Increment("B"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Node B after merge and increment: %s\n", nodeB.String())
 	fmt.Printf("B happened after A: %t\n", nodeB.HappenedAfter(nodeA))
 
 	fmt.Println("\n=== Node C joins and creates an event ===")
-	nodeC.Increment("C")
+	if err := nodeC.Increment("C"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Node C: %s\n", nodeC.String())
 	fmt.Printf("C concurrent with A: %t\n", nodeC.IsConcurrentWith(nodeA))
 	fmt.Printf("C concurrent with B: %t\n", nodeC.IsConcurrentWith(nodeB))
 
 	fmt.Println("\n=== Node C syncs with A and B ===")
-	nodeC.Merge(nodeA)
-	nodeC.Merge(nodeB)
-	nodeC.Increment("C")
+	if err := nodeC.Merge(nodeA); err != nil {
+		log.Fatal(err)
+	}
+	if err := nodeC.Merge(nodeB); err != nil {
+		log.Fatal(err)
+	}
+	if err := nodeC.Increment("C"); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Node C after sync: %s\n", nodeC.String())
 	fmt.Printf("C happened after A: %t\n", nodeC.HappenedAfter(nodeA))
 	fmt.Printf("C happened after B: %t\n", nodeC.HappenedAfter(nodeB))
@@ -115,9 +133,15 @@ func Example_distributedScenario() {
 func Example_serialization() {
 	// Create and populate a vector clock
 	clock := version.NewVectorClock()
-	clock.Increment("server-1")
-	clock.Increment("server-2")
-	clock.Increment("server-1") // server-1 creates another event
+	if err := clock.Increment("server-1"); err != nil {
+		log.Fatal(err)
+	}
+	if err := clock.Increment("server-2"); err != nil {
+		log.Fatal(err)
+	}
+	if err := clock.Increment("server-1"); err != nil { // server-1 creates another event
+		log.Fatal(err)
+	}
 
 	fmt.Printf("Original clock: %s\n", clock.String())
 
@@ -153,8 +177,12 @@ func Example_conflictDetection() {
 	fmt.Printf("Bob's version: %s\n", userBob.String())
 
 	fmt.Println("\n=== Both users make changes offline ===")
-	userAlice.Increment("alice")
-	userBob.Increment("bob")
+	if err := userAlice.Increment("alice"); err != nil {
+		log.Fatal(err)
+	}
+	if err := userBob.Increment("bob"); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Printf("Alice after edit: %s\n", userAlice.String())
 	fmt.Printf("Bob after edit: %s\n", userBob.String())
@@ -172,8 +200,12 @@ func Example_conflictDetection() {
 	fmt.Println("\n=== After conflict resolution (merge both changes) ===")
 	// Simulate conflict resolution by merging both versions
 	resolved := userAlice.Clone()
-	resolved.Merge(userBob)
-	resolved.Increment("server") // Server creates merge event
+	if err := resolved.Merge(userBob); err != nil {
+		log.Fatal(err)
+	}
+	if err := resolved.Increment("server"); err != nil { // Server creates merge event
+		log.Fatal(err)
+	}
 
 	fmt.Printf("Resolved version: %s\n", resolved.String())
 	fmt.Printf("Resolved happened after Alice: %t\n", resolved.HappenedAfter(userAlice))

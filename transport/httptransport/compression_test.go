@@ -130,7 +130,7 @@ func TestCreateSafeRequestReader(t *testing.T) {
 				// Create gzip compressed JSON
 				var buf bytes.Buffer
 				gzWriter := gzip.NewWriter(&buf)
-				gzWriter.Write([]byte(`{"test": true}`))
+				_, _ = gzWriter.Write([]byte(`{"test": true}`))
 				gzWriter.Close()
 
 				req := httptest.NewRequest("POST", "/test", &buf)
@@ -195,7 +195,7 @@ func TestMaxDecompressedReader(t *testing.T) {
 		largeData := strings.Repeat("A", 1000) // 1KB of data
 		var buf bytes.Buffer
 		gzWriter := gzip.NewWriter(&buf)
-		gzWriter.Write([]byte(largeData))
+		_, _ = gzWriter.Write([]byte(largeData))
 		gzWriter.Close()
 
 		gzReader, err := gzip.NewReader(&buf)
@@ -224,7 +224,7 @@ func TestMaxDecompressedReader(t *testing.T) {
 		data := "small data"
 		var buf bytes.Buffer
 		gzWriter := gzip.NewWriter(&buf)
-		gzWriter.Write([]byte(data))
+		_, _ = gzWriter.Write([]byte(data))
 		gzWriter.Close()
 
 		gzReader, err := gzip.NewReader(&buf)

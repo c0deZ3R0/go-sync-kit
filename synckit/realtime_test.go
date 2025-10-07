@@ -45,7 +45,7 @@ func (m *MockRealtimeNotifier) Subscribe(ctx context.Context, handler Notificati
 
 				if h != nil {
 					if err := h(notification); err != nil {
-						// Log error
+						_ = err
 					}
 				}
 			case <-ctx.Done():
@@ -132,7 +132,7 @@ func (m *MockReconnectingNotifier) Subscribe(ctx context.Context, handler Notifi
 
 				if h != nil {
 					if err := h(notification); err != nil {
-						// Log error
+						_ = err
 					}
 				}
 			case <-ctx.Done():
@@ -219,7 +219,9 @@ func TestRealtimeSyncManager_Basic(t *testing.T) {
 	event1 := &TestEvent{}
 
 	version1 := &TestVersion{}
-	store.Store(ctx, event1, version1)
+	if err := store.Store(ctx, event1, version1); err != nil {
+		t.Fatalf("Failed to store event: %v", err)
+	}
 
 	// Send notification
 	notif := Notification{
@@ -296,7 +298,9 @@ func TestRealtimeSyncManager_NotificationFilter(t *testing.T) {
 		Metadata:  map[string]interface{}{"important": false},
 	}
 
-	notifier.Notify(ctx, filteredNotif)
+	if err := notifier.Notify(ctx, filteredNotif); err != nil {
+		t.Fatalf("Failed to send filtered notification: %v", err)
+	}
 	time.Sleep(100 * time.Millisecond)
 
 	// Send allowed notification
@@ -307,7 +311,9 @@ func TestRealtimeSyncManager_NotificationFilter(t *testing.T) {
 		Metadata:  map[string]interface{}{"important": true},
 	}
 
-	notifier.Notify(ctx, allowedNotif)
+	if err := notifier.Notify(ctx, allowedNotif); err != nil {
+		t.Fatalf("Failed to send allowed notification: %v", err)
+	}
 	time.Sleep(100 * time.Millisecond)
 
 	// The filter should have processed only the important notification

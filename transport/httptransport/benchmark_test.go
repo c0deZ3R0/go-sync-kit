@@ -170,7 +170,7 @@ func benchmarkSafeRequestReader(b *testing.B, compressed bool, payloadSize int, 
 	if compressed {
 		var buf bytes.Buffer
 		gzWriter := gzip.NewWriter(&buf)
-		gzWriter.Write([]byte(testData))
+		_, _ = gzWriter.Write([]byte(testData))
 		gzWriter.Close()
 		requestBody = buf.Bytes()
 		contentEncoding = "gzip"

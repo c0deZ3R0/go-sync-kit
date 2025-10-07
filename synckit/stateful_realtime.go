@@ -375,9 +375,7 @@ func (srsm *StatefulRealtimeSyncManager) attemptReconnection(ctx context.Context
 	// Attempt to resubscribe to notifications
 	if srsm.realtimeOptions.RealtimeNotifier != nil {
 		// First unsubscribe to clean up any existing connections
-		if err := srsm.realtimeOptions.RealtimeNotifier.Unsubscribe(); err != nil {
-			// ignore in reconnection attempt
-		}
+		_ = srsm.realtimeOptions.RealtimeNotifier.Unsubscribe() // ignore error in reconnection attempt
 
 		// Attempt to subscribe again
 		err := srsm.realtimeOptions.RealtimeNotifier.Subscribe(ctx, func(notification Notification) error {

@@ -484,6 +484,8 @@ func (rsm *realtimeSyncManager) Close() error {
 	if rsm.realtimeOptions.RealtimeNotifier != nil {
 		if err := rsm.realtimeOptions.RealtimeNotifier.Close(); err != nil {
 			// Log error but continue with cleanup
+			// FIXED: Use structured logging
+			slog.Error("failed to close realtime notifier", "error", err)
 		}
 	}
 

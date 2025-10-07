@@ -546,7 +546,7 @@ func TestHTTPTransport_Push_ServerError(t *testing.T) {
 	// Create a test server that returns 500 error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal server error"))
+		_, _ = w.Write([]byte("Internal server error"))
 	}))
 	defer server.Close()
 
@@ -614,7 +614,7 @@ func TestHTTPTransport_Pull_Success(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(jsonEvents)
+		_ = json.NewEncoder(w).Encode(jsonEvents)
 	}))
 	defer server.Close()
 
@@ -768,7 +768,7 @@ func TestSyncHandler_HandlePull_Success(t *testing.T) {
 		aggregateID: "agg-1",
 		data:        "test data",
 	}
-	store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
+	_ = store.Store(ctx, event, cursor.IntegerCursor{Seq: 1})
 
 	// Use default version parser (store.ParseVersion)
 	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
@@ -1020,7 +1020,7 @@ func BenchmarkHTTPTransport_Pull(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(events)
+		_ = json.NewEncoder(w).Encode(events)
 	}))
 	defer server.Close()
 
@@ -1371,9 +1371,9 @@ func TestSyncHandler_HandlePull_WithTypeFilter(t *testing.T) {
 
 	ctx := context.Background()
 	// Store events of different types
-	store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
-	store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
-	store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
+	_ = store.Store(ctx, &MockEvent{id: "1", eventType: "OrderCreated", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	_ = store.Store(ctx, &MockEvent{id: "2", eventType: "OrderUpdated", aggregateID: "order-1", data: "data2"}, cursor.IntegerCursor{Seq: 2})
+	_ = store.Store(ctx, &MockEvent{id: "3", eventType: "OrderCreated", aggregateID: "order-2", data: "data3"}, cursor.IntegerCursor{Seq: 3})
 
 	handler := NewSyncHandler(store, slog.Default(), nil, DefaultServerOptions())
 
@@ -1402,7 +1402,7 @@ func TestSyncHandler_HandlePull_WithLimit(t *testing.T) {
 	ctx := context.Background()
 	// Store many events
 	for i := 1; i <= 10; i++ {
-		store.Store(ctx, &MockEvent{
+		_ = store.Store(ctx, &MockEvent{
 			id:          fmt.Sprintf("evt-%d", i),
 			eventType:   "TestEvent",
 			aggregateID: "agg-1",
@@ -1469,7 +1469,7 @@ func TestSyncHandler_HandlePull_WithAggregateFilter(t *testing.T) {
 
 	ctx := context.Background()
 	// Store events for different aggregates
-	store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
+	_ = store.Store(ctx, &MockEvent{id: "1", eventType: "TestEvent", aggregateID: "order-1", data: "data1"}, cursor.IntegerCursor{Seq: 1})
 	store.Store(ctx, &MockEvent{id: "2", eventType: "TestEvent", aggregateID: "order-2", data: "data2"}, cursor.IntegerCursor{Seq: 2})
 	store.Store(ctx, &MockEvent{id: "3", eventType: "TestEvent", aggregateID: "order-1", data: "data3"}, cursor.IntegerCursor{Seq: 3})
 

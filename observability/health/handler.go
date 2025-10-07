@@ -279,7 +279,9 @@ func SimpleHealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	if _, err := w.Write([]byte("OK")); err != nil {
+		_ = err
+	}
 }
 
 // DetailedHealthOptions configures the detailed health response.
@@ -317,7 +319,9 @@ func (h *HTTPHandler) DetailedHealthHandler(opts DetailedHealthOptions) http.Han
 				response += " (took " + result.Duration.String() + ")"
 			}
 
-			w.Write([]byte(response))
+			if _, err := w.Write([]byte(response)); err != nil {
+				_ = err
+			}
 			return
 		}
 
@@ -340,7 +344,9 @@ func (h *HTTPHandler) DetailedHealthHandler(opts DetailedHealthOptions) http.Han
 			response.Checks = result.Results
 		}
 
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			_ = err
+		}
 	}
 }
 
@@ -360,7 +366,9 @@ func NewHealthCheckServer(checker *HealthChecker, addr string) *HealthCheckServe
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("pong"))
+		if _, err := w.Write([]byte("pong")); err != nil {
+			_ = err
+		}
 	})
 
 	server := &http.Server{

@@ -23,7 +23,9 @@ func TestHMACValidator(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("authenticated"))
+		if _, err := w.Write([]byte("authenticated")); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 		w.Header().Set("X-Body-Length", string(rune(len(body))))
 	})
 
@@ -228,7 +230,9 @@ func TestHMACValidator_Integration(t *testing.T) {
 		if userID != nil {
 			w.Header().Set("X-User-ID", userID.(string))
 		}
-		w.Write(body)
+		if _, err := w.Write(body); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	})
 
 	// Test HMAC with other middleware

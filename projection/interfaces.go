@@ -90,11 +90,8 @@ func WithMetrics(metricsCollector *metrics.SyncKitMetrics) RunnerOption {
 func WithMetricsEnabled(enabled bool) RunnerOption {
 	return func(r *runner) {
 		r.metricsEnabled = enabled
-		// Try to use default projection metrics if available
-		if enabled && r.metrics == nil {
-			// Fallback to legacy projection metrics system
-			// Note: This maintains backward compatibility
-		}
+		_ = r // SA9003: empty branch (staticcheck) - intentionally left empty for backward compatibility
+		//TODO: remove in future major version
 	}
 }
 

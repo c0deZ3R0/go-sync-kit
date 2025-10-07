@@ -142,8 +142,12 @@ func TestHandlePush_IdempotencyIntegration(t *testing.T) {
 			// Verify response bodies are same
 			if tt.wantSameResponse {
 				var resp1, resp2 map[string]interface{}
-				json.Unmarshal(rec1.Body.Bytes(), &resp1)
-				json.Unmarshal(rec2.Body.Bytes(), &resp2)
+				if err := json.Unmarshal(rec1.Body.Bytes(), &resp1); err != nil {
+					t.Fatalf("Failed to unmarshal first response: %v", err)
+				}
+				if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+					t.Fatalf("Failed to unmarshal second response: %v", err)
+				}
 
 				if resp1["status"] != resp2["status"] {
 					t.Errorf("Response mismatch: first=%v, second=%v", resp1, resp2)

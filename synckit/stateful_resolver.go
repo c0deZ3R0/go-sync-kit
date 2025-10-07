@@ -160,7 +160,12 @@ func (sdr *StatefulDynamicResolver) Resolve(ctx context.Context, c Conflict) (Re
 		defer func() {
 			if resetErr := sdr.stateMachine.Reset(); resetErr != nil && sdr.options.Logger != nil {
 				// Log reset error if logger is available
-				// Note: Logger is opaque interface, so we can't log directly here
+				// Note: Logger is opaque interface, so we need to assert its type before logging
+				if logger, ok := sdr.options.Logger.(interface {
+					Log(args ...interface{})
+				}); ok {
+					logger.Log("error", "failed to reset state machine", "error", resetErr)
+				}
 			}
 		}()
 	}
