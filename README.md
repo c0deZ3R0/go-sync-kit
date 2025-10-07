@@ -1,5 +1,7 @@
 # go-sync-kit
 
+> **⚠️ DISCLAIMER:** This library is under active development and has not been thoroughly tested in production environments. Use with caution in production systems. We recommend thorough testing in staging environments before deploying to production. Contributions, bug reports, and production feedback are welcome!
+
 Tiny, composable building blocks for **event sync** in Go.
 
 - ✅ Simple mental model: **Node → Store + Transport (+ Resolver)**
