@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/event"
 	"github.com/c0deZ3R0/go-sync-kit/storage/memstore"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
@@ -100,15 +101,25 @@ func demoBasicPull() {
 	
 	transport := httptransport.NewTransport(serverURL, client, nil, nil)
 	
-	// Pull events
+	// Pull events from beginning (use transport.GetLatestVersion to get a cursor)
 	ctx := context.Background()
-	events, err := transport.Pull(ctx, nil) // nil = pull all events
+	
+	// First, get the latest version to establish a cursor
+	latestVersion, err := transport.GetLatestVersion(ctx)
+	if err != nil {
+		log.Printf("❌ Failed to get latest version: %v", err)
+		return
+	}
+	
+	// Pull all events by using a zero cursor
+	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		log.Printf("❌ Pull failed: %v", err)
 		return
 	}
 
 	fmt.Printf("✓ Pulled %d events for acme-corp tenant (admin user)\n", len(events))
+	fmt.Printf("  Latest version on server: %v\n", latestVersion)
 	for i, ev := range events {
 		if i < 3 { // Show first 3
 			fmt.Printf("  - Event %d: %s (aggregate: %s)\n", 
@@ -132,21 +143,34 @@ func demoFilteredPull() {
 	}
 	
 	transport := httptransport.NewTransport(
-		serverURL+"/pull?type=OrderCreated&limit=5", // Filter: only OrderCreated, max 5
+		serverURL, // Just the base URL, query params go in Pull call or use /pull endpoint
 		client,
 		nil,
 		nil,
 	)
 	
 	ctx := context.Background()
-	events, err := transport.Pull(ctx, nil)
+	// Note: Filtering by query params would require a custom implementation
+	// For now, we'll pull all and show the first 5 OrderCreated events
+	events, err := transport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		log.Printf("❌ Filtered pull failed: %v", err)
 		return
 	}
 
-	fmt.Printf("✓ Pulled %d OrderCreated events (filtered, limit 5)\n", len(events))
+	// Filter client-side for OrderCreated events
+	var orderCreatedEvents []synckit.EventWithVersion
 	for _, ev := range events {
+		if ev.Event.Type() == "OrderCreated" {
+			orderCreatedEvents = append(orderCreatedEvents, ev)
+			if len(orderCreatedEvents) >= 5 {
+				break
+			}
+		}
+	}
+
+	fmt.Printf("✓ Pulled %d OrderCreated events (client-side filtered, limit 5)\n", len(orderCreatedEvents))
+	for _, ev := range orderCreatedEvents {
 		fmt.Printf("  - %s: %s\n", ev.Event.Type(), ev.Event.AggregateID())
 	}
 }
@@ -164,7 +188,7 @@ func demoMultitenancy() {
 		},
 	}
 	acmeTransport := httptransport.NewTransport(serverURL, acmeClient, nil, nil)
-	acmeEvents, err := acmeTransport.Pull(ctx, nil)
+	acmeEvents, err := acmeTransport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		log.Printf("❌ Acme pull failed: %v", err)
 		return
@@ -179,7 +203,7 @@ func demoMultitenancy() {
 		},
 	}
 	globexTransport := httptransport.NewTransport(serverURL, globexClient, nil, nil)
-	globexEvents, err := globexTransport.Pull(ctx, nil)
+	globexEvents, err := globexTransport.Pull(ctx, cursor.IntegerCursor{Seq: 0})
 	if err != nil {
 		log.Printf("❌ Globex pull failed: %v", err)
 		return

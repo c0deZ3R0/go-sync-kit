@@ -98,11 +98,13 @@ func main() {
 	}
 
 	// Build middleware chain
+	// Note: HMAC validator is commented out for simpler demos
+	// Uncomment if you want to require HMAC signatures
 	handler := middleware.Chain(
 		baseHandler,
-		middleware.TenantExtractor("X-Tenant-ID"),           // Extract tenant from header
-		middleware.BearerAuth(authValidator),                 // Require Bearer token
-		middleware.HMACValidator([]byte(hmacSecret), "X-HMAC-Signature"), // Optional HMAC
+		middleware.TenantExtractor("X-Tenant-ID"),  // Extract tenant from header
+		middleware.BearerAuth(authValidator),        // Require Bearer token
+		// middleware.HMACValidator([]byte(hmacSecret), "X-HMAC-Signature"), // Optional HMAC
 	)
 
 	// Setup HTTP server
