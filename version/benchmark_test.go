@@ -41,7 +41,9 @@ func benchmarkIncrement(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Alternate between existing and new nodes
 				nodeID := fmt.Sprintf("node-%d", i%size)
-				clock.Increment(nodeID)
+				if err := clock.Increment(nodeID); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
@@ -186,7 +188,9 @@ func benchmarkConcurrentCompare(b *testing.B) {
 
 	// Make clock2 happen after clock1
 	for i := 0; i < 50; i++ {
-		clock2.Increment(fmt.Sprintf("node-%d", i))
+		if err := clock2.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -387,8 +391,12 @@ func setupDisjointMergeClocks() (*VectorClock, *VectorClock) {
 
 	// Completely disjoint node sets
 	for i := 0; i < 10; i++ {
-		clock1.Increment(fmt.Sprintf("set-a-node-%d", i))
-		clock2.Increment(fmt.Sprintf("set-b-node-%d", i))
+		if err := clock1.Increment(fmt.Sprintf("set-a-node-%d", i)); err != nil {
+			panic(err)
+		}
+		if err := clock2.Increment(fmt.Sprintf("set-b-node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	return clock1, clock2

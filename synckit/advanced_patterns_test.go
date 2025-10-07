@@ -220,7 +220,7 @@ func TestAdvancedMementoPattern(t *testing.T) {
 		)
 
 		// Create context with user ID
-		ctx := context.WithValue(context.Background(), "user_id", "test-user")
+		ctx := context.WithValue(context.Background(), "user_id", "test-user") //nolint:staticcheck // Using string keys in test code is acceptable
 
 		// Create test conflict
 		conflict := Conflict{

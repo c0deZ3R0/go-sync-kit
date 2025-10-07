@@ -97,8 +97,8 @@ func TestSyncErrorValuer(t *testing.T) {
 }
 
 func TestContextExtraction(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "request_id", "req-123")
-	ctx = context.WithValue(ctx, "trace_id", "trace-456")
+	ctx := context.WithValue(context.Background(), "request_id", "req-123") //nolint:staticcheck // Using string keys in test code is acceptable
+	ctx = context.WithValue(ctx, "trace_id", "trace-456")                  //nolint:staticcheck // Using string keys in test code is acceptable
 
 	logger := NewLogger(Config{Level: "debug", Format: "text", Environment: EnvTest})
 	contextLogger := logger.WithContext(ctx)

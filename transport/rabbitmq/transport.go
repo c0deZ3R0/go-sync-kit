@@ -53,7 +53,7 @@ func (t *Transport) Connect(ctx context.Context) error {
 
 	// Start tracing if configured
 	if t.cfg.Tracer != nil {
-		ctx, span = t.cfg.Tracer.StartTransportOperation(ctx, "connect", "rabbitmq")
+		_, span = t.cfg.Tracer.StartTransportOperation(ctx, "connect", "rabbitmq")
 		defer span.End()
 	}
 
