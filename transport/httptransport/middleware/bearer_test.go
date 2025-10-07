@@ -23,10 +23,10 @@ func TestBearerAuth(t *testing.T) {
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Context().Value(ContextKeyUserID)
 		tenantID := r.Context().Value(ContextKeyTenant)
-		
+
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("authenticated"))
-		
+
 		// Store context values in headers for test verification
 		if userID != nil {
 			w.Header().Set("X-User-ID", userID.(string))
@@ -39,13 +39,13 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("ValidToken", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer valid-token")
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", rec.Code)
 		}
@@ -63,13 +63,13 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("ValidTokenNoTenant", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer valid-token-no-tenant")
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", rec.Code)
 		}
@@ -84,13 +84,13 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("InvalidToken", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer invalid-token")
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("Expected status 401, got %d", rec.Code)
 		}
@@ -102,12 +102,12 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("MissingAuthorizationHeader", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("Expected status 401, got %d", rec.Code)
 		}
@@ -119,7 +119,7 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("InvalidAuthorizationFormat", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		tests := []struct {
 			name   string
 			header string
@@ -130,15 +130,15 @@ func TestBearerAuth(t *testing.T) {
 			{"Trailing space", "Bearer valid-token "},
 			{"Empty token", "Bearer "},
 		}
-		
+
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.Header.Set("Authorization", tt.header)
 				rec := httptest.NewRecorder()
-				
+
 				handler.ServeHTTP(rec, req)
-				
+
 				if rec.Code != http.StatusUnauthorized {
 					t.Errorf("Expected status 401 for %s, got %d", tt.name, rec.Code)
 				}
@@ -149,13 +149,13 @@ func TestBearerAuth(t *testing.T) {
 	t.Run("EmptyBearerToken", func(t *testing.T) {
 		middleware := BearerAuth(validTokenValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer ")
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("Expected status 401, got %d", rec.Code)
 		}
@@ -171,16 +171,16 @@ func TestBearerAuth_ValidatorErrors(t *testing.T) {
 		errorValidator := func(token string) (string, string, error) {
 			return "", "", errors.New("database connection failed")
 		}
-		
+
 		middleware := BearerAuth(errorValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer any-token")
 		rec := httptest.NewRecorder()
-		
+
 		handler.ServeHTTP(rec, req)
-		
+
 		if rec.Code != http.StatusUnauthorized {
 			t.Errorf("Expected status 401, got %d", rec.Code)
 		}
@@ -190,21 +190,21 @@ func TestBearerAuth_ValidatorErrors(t *testing.T) {
 		panicValidator := func(token string) (string, string, error) {
 			panic("validator panic")
 		}
-		
+
 		middleware := BearerAuth(panicValidator)
 		handler := middleware(testHandler)
-		
+
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Bearer any-token")
 		rec := httptest.NewRecorder()
-		
+
 		// Should panic
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("Expected panic, but didn't get one")
 			}
 		}()
-		
+
 		handler.ServeHTTP(rec, req)
 	})
 }

@@ -16,40 +16,40 @@ import (
 
 func TestHandlePush_IdempotencyIntegration(t *testing.T) {
 	tests := []struct {
-		name                string
-		idempotencyKey      string
-		sendKeyOnSecond     bool
-		wantFirstStored     bool
-		wantSecondStored    bool
-		wantSameResponse    bool
-		wantCacheHit        bool
+		name             string
+		idempotencyKey   string
+		sendKeyOnSecond  bool
+		wantFirstStored  bool
+		wantSecondStored bool
+		wantSameResponse bool
+		wantCacheHit     bool
 	}{
 		{
-			name:                "with_idempotency_key_prevents_duplicates",
-			idempotencyKey:      "test-key-123",
-			sendKeyOnSecond:     true,
-			wantFirstStored:     true,
-			wantSecondStored:    false,
-			wantSameResponse:    true,
-			wantCacheHit:        true,
+			name:             "with_idempotency_key_prevents_duplicates",
+			idempotencyKey:   "test-key-123",
+			sendKeyOnSecond:  true,
+			wantFirstStored:  true,
+			wantSecondStored: false,
+			wantSameResponse: true,
+			wantCacheHit:     true,
 		},
 		{
-			name:                "without_idempotency_key_allows_duplicates",
-			idempotencyKey:      "",
-			sendKeyOnSecond:     false,
-			wantFirstStored:     true,
-			wantSecondStored:    true,
-			wantSameResponse:    true,
-			wantCacheHit:        false,
+			name:             "without_idempotency_key_allows_duplicates",
+			idempotencyKey:   "",
+			sendKeyOnSecond:  false,
+			wantFirstStored:  true,
+			wantSecondStored: true,
+			wantSameResponse: true,
+			wantCacheHit:     false,
 		},
 		{
-			name:                "different_keys_allow_duplicates",
-			idempotencyKey:      "test-key-456",
-			sendKeyOnSecond:     false, // Will use different key on second request
-			wantFirstStored:     true,
-			wantSecondStored:    true,
-			wantSameResponse:    true,
-			wantCacheHit:        false,
+			name:             "different_keys_allow_duplicates",
+			idempotencyKey:   "test-key-456",
+			sendKeyOnSecond:  false, // Will use different key on second request
+			wantFirstStored:  true,
+			wantSecondStored: true,
+			wantSameResponse: true,
+			wantCacheHit:     false,
 		},
 	}
 
@@ -233,28 +233,28 @@ func TestHandlePush_IdempotencyWithMultipleEvents(t *testing.T) {
 
 func TestHandlePush_IdempotencyKeyParsing(t *testing.T) {
 	tests := []struct {
-		name               string
-		headerValue        string
-		expectCacheHit     bool
-		secondHeaderValue  string
+		name              string
+		headerValue       string
+		expectCacheHit    bool
+		secondHeaderValue string
 	}{
 		{
-			name:               "standard_uuid_key",
-			headerValue:        "550e8400-e29b-41d4-a716-446655440000",
-			expectCacheHit:     true,
-			secondHeaderValue:  "550e8400-e29b-41d4-a716-446655440000",
+			name:              "standard_uuid_key",
+			headerValue:       "550e8400-e29b-41d4-a716-446655440000",
+			expectCacheHit:    true,
+			secondHeaderValue: "550e8400-e29b-41d4-a716-446655440000",
 		},
 		{
-			name:               "simple_string_key",
-			headerValue:        "my-request-123",
-			expectCacheHit:     true,
-			secondHeaderValue:  "my-request-123",
+			name:              "simple_string_key",
+			headerValue:       "my-request-123",
+			expectCacheHit:    true,
+			secondHeaderValue: "my-request-123",
 		},
 		{
-			name:               "key_with_special_chars",
-			headerValue:        "req:2024-01-15:user-456",
-			expectCacheHit:     true,
-			secondHeaderValue:  "req:2024-01-15:user-456",
+			name:              "key_with_special_chars",
+			headerValue:       "req:2024-01-15:user-456",
+			expectCacheHit:    true,
+			secondHeaderValue: "req:2024-01-15:user-456",
 		},
 	}
 

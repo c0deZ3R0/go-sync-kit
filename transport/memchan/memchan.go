@@ -256,10 +256,10 @@ func (c *MemChan) Stats() MemChanStats {
 	defer c.mu.RUnlock()
 
 	return MemChanStats{
-		TotalEvents:        len(c.events),
-		ActiveSubscribers:  len(c.subs),
-		ChannelCapacity:    c.capacity,
-		Closed:             c.closed,
+		TotalEvents:       len(c.events),
+		ActiveSubscribers: len(c.subs),
+		ChannelCapacity:   c.capacity,
+		Closed:            c.closed,
 	}
 }
 
@@ -296,7 +296,7 @@ func CreatePair(capacity int) (*MemChan, *MemChan) {
 	transport1 := New(capacity)
 	transport2 := New(capacity)
 
-	// In a real scenario, you might want to create some form of 
+	// In a real scenario, you might want to create some form of
 	// bidirectional connection between them, but for simplicity,
 	// we'll just return two independent transports
 	return transport1, transport2

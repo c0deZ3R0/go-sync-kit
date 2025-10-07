@@ -15,11 +15,11 @@ import (
 // MemStore implements the EventStore interface with in-memory storage.
 // It's thread-safe and perfect for development, testing, and examples.
 type MemStore struct {
-	mu       sync.RWMutex
-	events   []synckit.EventWithVersion // All events in order
-	streams  map[string][]int           // Stream ID -> indices in events slice
-	nextSeq  uint64                     // Next sequence number
-	closed   bool
+	mu      sync.RWMutex
+	events  []synckit.EventWithVersion // All events in order
+	streams map[string][]int           // Stream ID -> indices in events slice
+	nextSeq uint64                     // Next sequence number
+	closed  bool
 }
 
 // Ensure MemStore implements the EventStore interface
