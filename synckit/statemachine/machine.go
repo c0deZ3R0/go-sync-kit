@@ -141,7 +141,7 @@ func (m *machine[T]) TransitionWithContext(to T, metadata map[string]interface{}
 		go func() {
 			// Save state asynchronously to avoid blocking transition
 			if snapshot := m.createSnapshot(); snapshot != nil {
-				m.persistence.SaveState(context.Background(), m.machineID, *snapshot)
+				_ = m.persistence.SaveState(context.Background(), m.machineID, *snapshot)
 			}
 		}()
 	}
@@ -374,8 +374,7 @@ func (m *machine[T]) notifyTransition(transition StateTransition[T]) {
 			defer func() {
 				// Recover from observer panics to prevent them from affecting the state machine
 				if r := recover(); r != nil {
-					// Log the panic if we had a logger available
-					// For now, we silently recover
+					_ = r
 				}
 			}()
 			obs.OnTransition(transition)
@@ -396,8 +395,7 @@ func (m *machine[T]) notifyTransitionFailed(from, to T, err error, metadata map[
 			defer func() {
 				// Recover from observer panics to prevent them from affecting the state machine
 				if r := recover(); r != nil {
-					// Log the panic if we had a logger available
-					// For now, we silently recover
+					_ = r
 				}
 			}()
 			obs.OnTransitionFailed(from, to, err, metadata)
@@ -408,7 +406,7 @@ func (m *machine[T]) notifyTransitionFailed(from, to T, err error, metadata map[
 // generateTransitionID creates a unique identifier for a transition.
 func generateTransitionID() string {
 	bytes := make([]byte, 4) // 8 character hex string
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes)
 	return hex.EncodeToString(bytes)
 }
 

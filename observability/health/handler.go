@@ -128,7 +128,9 @@ func (h *HTTPHandler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 			"timestamp": time.Now(),
 		}
 
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			_ = err
+		}
 		return
 	}
 
@@ -158,7 +160,9 @@ func (h *HTTPHandler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 		"timestamp": time.Now(),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		_ = err
+	}
 }
 
 // ComponentsHandler lists all registered components.
@@ -180,7 +184,9 @@ func (h *HTTPHandler) ComponentsHandler(w http.ResponseWriter, r *http.Request) 
 		"timestamp":  time.Now(),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		_ = err
+	}
 }
 
 // writeHealthResponse writes a standardized health check response.
@@ -195,7 +201,9 @@ func (h *HTTPHandler) writeHealthResponse(w http.ResponseWriter, result OverallR
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		_ = err
+	}
 }
 
 // getStatusCode maps health status to HTTP status codes.

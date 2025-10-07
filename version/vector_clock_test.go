@@ -382,7 +382,9 @@ func TestVectorClock_HelperMethods(t *testing.T) {
 		}
 
 		// Modify clone and ensure original is unaffected
-		clone.Increment("node-1")
+		if err := clone.Increment("node-1"); err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		if original.GetClock("node-1") != 5 {
 			t.Error("Modifying clone affected original")
 		}
@@ -466,7 +468,9 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		vcC := NewVectorClock()
 
 		// Node A creates first event
-		vcA.Increment(nodeA)
+		if err := vcA.Increment(nodeA); err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		if vcA.String() != `{"node-A":1}` {
 			t.Errorf("Expected node A to have clock {\"node-A\":1}, got %s", vcA.String())
 		}

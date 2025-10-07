@@ -144,15 +144,15 @@ func (sdr *StatefulDynamicResolver) Resolve(ctx context.Context, c Conflict) (Re
 	// Complete workflow and state machine
 	if sdr.stateMachine != nil {
 		if err != nil {
-			sdr.stateMachine.FailResolution()
+			_ = sdr.stateMachine.FailResolution()
 		} else {
 			switch result.Decision {
 			case "manual_review":
-				sdr.stateMachine.RequireManualReview()
+				_ = sdr.stateMachine.RequireManualReview()
 			case "escalated":
-				sdr.stateMachine.EscalateConflict()
+				_ = sdr.stateMachine.EscalateConflict()
 			default:
-				sdr.stateMachine.CompleteResolution()
+				_ = sdr.stateMachine.CompleteResolution()
 			}
 		}
 

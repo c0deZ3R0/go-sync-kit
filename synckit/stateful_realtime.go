@@ -88,8 +88,9 @@ func NewStatefulRealtimeSyncManager(store EventStore, transport Transport, optio
 		transportStateManager: transportStateManager,
 	}
 
-	// Subscribe to transport state changes for enhanced connection monitoring
-	transportStateManager.SubscribeToStateChanges(statefulManager.handleTransportStateChange)
+	if err := transportStateManager.SubscribeToStateChanges(statefulManager.handleTransportStateChange); err != nil {
+		return nil, err
+	}
 
 	return statefulManager, nil
 }
@@ -374,7 +375,9 @@ func (srsm *StatefulRealtimeSyncManager) attemptReconnection(ctx context.Context
 	// Attempt to resubscribe to notifications
 	if srsm.realtimeOptions.RealtimeNotifier != nil {
 		// First unsubscribe to clean up any existing connections
-		srsm.realtimeOptions.RealtimeNotifier.Unsubscribe()
+		if err := srsm.realtimeOptions.RealtimeNotifier.Unsubscribe(); err != nil {
+			// ignore in reconnection attempt
+		}
 
 		// Attempt to subscribe again
 		err := srsm.realtimeOptions.RealtimeNotifier.Subscribe(ctx, func(notification Notification) error {

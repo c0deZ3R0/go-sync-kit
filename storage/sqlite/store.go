@@ -351,7 +351,9 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, versi
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				s.logger.Printf("failed to rollback transaction: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -556,7 +558,11 @@ func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []synckit.Even
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				if s.logger != nil {
+					s.logger.Printf("failed to rollback transaction: %v", rollbackErr)
+				}
+			}
 		}
 	}()
 

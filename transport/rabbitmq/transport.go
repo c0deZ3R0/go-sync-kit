@@ -361,7 +361,7 @@ func (t *Transport) Close() error {
 
 	// Cancel consumer if active
 	if t.channel != nil && t.consumerTag != "" {
-		t.channel.Cancel(t.consumerTag, false)
+		_ = t.channel.Cancel(t.consumerTag, false)
 	}
 
 	// Close channel and connection
@@ -514,7 +514,7 @@ func (t *Transport) processMessage(ctx context.Context, msg amqp.Delivery, handl
 		if t.cfg.Metrics != nil {
 			t.cfg.Metrics.RecordSyncErrors("rabbitmq_consume", "deserialization_error")
 		}
-		msg.Nack(false, false) // Don't requeue malformed messages
+		_ = msg.Nack(false, false) // Don't requeue malformed messages
 		return
 	}
 
@@ -525,7 +525,7 @@ func (t *Transport) processMessage(ctx context.Context, msg amqp.Delivery, handl
 		if t.cfg.Metrics != nil {
 			t.cfg.Metrics.RecordSyncErrors("rabbitmq_consume", "conversion_error")
 		}
-		msg.Nack(false, false) // Don't requeue malformed messages
+		_ = msg.Nack(false, false) // Don't requeue malformed messages
 		return
 	}
 
@@ -537,12 +537,12 @@ func (t *Transport) processMessage(ctx context.Context, msg amqp.Delivery, handl
 		if t.cfg.Metrics != nil {
 			t.cfg.Metrics.RecordSyncErrors("rabbitmq_consume", "handler_error")
 		}
-		msg.Nack(false, true) // Requeue on handler error
+		_ = msg.Nack(false, true) // Requeue on handler error
 		return
 	}
 
 	// Acknowledge successful processing
-	msg.Ack(false)
+	_ = msg.Ack(false)
 
 	// Record successful message processing metrics
 	if t.cfg.Metrics != nil {

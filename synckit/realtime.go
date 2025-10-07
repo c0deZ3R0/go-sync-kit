@@ -246,7 +246,7 @@ func (rsm *realtimeSyncManager) DisableRealtime() error {
 	}
 
 	if rsm.realtimeOptions.RealtimeNotifier != nil {
-		rsm.realtimeOptions.RealtimeNotifier.Unsubscribe()
+		_ = rsm.realtimeOptions.RealtimeNotifier.Unsubscribe()
 	}
 
 	return nil
@@ -478,7 +478,7 @@ func (rsm *realtimeSyncManager) stopFallbackPolling() {
 // Close extends the base close method to handle real-time resources
 func (rsm *realtimeSyncManager) Close() error {
 	// Disable real-time first
-	rsm.DisableRealtime()
+	_ = rsm.DisableRealtime()
 
 	// Close the notifier
 	if rsm.realtimeOptions.RealtimeNotifier != nil {
