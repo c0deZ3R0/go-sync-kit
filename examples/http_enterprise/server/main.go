@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	serverAddr = ":8081"
+	serverAddr = ":8080"
 	hmacSecret = "your-hmac-secret-key-change-in-production"
 )
 
