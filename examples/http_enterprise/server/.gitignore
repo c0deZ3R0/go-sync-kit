@@ -1,0 +1,8 @@
+# Compiled binaries
+enterprise-server
+enterprise-server.exe
+enterprise-server.exe~
+
+# Go build artifacts
+*.test
+*.out
