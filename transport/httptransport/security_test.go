@@ -76,7 +76,9 @@ func TestSecurityDecompressionBomb(t *testing.T) {
 			// Compress the data
 			var compressed bytes.Buffer
 			gzWriter := gzip.NewWriter(&compressed)
-			gzWriter.Write(jsonData)
+			if _, err := gzWriter.Write(jsonData); err != nil {
+				t.Fatalf("Failed to write compressed data: %v", err)
+			}
 			gzWriter.Close()
 
 			// Send compressed request

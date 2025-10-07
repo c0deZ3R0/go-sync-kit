@@ -175,13 +175,6 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 	}
 }
 
-// getStopChannel safely gets the notification stop channel
-func (rsm *realtimeSyncManager) getStopChannel() <-chan struct{} {
-	rsm.realtimeMu.RLock()
-	defer rsm.realtimeMu.RUnlock()
-	return rsm.notificationStop
-}
-
 // Helper methods for thread-safe connectionStatus updates
 func (rsm *realtimeSyncManager) updateConnectionStatus(connected bool, lastConnected time.Time, err error) {
 	rsm.realtimeMu.Lock()
@@ -253,7 +246,7 @@ func (rsm *realtimeSyncManager) DisableRealtime() error {
 	}
 
 	if rsm.realtimeOptions.RealtimeNotifier != nil {
-		rsm.realtimeOptions.RealtimeNotifier.Unsubscribe()
+		_ = rsm.realtimeOptions.RealtimeNotifier.Unsubscribe()
 	}
 
 	return nil
@@ -485,12 +478,14 @@ func (rsm *realtimeSyncManager) stopFallbackPolling() {
 // Close extends the base close method to handle real-time resources
 func (rsm *realtimeSyncManager) Close() error {
 	// Disable real-time first
-	rsm.DisableRealtime()
+	_ = rsm.DisableRealtime()
 
 	// Close the notifier
 	if rsm.realtimeOptions.RealtimeNotifier != nil {
 		if err := rsm.realtimeOptions.RealtimeNotifier.Close(); err != nil {
 			// Log error but continue with cleanup
+			// FIXED: Use structured logging
+			slog.Error("failed to close realtime notifier", "error", err)
 		}
 	}
 

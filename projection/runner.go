@@ -144,11 +144,10 @@ func (r *runner) ApplySince(ctx context.Context) (applied int, last synckit.Vers
 		r.metrics.RecordProjectionOperation(projectionName, OperationApplySince, duration, true, totalApplied)
 
 		// Calculate and record lag if we have events
-		if lastProcessed != nil {
-			// For now, we can't easily calculate lag without event timestamps
-			// This would require the Event interface to include timestamps
-			// r.metrics.UpdateProjectionLag(projectionName, lagDuration)
-		}
+			if lastProcessed != nil {
+				// (noop for staticcheck/govet, lag calculation requires timestamps)
+				_ = lastProcessed
+			}
 	}
 
 	return totalApplied, lastProcessed, nil

@@ -237,7 +237,9 @@ func TestVectorClock_Merge(t *testing.T) {
 		vc := NewVectorClockFromMap(map[string]uint64{"node-1": 5})
 		originalSize := vc.Size()
 
-		vc.Merge(nil)
+		if err := vc.Merge(nil); err != nil {
+			t.Errorf("Unexpected error on merge with nil: %v", err)
+		}
 
 		if vc.Size() != originalSize {
 			t.Errorf("Merging with nil should not change size, expected %d, got %d", originalSize, vc.Size())
@@ -380,7 +382,9 @@ func TestVectorClock_HelperMethods(t *testing.T) {
 		}
 
 		// Modify clone and ensure original is unaffected
-		clone.Increment("node-1")
+		if err := clone.Increment("node-1"); err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		if original.GetClock("node-1") != 5 {
 			t.Error("Modifying clone affected original")
 		}
@@ -464,7 +468,9 @@ func TestVectorClock_RealWorldScenario(t *testing.T) {
 		vcC := NewVectorClock()
 
 		// Node A creates first event
-		vcA.Increment(nodeA)
+		if err := vcA.Increment(nodeA); err != nil {
+			t.Errorf("Unexpected error on increment: %v", err)
+		}
 		if vcA.String() != `{"node-A":1}` {
 			t.Errorf("Expected node A to have clock {\"node-A\":1}, got %s", vcA.String())
 		}
@@ -533,7 +539,9 @@ func BenchmarkVectorClock_Increment(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		vc.Increment("node-1")
+		if err := vc.Increment("node-1"); err != nil {
+			b.Fatalf("Increment failed: %v", err)
+		}
 	}
 }
 
@@ -548,7 +556,9 @@ func BenchmarkVectorClock_Merge(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		clone1 := vc1.Clone()
-		clone1.Merge(vc2)
+		if err := clone1.Merge(vc2); err != nil {
+			b.Fatalf("Merge failed: %v", err)
+		}
 	}
 }
 

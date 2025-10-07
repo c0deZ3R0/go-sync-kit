@@ -34,14 +34,18 @@ func benchmarkIncrement(b *testing.B) {
 
 			// Pre-populate with size-1 nodes to test increment on existing
 			for i := 0; i < size-1; i++ {
-				clock.Increment(fmt.Sprintf("node-%d", i))
+				if err := clock.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+					b.Fatal(err)
+				}
 			}
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// Alternate between existing and new nodes
 				nodeID := fmt.Sprintf("node-%d", i%size)
-				clock.Increment(nodeID)
+				if err := clock.Increment(nodeID); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
@@ -91,7 +95,10 @@ func benchmarkMerge(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Clone to avoid modifying the original clocks
 				vc1 := originalVc1.Clone()
-				vc1.Merge(originalVc2)
+				if err := vc1.Merge(originalVc2); err != nil {
+					b.StopTimer()
+					panic(err) // Error in benchmark setup/execution
+				}
 			}
 		})
 	}
@@ -164,7 +171,6 @@ func BenchmarkVectorClockConcurrentOperations(b *testing.B) {
 }
 
 func benchmarkConcurrentIncrement(b *testing.B) {
-	const numGoroutines = 10
 	const clockSize = 50
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -176,7 +182,9 @@ func benchmarkConcurrentIncrement(b *testing.B) {
 			nodeCounter++
 
 			// Each goroutine increments different nodes
-			clock.Increment(nodeID)
+			if err := clock.Increment(nodeID); err != nil {
+				panic(err)
+			}
 		}
 	})
 }
@@ -187,7 +195,9 @@ func benchmarkConcurrentCompare(b *testing.B) {
 
 	// Make clock2 happen after clock1
 	for i := 0; i < 50; i++ {
-		clock2.Increment(fmt.Sprintf("node-%d", i))
+		if err := clock2.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -205,7 +215,9 @@ func benchmarkConcurrentMerge(b *testing.B) {
 
 		for pb.Next() {
 			clock := baseClock.Clone()
-			clock.Merge(mergeClock)
+			if err := clock.Merge(mergeClock); err != nil {
+				panic(err) // Error in benchmark
+			}
 		}
 	})
 }
@@ -241,12 +253,16 @@ func benchmarkDistributedSystemScenario(b *testing.B) {
 		nodeID := fmt.Sprintf("node-%d", nodeIndex)
 
 		// Each node creates an event
-		nodes[nodeIndex].Increment(nodeID)
+		if err := nodes[nodeIndex].Increment(nodeID); err != nil {
+			panic(err) // Error in benchmark
+		}
 
 		// Periodically sync with other nodes
 		if i%10 == 0 {
 			otherNodeIndex := (nodeIndex + 1) % numNodes
-			nodes[nodeIndex].Merge(nodes[otherNodeIndex])
+			if err := nodes[nodeIndex].Merge(nodes[otherNodeIndex]); err != nil {
+				panic(err) // Error in benchmark
+			}
 		}
 	}
 }
@@ -260,13 +276,17 @@ func benchmarkEventSourcingScenario(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Create a new event with current aggregate state
 		eventClock := aggregateClock.Clone()
-		eventClock.Increment(fmt.Sprintf("aggregate-%d", i%10))
+		if err := eventClock.Increment(fmt.Sprintf("aggregate-%d", i%10)); err != nil {
+			panic(err) // Error in benchmark
+		}
 
 		// Store the event clock
-		eventClocks = append(eventClocks, eventClock)
+		_ = append(eventClocks, eventClock) // Result intentionally unused for benchmarking
 
 		// Update aggregate clock
-		aggregateClock.Merge(eventClock)
+		if err := aggregateClock.Merge(eventClock); err != nil {
+			panic(err) // Error in benchmark
+		}
 	}
 }
 
@@ -285,7 +305,9 @@ func benchmarkCRDTOperations(b *testing.B) {
 		replicaID := fmt.Sprintf("replica-%d", replicaIndex)
 
 		// Each replica performs an operation
-		replicas[replicaIndex].Increment(replicaID)
+		if err := replicas[replicaIndex].Increment(replicaID); err != nil {
+			panic(err) // Error in benchmark
+		}
 
 		// Check for conflicts with other replicas
 		if i%5 == 0 {
@@ -293,7 +315,9 @@ func benchmarkCRDTOperations(b *testing.B) {
 				if j != replicaIndex {
 					if replicas[replicaIndex].IsConcurrentWith(replicas[j]) {
 						// Resolve conflict by merging
-						replicas[replicaIndex].Merge(replicas[j])
+						if err := replicas[replicaIndex].Merge(replicas[j]); err != nil {
+							panic(err) // Error in benchmark
+						}
 					}
 				}
 			}
@@ -345,7 +369,9 @@ func setupLargeClocks() (*VectorClock, *VectorClock) {
 
 	// Make them have some overlap but also some differences
 	for i := 0; i < 50; i++ {
-		clock2.Increment(fmt.Sprintf("node-%d", i))
+		if err := clock2.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	return clock1, clock2
@@ -388,8 +414,12 @@ func setupDisjointMergeClocks() (*VectorClock, *VectorClock) {
 
 	// Completely disjoint node sets
 	for i := 0; i < 10; i++ {
-		clock1.Increment(fmt.Sprintf("set-a-node-%d", i))
-		clock2.Increment(fmt.Sprintf("set-b-node-%d", i))
+		if err := clock1.Increment(fmt.Sprintf("set-a-node-%d", i)); err != nil {
+			panic(err)
+		}
+		if err := clock2.Increment(fmt.Sprintf("set-b-node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	return clock1, clock2
@@ -401,10 +431,14 @@ func setupOverlappingMergeClocks() (*VectorClock, *VectorClock) {
 
 	// Overlapping node sets
 	for i := 0; i < 15; i++ {
-		clock1.Increment(fmt.Sprintf("node-%d", i))
+		if err := clock1.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 	for i := 5; i < 20; i++ {
-		clock2.Increment(fmt.Sprintf("node-%d", i))
+		if err := clock2.Increment(fmt.Sprintf("node-%d", i)); err != nil {
+			panic(err)
+		}
 	}
 
 	return clock1, clock2
@@ -416,7 +450,9 @@ func createClockWithSize(size int) *VectorClock {
 		nodeID := fmt.Sprintf("node-%d", i)
 		// Create some variation in clock values
 		for j := 0; j < (i%5)+1; j++ {
-			clock.Increment(nodeID)
+			if err := clock.Increment(nodeID); err != nil {
+				panic(err)
+			}
 		}
 	}
 	return clock

@@ -56,7 +56,7 @@ func TestConfigValidation(t *testing.T) {
 				c.Exchange = ""
 			},
 			expectError:   true,
-			errorContains: "Exchange name is required",
+			errorContains: "exchange name is required",
 		},
 		{
 			name: "invalid exchange type",

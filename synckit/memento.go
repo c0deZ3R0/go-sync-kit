@@ -156,9 +156,14 @@ func (c *InMemoryMementoCaretaker) List(ctx context.Context, criteria *MementoCr
 	for _, memento := range c.mementos {
 		if c.matchesCriteria(memento, criteria) {
 			// Deep copy
-			data, _ := json.Marshal(memento)
+			data, err := json.Marshal(memento)
+			if err != nil {
+				continue // skip this memento if marshal fails
+			}
 			var copy ResolutionMemento
-			json.Unmarshal(data, &copy)
+			if err := json.Unmarshal(data, &copy); err != nil {
+				continue // skip this memento if unmarshal fails
+			}
 			results = append(results, &copy)
 		}
 	}

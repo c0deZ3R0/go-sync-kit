@@ -101,8 +101,8 @@ type NotificationListener struct {
 
 	// Connection management
 	listener *pq.Listener
-	mu       stdSync.RWMutex
-	closed   int32 // atomic
+	// Note: mu field currently unused but reserved for future synchronization of listener state
+	closed int32 // atomic
 
 	// Subscription management
 	subscriptions *SubscriptionManager

@@ -376,7 +376,9 @@ func (s *PostgresEventStore) Store(ctx context.Context, event synckit.Event, ver
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				s.logger.Printf("[Postgres EventStore] rollback error: %v", rbErr)
+			}
 		}
 	}()
 
@@ -447,7 +449,6 @@ func (s *PostgresEventStore) Load(ctx context.Context, since synckit.Version, fi
 	if tenant, ok := filterMap["tenant"]; ok {
 		query += fmt.Sprintf(" AND metadata->>'tenant' = $%d", paramIndex)
 		args = append(args, tenant)
-		paramIndex++
 	}
 
 	query += " ORDER BY version ASC"
@@ -497,7 +498,6 @@ func (s *PostgresEventStore) LoadByAggregate(ctx context.Context, aggregateID st
 	if tenant, ok := filterMap["tenant"]; ok {
 		query += fmt.Sprintf(" AND metadata->>'tenant' = $%d", paramIndex)
 		args = append(args, tenant)
-		paramIndex++
 	}
 
 	query += " ORDER BY version ASC"
@@ -597,7 +597,9 @@ func (s *PostgresEventStore) StoreBatch(ctx context.Context, events []synckit.Ev
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				s.logger.Printf("[Postgres EventStore] rollback error: %v", rbErr)
+			}
 		}
 	}()
 

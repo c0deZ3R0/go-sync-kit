@@ -309,5 +309,5 @@ func contains(slice []string, item string) bool {
 }
 
 func contextWithValue(ctx context.Context, key, value string) context.Context {
-	return context.WithValue(ctx, key, value)
+	return context.WithValue(ctx, key, value) //nolint:staticcheck // Using string keys in test helper is acceptable
 }

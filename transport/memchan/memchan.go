@@ -187,7 +187,9 @@ func (c *MemChan) Subscribe(ctx context.Context, handler func([]synckit.EventWit
 			case <-ctx.Done():
 				// Process final batch before exiting
 				if len(batch) > 0 {
-					handler(batch)
+					if err := handler(batch); err != nil {
+						fmt.Printf("Handler error: %v\n", err)
+					}
 				}
 				return
 
@@ -195,7 +197,9 @@ func (c *MemChan) Subscribe(ctx context.Context, handler func([]synckit.EventWit
 				if !ok {
 					// Channel closed, process final batch and exit
 					if len(batch) > 0 {
-						handler(batch)
+						if err := handler(batch); err != nil {
+							fmt.Printf("Handler error: %v\n", err)
+						}
 					}
 					return
 				}

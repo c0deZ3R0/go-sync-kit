@@ -104,32 +104,6 @@ func WithClientTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
-// applyServerOptions creates a new ServerOptions with the given options applied
-func applyServerOptions(opts ...ServerOption) *ServerOptions {
-	// Start with default options
-	options := DefaultServerOptions()
-
-	// Apply each option
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	return options
-}
-
-// applyClientOptions creates a new ClientOptions with the given options applied
-func applyClientOptions(opts ...ClientOption) *ClientOptions {
-	// Start with default options
-	options := DefaultClientOptions()
-
-	// Apply each option
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	return options
-}
-
 // ValidateServerOptions validates server options configuration
 func ValidateServerOptions(opts *ServerOptions) error {
 	if opts == nil {

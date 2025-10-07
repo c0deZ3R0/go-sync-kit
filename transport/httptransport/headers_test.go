@@ -55,7 +55,7 @@ func TestSyncHandler_HandlePull_WithTenantHeader(t *testing.T) {
 
 	ctx := context.Background()
 	// Store events with different tenants in metadata
-	store.Store(ctx, &MockEvent{
+	_ = store.Store(ctx, &MockEvent{
 		id:          "1",
 		eventType:   "TestEvent",
 		aggregateID: "agg-1",
@@ -63,7 +63,7 @@ func TestSyncHandler_HandlePull_WithTenantHeader(t *testing.T) {
 		metadata:    map[string]interface{}{"tenant": "acme-corp"},
 	}, cursor.IntegerCursor{Seq: 1})
 
-	store.Store(ctx, &MockEvent{
+	_ = store.Store(ctx, &MockEvent{
 		id:          "2",
 		eventType:   "TestEvent",
 		aggregateID: "agg-2",
@@ -71,7 +71,7 @@ func TestSyncHandler_HandlePull_WithTenantHeader(t *testing.T) {
 		metadata:    map[string]interface{}{"tenant": "widgets-inc"},
 	}, cursor.IntegerCursor{Seq: 2})
 
-	store.Store(ctx, &MockEvent{
+	_ = store.Store(ctx, &MockEvent{
 		id:          "3",
 		eventType:   "TestEvent",
 		aggregateID: "agg-3",
@@ -109,7 +109,7 @@ func TestSyncHandler_HandlePull_WithTenantQueryParam(t *testing.T) {
 
 	ctx := context.Background()
 	// Store events with different tenants
-	store.Store(ctx, &MockEvent{
+_ = store.Store(ctx, &MockEvent{
 		id:          "1",
 		eventType:   "TestEvent",
 		aggregateID: "agg-1",
@@ -117,7 +117,7 @@ func TestSyncHandler_HandlePull_WithTenantQueryParam(t *testing.T) {
 		metadata:    map[string]interface{}{"tenant": "tenant-a"},
 	}, cursor.IntegerCursor{Seq: 1})
 
-	store.Store(ctx, &MockEvent{
+_ = store.Store(ctx, &MockEvent{
 		id:          "2",
 		eventType:   "TestEvent",
 		aggregateID: "agg-2",
@@ -152,7 +152,7 @@ func TestSyncHandler_TenantIsolation(t *testing.T) {
 	// Store events for multiple tenants
 	for i := 1; i <= 5; i++ {
 		for _, tenant := range []string{"tenant-1", "tenant-2", "tenant-3"} {
-			store.Store(ctx, &MockEvent{
+			_ = store.Store(ctx, &MockEvent{
 				id:          tenant + "-event-" + string(rune(i)),
 				eventType:   "TestEvent",
 				aggregateID: "agg",

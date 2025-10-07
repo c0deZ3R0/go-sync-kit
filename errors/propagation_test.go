@@ -138,13 +138,13 @@ func TestWrapOpComponentKind(t *testing.T) {
 // TestSQLiteStoreErrorPropagation tests that SQLite store operations properly propagate Op and Component
 func TestSQLiteStoreErrorPropagation(t *testing.T) {
 	// Use an invalid data source to trigger errors
-	store, err := sqlite.NewWithDataSource("invalid://path")
+	_, err := sqlite.NewWithDataSource("invalid://path")
 	if err == nil {
 		t.Skip("Expected store creation to fail with invalid data source, but it succeeded")
 	}
 
 	// Test with valid store but invalid operations
-	store, err = sqlite.NewWithDataSource(":memory:")
+	store, err := sqlite.NewWithDataSource(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create in-memory SQLite store: %v", err)
 	}

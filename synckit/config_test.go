@@ -177,3 +177,108 @@ func TestConfigLoader_JSONSupport(t *testing.T) {
 		t.Fatalf("Expected name 'json-test-config', got %s", config.Name)
 	}
 }
+
+// TestConfigLoader_BuildRuleGroup tests the buildRuleGroup method.
+// This method is reserved for future CompositeResolver integration.
+func TestConfigLoader_BuildRuleGroup(t *testing.T) {
+	loader := NewConfigLoader()
+
+	// Create a test group configuration
+	enabled := true
+	groupConfig := GroupConfig{
+		Name:        "test-group",
+		Description: "A test rule group",
+		Enabled:     &enabled,
+		Fallback:    "last_write_wins",
+		Rules: []RuleConfigEntry{
+			{
+				Name: "test-rule-1",
+				Conditions: MatchConditions{
+					EventTypes: []string{"TestEvent1"},
+				},
+				Resolution: ResolutionConfig{
+					Strategy: "first_write_wins",
+				},
+			},
+			{
+				Name: "test-rule-2",
+				Conditions: MatchConditions{
+					Fields: []string{"testField"},
+				},
+				Resolution: ResolutionConfig{
+					Strategy: "last_write_wins",
+				},
+			},
+		},
+		SubGroups: []GroupConfig{
+			{
+				Name:        "test-subgroup",
+				Description: "A test subgroup",
+				Rules: []RuleConfigEntry{
+					{
+						Name: "subgroup-rule",
+						Conditions: MatchConditions{
+							EventTypes: []string{"SubgroupEvent"},
+						},
+						Resolution: ResolutionConfig{
+							Strategy: "additive_merge",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Build the rule group
+	group, err := loader.buildRuleGroup(groupConfig)
+	if err != nil {
+		t.Fatalf("Failed to build rule group: %v", err)
+	}
+
+	// Verify the group was built correctly
+	if group == nil {
+		t.Fatal("Built group is nil")
+	}
+
+	if group.Name != "test-group" {
+		t.Fatalf("Expected group name 'test-group', got %s", group.Name)
+	}
+
+	if group.Description != "A test rule group" {
+		t.Fatalf("Expected description 'A test rule group', got %s", group.Description)
+	}
+
+	if !group.IsEnabled() {
+		t.Fatal("Expected group to be enabled")
+	}
+
+	// Get stats to verify rule and subgroup counts
+	stats := group.GetStats()
+	if stats.RuleCount != 2 {
+		t.Fatalf("Expected 2 rules in group, got %d", stats.RuleCount)
+	}
+
+	if stats.SubGroupCount != 1 {
+		t.Fatalf("Expected 1 subgroup, got %d", stats.SubGroupCount)
+	}
+
+	// Verify the subgroup stats
+	if len(stats.SubGroups) != 1 {
+		t.Fatalf("Expected 1 subgroup in stats, got %d", len(stats.SubGroups))
+	}
+
+	subGroupStats := stats.SubGroups[0]
+	if subGroupStats.Name != "test-group.test-subgroup" {
+		t.Fatalf("Expected subgroup name 'test-group.test-subgroup', got %s", subGroupStats.Name)
+	}
+
+	if subGroupStats.RuleCount != 1 {
+		t.Fatalf("Expected 1 rule in subgroup, got %d", subGroupStats.RuleCount)
+	}
+
+	// Verify GetAllRules returns flattened rules
+	allRules := group.GetAllRules()
+	if len(allRules) != 3 { // 2 from main group + 1 from subgroup
+		t.Fatalf("Expected 3 total rules (including subgroup), got %d", len(allRules))
+	}
+}

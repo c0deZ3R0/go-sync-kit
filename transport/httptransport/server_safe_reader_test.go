@@ -177,7 +177,9 @@ func TestSafeRequestReader_ContentEncodingValidation(t *testing.T) {
 				// Create valid gzip data
 				var buf bytes.Buffer
 				gzWriter := gzip.NewWriter(&buf)
-				gzWriter.Write([]byte(`{"test": true}`))
+				if _, err := gzWriter.Write([]byte(`{"test": true}`)); err != nil {
+					t.Fatalf("failed to write gzip data: %v", err)
+				}
 				gzWriter.Close()
 				bodyReader = bytes.NewReader(buf.Bytes())
 			} else if tt.contentEncoding != "" && !tt.expectedError {
@@ -294,7 +296,7 @@ func TestSafeRequestReader_SizeLimits(t *testing.T) {
 				// Create gzip compressed data
 				var buf bytes.Buffer
 				gzWriter := gzip.NewWriter(&buf)
-				gzWriter.Write([]byte(testData))
+				_, _ = gzWriter.Write([]byte(testData))
 				gzWriter.Close()
 				bodyReader = bytes.NewReader(buf.Bytes())
 			} else {

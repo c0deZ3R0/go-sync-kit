@@ -25,7 +25,9 @@ func TestBearerAuth(t *testing.T) {
 		tenantID := r.Context().Value(ContextKeyTenant)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("authenticated"))
+		if _, err := w.Write([]byte("authenticated")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 
 		// Store context values in headers for test verification
 		if userID != nil {

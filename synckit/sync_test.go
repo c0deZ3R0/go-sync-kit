@@ -73,7 +73,9 @@ func TestSyncManager_Push_GetLatestVersion(t *testing.T) {
 	// Add a local event that's newer than transport events
 	localEvent := &mockEventWithDetails{id: "3", typeName: "TestEvent"}
 	localVersion := &mockVersionWithTimestamp{timestamp: time.Now()}
-	store.Store(ctx, localEvent, localVersion)
+	if err := store.Store(ctx, localEvent, localVersion); err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
 
 	// Perform push
 	result, err := sm.Push(ctx)
@@ -114,7 +116,9 @@ func TestSyncManager_Sync(t *testing.T) {
 
 	version1 := &mockVersionWithTimestamp{timestamp: time.Now()}
 
-	store.Store(ctx, event1, version1)
+	if err := store.Store(ctx, event1, version1); err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
 
 	// Perform sync
 	result, err := sm.Sync(ctx)

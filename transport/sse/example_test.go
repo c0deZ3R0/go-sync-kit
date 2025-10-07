@@ -96,14 +96,14 @@ func ExampleTransport() {
 
 	// Create mock store with some test events
 	store := &MockEventStore{}
-	store.Store(context.Background(), ExampleEvent{
+	_ = store.Store(context.Background(), ExampleEvent{
 		IDValue:          "event-1",
 		TypeValue:        "UserCreated",
 		AggregateIDValue: "user-123",
 		DataValue:        map[string]interface{}{"name": "John Doe"},
 	}, cursor.NewInteger(1))
 
-	store.Store(context.Background(), ExampleEvent{
+	_ = store.Store(context.Background(), ExampleEvent{
 		IDValue:          "event-2",
 		TypeValue:        "UserUpdated",
 		AggregateIDValue: "user-123",

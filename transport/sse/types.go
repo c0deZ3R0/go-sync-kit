@@ -75,9 +75,10 @@ func fromJSONEventWithVersion(jev JSONEventWithVersion) synckit.EventWithVersion
 	if jev.Version != "" {
 		// Try to parse as integer - this is a simple approach
 		// In practice, you'd want more sophisticated version parsing
-		if jev.Version == "1" {
+		switch jev.Version {
+		case "1":
 			version = cursor.NewInteger(1)
-		} else if jev.Version == "2" {
+		case "2":
 			version = cursor.NewInteger(2)
 		}
 		// Add more parsing logic as needed

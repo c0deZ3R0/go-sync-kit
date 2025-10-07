@@ -17,7 +17,7 @@ func FuzzCreateSafeRequestReader(f *testing.F) {
 	validPayload := "This is valid JSON data for testing"
 	var validGzipBuf bytes.Buffer
 	gzWriter := gzip.NewWriter(&validGzipBuf)
-	gzWriter.Write([]byte(validPayload))
+_, _ = gzWriter.Write([]byte(validPayload))
 	gzWriter.Close()
 
 	f.Add(validGzipBuf.Bytes(), "application/json", "gzip")
@@ -74,10 +74,7 @@ func FuzzCreateSafeRequestReader(f *testing.F) {
 		// Try to read from the reader without panicking
 		buffer := make([]byte, 1024)
 		for {
-			n, readErr := reader.Read(buffer)
-			if n > 0 {
-				// Successfully read some data
-			}
+			_, readErr := reader.Read(buffer)
 			if readErr == io.EOF {
 				break
 			}
@@ -95,7 +92,7 @@ func FuzzGzipDecompression(f *testing.F) {
 	validData := "Hello, world! This is test data for gzip compression."
 	var validBuf bytes.Buffer
 	gzWriter := gzip.NewWriter(&validBuf)
-	gzWriter.Write([]byte(validData))
+_, _ = gzWriter.Write([]byte(validData))
 	gzWriter.Close()
 
 	// Seed with valid and some invalid patterns
@@ -166,15 +163,21 @@ func FuzzCompressionSizeLimits(f *testing.F) {
 	var smallBuf, mediumBuf, largeBuf bytes.Buffer
 
 	gzSmall := gzip.NewWriter(&smallBuf)
-	gzSmall.Write([]byte(smallData))
+	if _, err := gzSmall.Write([]byte(smallData)); err != nil {
+		f.Fatalf("gzSmall.Write failed: %v", err)
+	}
 	gzSmall.Close()
 
 	gzMedium := gzip.NewWriter(&mediumBuf)
-	gzMedium.Write([]byte(mediumData))
+	if _, err := gzMedium.Write([]byte(mediumData)); err != nil {
+		f.Fatalf("gzMedium.Write failed: %v", err)
+	}
 	gzMedium.Close()
 
 	gzLarge := gzip.NewWriter(&largeBuf)
-	gzLarge.Write([]byte(largeData))
+	if _, err := gzLarge.Write([]byte(largeData)); err != nil {
+		f.Fatalf("gzLarge.Write failed: %v", err)
+	}
 	gzLarge.Close()
 
 	f.Add(smallBuf.Bytes(), int64(500), int64(1000))   // Within limits

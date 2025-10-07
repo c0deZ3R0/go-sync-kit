@@ -86,7 +86,7 @@ func TestCursorAPI_Compression(t *testing.T) {
 	// Create mock store with test data
 	store := NewMockEventStore()
 	for _, ev := range testEvents {
-		store.Store(context.Background(), ev.Event, ev.Version)
+		_ = store.Store(context.Background(), ev.Event, ev.Version)
 	}
 
 	// Create handler with compression enabled
