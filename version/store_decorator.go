@@ -128,18 +128,6 @@ func cursorToVectorClock(c cursor.IntegerCursor) *VectorClock {
 	return vc
 }
 
-// vectorClockToCursor converts a vector clock to a cursor sequence
-// Uses the special "sequence" key for tracking the global sequence
-func vectorClockToCursor(vc *VectorClock) cursor.IntegerCursor {
-	if vc == nil {
-		return cursor.IntegerCursor{Seq: 0}
-	}
-	if seq, ok := vc.clocks["sequence"]; ok {
-		return cursor.IntegerCursor{Seq: seq}
-	}
-	return cursor.IntegerCursor{Seq: 0}
-}
-
 // NewVersionedStore creates a new versioned store decorator.
 // It automatically initializes the version manager from the store's latest version.
 func NewVersionedStore(store synckit.EventStore, nodeID string, versionManager VersionManager) (*VersionedStore, error) {

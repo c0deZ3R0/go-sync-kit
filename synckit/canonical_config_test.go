@@ -53,7 +53,7 @@ func TestConfigValidate(t *testing.T) {
 				Timeout: -1 * time.Second,
 			},
 			wantErr: true,
-			errMsg:  "Timeout must be non-negative",
+			errMsg:  "timeout must be non-negative",
 		},
 		{
 			name: "negative batch size",

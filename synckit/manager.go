@@ -1055,6 +1055,7 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 	completedCount := 0
 	totalRunners := len(sm.projectionConfig.Runners)
 
+waitLoop:
 	for completedCount < totalRunners {
 		select {
 		case <-completedChan:
@@ -1070,7 +1071,7 @@ func (sm *syncManager) runProjectionsAfterSync(ctx context.Context, syncResult *
 					remainingRunners, sm.projectionConfig.Timeout)
 				projectionErrors = append(projectionErrors, timeoutErr)
 			}
-			break // Exit the waiting loop on timeout
+			break waitLoop // Exit the waiting loop on timeout
 		}
 	}
 

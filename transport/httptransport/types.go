@@ -228,17 +228,6 @@ func toJSONEventWithVersion(ev synckit.EventWithVersion) JSONEventWithVersion {
 	}
 }
 
-// fromJSONEvent converts JSONEvent to a concrete Event implementation
-func fromJSONEvent(je JSONEvent) synckit.Event {
-	return &SimpleEvent{
-		IDValue:          je.ID,
-		TypeValue:        je.Type,
-		AggregateIDValue: je.AggregateID,
-		DataValue:        je.Data,
-		MetadataValue:    je.Metadata,
-	}
-}
-
 // fromJSONEventWithVersion converts JSONEventWithVersion back to synckit.EventWithVersion
 // It uses the SyncHandler's version parser to parse the version string
 func fromJSONEventWithVersion(ctx context.Context, parser VersionParser, jev JSONEventWithVersion) (synckit.EventWithVersion, error) {

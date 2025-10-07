@@ -2,7 +2,6 @@ package tracing
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -237,46 +236,3 @@ func NewHTTPMiddlewareWithConfig(config TraceConfig) *HTTPMiddleware {
 	}
 }
 
-// SkipTracing returns true if the request should skip tracing based on configuration
-func (m *HTTPMiddleware) shouldSkipTracing(r *http.Request, config TraceConfig) bool {
-	// Skip health check endpoints if configured
-	if config.SkipHealthCheck && (r.URL.Path == "/health" || r.URL.Path == "/healthz") {
-		return true
-	}
-
-	// Skip specific user agents if configured
-	userAgent := r.UserAgent()
-	for _, skipUA := range config.SkipUserAgent {
-		if userAgent == skipUA {
-			return true
-		}
-	}
-
-	return false
-}
-
-// extractSyncKitHeaders extracts sync-kit specific headers for tracing
-func extractSyncKitHeaders(r *http.Request) []attribute.KeyValue {
-	var attrs []attribute.KeyValue
-
-	// Extract sync-kit specific headers
-	if syncID := r.Header.Get("X-Sync-ID"); syncID != "" {
-		attrs = append(attrs, attribute.String("synckit.sync_id", syncID))
-	}
-
-	if clientID := r.Header.Get("X-Client-ID"); clientID != "" {
-		attrs = append(attrs, attribute.String("synckit.client_id", clientID))
-	}
-
-	if version := r.Header.Get("X-Sync-Version"); version != "" {
-		attrs = append(attrs, attribute.String("synckit.sync_version", version))
-	}
-
-	if batchSize := r.Header.Get("X-Batch-Size"); batchSize != "" {
-		if size, err := strconv.Atoi(batchSize); err == nil {
-			attrs = append(attrs, BatchSizeKey.Int(size))
-		}
-	}
-
-	return attrs
-}

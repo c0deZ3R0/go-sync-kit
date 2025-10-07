@@ -186,8 +186,7 @@ func (vc VectorCursor) String() string {
 
 // IsZero implements types.Version
 func (vc VectorCursor) IsZero() bool {
-	// Nil map or empty map is considered zero
-	return vc.Counters == nil || len(vc.Counters) == 0
+	return len(vc.Counters) == 0
 }
 
 type vectorCodec struct{}

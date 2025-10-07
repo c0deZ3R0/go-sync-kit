@@ -95,6 +95,8 @@ func NewConflictWorkflow(conflict types.Conflict, stateMachine *ConflictResoluti
 	if options == nil {
 		options = DefaultWorkflowOptions()
 	}
+	// TODO: options should be used to configure workflow behavior (e.g., MaxRuleEvaluations, TrackPerformance)
+	_ = options // Currently unused - will be implemented in future enhancement
 
 	conflictID := generateConflictID(conflict)
 

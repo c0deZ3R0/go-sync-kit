@@ -164,7 +164,6 @@ func BenchmarkVectorClockConcurrentOperations(b *testing.B) {
 }
 
 func benchmarkConcurrentIncrement(b *testing.B) {
-	const numGoroutines = 10
 	const clockSize = 50
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -263,7 +262,7 @@ func benchmarkEventSourcingScenario(b *testing.B) {
 		eventClock.Increment(fmt.Sprintf("aggregate-%d", i%10))
 
 		// Store the event clock
-		eventClocks = append(eventClocks, eventClock)
+		_ = append(eventClocks, eventClock) // Result intentionally unused for benchmarking
 
 		// Update aggregate clock
 		aggregateClock.Merge(eventClock)

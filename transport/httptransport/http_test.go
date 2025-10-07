@@ -487,24 +487,11 @@ func TestHTTPTransport_Compression(t *testing.T) {
 
 	// Compare event fields
 	sourceEvent := events[0].Event.(*MockEvent)
-	fetchedEvent := fetched[0].Event.(synckit.Event)
+	fetchedEvent := fetched[0].Event
 	assert.Equal(t, sourceEvent.id, fetchedEvent.ID())
 	assert.Equal(t, sourceEvent.eventType, fetchedEvent.Type())
 	assert.Equal(t, sourceEvent.aggregateID, fetchedEvent.AggregateID())
 	assert.Equal(t, sourceEvent.data, fetchedEvent.Data())
-}
-
-func testHelperRespondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
-	response, err := json.Marshal(payload)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "failed to marshal response"}`))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
 }
 
 func TestHTTPTransport_Push(t *testing.T) {

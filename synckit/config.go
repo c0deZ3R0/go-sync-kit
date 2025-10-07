@@ -329,6 +329,7 @@ func (cl *ConfigLoader) BuildDynamicResolver() (*DynamicResolver, error) {
 }
 
 // buildRuleGroup creates a RuleGroup from configuration.
+// Note: Currently unused but reserved for future CompositeResolver integration
 func (cl *ConfigLoader) buildRuleGroup(config GroupConfig) (*RuleGroup, error) {
 	opts := make([]RuleGroupOption, 0)
 

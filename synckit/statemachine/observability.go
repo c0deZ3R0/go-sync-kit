@@ -237,10 +237,8 @@ func (a *SyncKitTracerAdapter) RecordTransitionSuccess(span trace.Span, componen
 	)
 
 	// Add metadata as span attributes
-	if metadata != nil {
-		for key, value := range metadata {
-			span.SetAttributes(attribute.String(fmt.Sprintf("state.meta.%s", key), fmt.Sprintf("%v", value)))
-		}
+	for key, value := range metadata {
+		span.SetAttributes(attribute.String(fmt.Sprintf("state.meta.%s", key), fmt.Sprintf("%v", value)))
 	}
 }
 
@@ -329,10 +327,8 @@ func (h *DefaultStateHealthUpdater) UpdateComponentState(component, state string
 	}
 
 	// Include original metadata
-	if metadata != nil {
-		for key, value := range metadata {
-			healthMetadata[key] = value
-		}
+	for key, value := range metadata {
+		healthMetadata[key] = value
 	}
 
 	h.healthChecker.UpdateStatus(component, string(healthStatus), healthMetadata)

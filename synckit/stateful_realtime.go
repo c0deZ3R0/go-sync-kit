@@ -3,7 +3,6 @@ package synckit
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/c0deZ3R0/go-sync-kit/synckit/statemachine"
@@ -19,7 +18,7 @@ type StatefulRealtimeNotifier interface {
 type StatefulRealtimeSyncManager struct {
 	*realtimeSyncManager  // embed existing functionality
 	transportStateManager *statemachine.TransportStateManager
-	mu                    sync.RWMutex
+	// Note: mu field currently unused but reserved for future synchronization needs
 }
 
 // StatefulRealtimeSyncOptions extends RealtimeSyncOptions with state machine configuration

@@ -138,7 +138,7 @@ func (c *Config) Validate() error {
 
 	// Timeout must be non-negative
 	if c.Timeout < 0 {
-		return errors.New("Timeout must be non-negative")
+		return errors.New("timeout must be non-negative")
 	}
 
 	// BatchSize must be positive if set

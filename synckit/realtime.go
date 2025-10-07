@@ -175,13 +175,6 @@ func NewRealtimeSyncManager(store EventStore, transport Transport, options *Real
 	}
 }
 
-// getStopChannel safely gets the notification stop channel
-func (rsm *realtimeSyncManager) getStopChannel() <-chan struct{} {
-	rsm.realtimeMu.RLock()
-	defer rsm.realtimeMu.RUnlock()
-	return rsm.notificationStop
-}
-
 // Helper methods for thread-safe connectionStatus updates
 func (rsm *realtimeSyncManager) updateConnectionStatus(connected bool, lastConnected time.Time, err error) {
 	rsm.realtimeMu.Lock()

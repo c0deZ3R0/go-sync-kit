@@ -11,13 +11,15 @@ import (
 )
 
 // SyncManagerCheck performs health checks on the SyncManager.
+// Deprecated: Use SyncNode health checks instead. This type is maintained for backward compatibility.
 type SyncManagerCheck struct {
 	name    string
-	manager *synckit.SyncManager
+	manager *synckit.SyncManager //nolint:staticcheck // Intentionally using deprecated type for backward compatibility
 }
 
 // NewSyncManagerCheck creates a new SyncManager health check.
-func NewSyncManagerCheck(name string, manager *synckit.SyncManager) *SyncManagerCheck {
+// Deprecated: Use SyncNode health checks instead. This function is maintained for backward compatibility.
+func NewSyncManagerCheck(name string, manager *synckit.SyncManager) *SyncManagerCheck { //nolint:staticcheck // Intentionally using deprecated type
 	return &SyncManagerCheck{
 		name:    name,
 		manager: manager,
@@ -244,15 +246,17 @@ func (c *ConflictResolverCheck) Check(ctx context.Context) CheckResult {
 }
 
 // SyncOperationCheck performs health checks on sync operations.
+// Deprecated: Use SyncNode-based operation checks instead. This type is maintained for backward compatibility.
 type SyncOperationCheck struct {
 	name         string
-	manager      *synckit.SyncManager
+	manager      *synckit.SyncManager //nolint:staticcheck // Intentionally using deprecated type for backward compatibility
 	testResource string
 	timeout      time.Duration
 }
 
 // NewSyncOperationCheck creates a new sync operation health check.
-func NewSyncOperationCheck(name string, manager *synckit.SyncManager, options ...SyncOperationCheckOption) *SyncOperationCheck {
+// Deprecated: Use SyncNode-based operation checks instead. This function is maintained for backward compatibility.
+func NewSyncOperationCheck(name string, manager *synckit.SyncManager, options ...SyncOperationCheckOption) *SyncOperationCheck { //nolint:staticcheck // Intentionally using deprecated type
 	check := &SyncOperationCheck{
 		name:         name,
 		manager:      manager,
