@@ -72,10 +72,13 @@ func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload i
 
 		gz := gzip.NewWriter(w)
 		defer gz.Close()
-		gz.Write(response)
+		if _, err := gz.Write(response); err != nil {
+			respondWithError(w, r, http.StatusInternalServerError, "failed to write compressed response", options)
+			return
+		}
 	} else {
-		w.WriteHeader(code)
-		w.Write(response)
+	w.WriteHeader(code)
+		_, _ = w.Write(response)
 	}
 }
 
@@ -135,6 +138,7 @@ func (m *maxResponseDecompressedReader) Read(p []byte) (int, error) {
 	if m.n <= 0 && err == nil {
 		// Next Read will return errResponseDecompressedTooLarge; this read succeeds.
 		// Do not spuriously fail a successful read.
+		_ = n // no-op to avoid empty branch warning for both staticcheck and govet
 	}
 	return n, err
 }

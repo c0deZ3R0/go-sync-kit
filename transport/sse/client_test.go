@@ -173,9 +173,12 @@ func TestSubscribe_ExponentialBackoff(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		client.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
+		err := client.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
 			return nil
 		})
+		if err != nil && err != context.Canceled {
+			t.Errorf("Subscribe returned unexpected error: %v", err)
+		}
 	}()
 
 	// Wait for multiple connection attempts

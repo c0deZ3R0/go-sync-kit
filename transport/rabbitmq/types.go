@@ -71,7 +71,7 @@ func (c *Config) Validate() error {
 	}
 
 	if c.Exchange == "" {
-		return fmt.Errorf("Exchange name is required")
+		return fmt.Errorf("exchange name is required")
 	}
 
 	if c.ExchangeType == "" {

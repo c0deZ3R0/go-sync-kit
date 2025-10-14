@@ -28,7 +28,9 @@ func TestHTTPMiddleware(t *testing.T) {
 			t.Error("Expected span to be recording in handler context")
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		if _, err := w.Write([]byte("test response")); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	})
 
 	// Wrap with middleware
@@ -62,7 +64,9 @@ func TestHTTPMiddlewareWithError(t *testing.T) {
 	// Create error handler
 	errorHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal error"))
+		if _, err := w.Write([]byte("internal error")); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	})
 
 	// Wrap with middleware
@@ -98,7 +102,9 @@ func TestHTTPClientTransport(t *testing.T) {
 			t.Log("No traceparent header found - may be expected depending on transport setup")
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("server response"))
+		if _, err := w.Write([]byte("server response")); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -136,7 +142,9 @@ func TestHTTPClientTransportWithoutSpan(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("server response"))
+		if _, err := w.Write([]byte("server response")); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 

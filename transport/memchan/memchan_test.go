@@ -265,7 +265,7 @@ func TestMemChan_Subscribe(t *testing.T) {
 
 	// Set up subscription
 	eventsReceived := make(chan []synckit.EventWithVersion, 1)
-	
+
 	err := transport.Subscribe(ctx, func(events []synckit.EventWithVersion) error {
 		eventsReceived <- events
 		return nil
@@ -843,5 +843,5 @@ func TestMemChan_Subscribe_SlowSubscriber(t *testing.T) {
 type customVersion struct{}
 
 func (c *customVersion) Compare(other synckit.Version) int { return 0 }
-func (c *customVersion) String() string                   { return "custom" }
-func (c *customVersion) IsZero() bool                     { return false }
+func (c *customVersion) String() string                    { return "custom" }
+func (c *customVersion) IsZero() bool                      { return false }

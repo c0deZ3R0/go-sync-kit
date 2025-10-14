@@ -11,6 +11,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 // ExampleEvent implements synckit.Event for testing
@@ -38,7 +39,7 @@ func (m *MockEventStore) Store(ctx context.Context, event synckit.Event, version
 	return nil
 }
 
-func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStore) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	// For simplicity, return all events after the cursor
 	var result []synckit.EventWithVersion
 	var sinceSeq uint64 = 0
@@ -58,7 +59,7 @@ func (m *MockEventStore) Load(ctx context.Context, since synckit.Version) ([]syn
 	return result, nil
 }
 
-func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	events, err := m.Load(ctx, since)
 	if err != nil {
 		return nil, err
@@ -95,14 +96,14 @@ func ExampleTransport() {
 
 	// Create mock store with some test events
 	store := &MockEventStore{}
-	store.Store(context.Background(), ExampleEvent{
+	_ = store.Store(context.Background(), ExampleEvent{
 		IDValue:          "event-1",
 		TypeValue:        "UserCreated",
 		AggregateIDValue: "user-123",
 		DataValue:        map[string]interface{}{"name": "John Doe"},
 	}, cursor.NewInteger(1))
 
-	store.Store(context.Background(), ExampleEvent{
+	_ = store.Store(context.Background(), ExampleEvent{
 		IDValue:          "event-2",
 		TypeValue:        "UserUpdated",
 		AggregateIDValue: "user-123",

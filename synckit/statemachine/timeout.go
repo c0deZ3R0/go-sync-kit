@@ -207,7 +207,7 @@ func (th *TimeoutHandler[T]) handleTimeoutTransition(state T) {
 	}
 
 	if targetState, ok := th.config.TargetState.(T); ok {
-		th.stateMachine.TransitionWithContext(targetState, map[string]interface{}{
+		_ = th.stateMachine.TransitionWithContext(targetState, map[string]interface{}{
 			"timeout":      true,
 			"timeout_from": state,
 			"reason":       "state_timeout",
@@ -226,7 +226,7 @@ func (th *TimeoutHandler[T]) handleTimeoutFail(state T) {
 	for _, failState := range failureStates {
 		if typedState, ok := failState.(T); ok {
 			if th.stateMachine.CanTransition(typedState) {
-				th.stateMachine.TransitionWithContext(typedState, map[string]interface{}{
+				_ = th.stateMachine.TransitionWithContext(typedState, map[string]interface{}{
 					"timeout":      true,
 					"timeout_from": state,
 					"reason":       "state_timeout_failure",
@@ -238,12 +238,12 @@ func (th *TimeoutHandler[T]) handleTimeoutFail(state T) {
 }
 
 // handleTimeoutReset resets the state machine to its initial state on timeout.
-func (th *TimeoutHandler[T]) handleTimeoutReset(state T) {
+func (th *TimeoutHandler[T]) handleTimeoutReset(_ T) {
 	// Reset to initial state - we need to access the initial state from config
 	// This is a simplified implementation - in practice you might want to store the initial state
 	// or provide it through configuration
 	if resetter, ok := th.stateMachine.(interface{ Reset() error }); ok {
-		resetter.Reset()
+		_ = resetter.Reset()
 	}
 }
 

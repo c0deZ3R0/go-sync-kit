@@ -220,7 +220,7 @@ func TestAdvancedMementoPattern(t *testing.T) {
 		)
 
 		// Create context with user ID
-		ctx := context.WithValue(context.Background(), "user_id", "test-user")
+		ctx := context.WithValue(context.Background(), "user_id", "test-user") //nolint:staticcheck // Using string keys in test code is acceptable
 
 		// Create test conflict
 		conflict := Conflict{
@@ -288,7 +288,9 @@ func TestAdvancedMementoPattern(t *testing.T) {
 
 		// Save all mementos
 		for _, memento := range mementos {
-			caretaker.Save(ctx, memento)
+			if err := caretaker.Save(ctx, memento); err != nil {
+				t.Fatalf("Failed to save memento %s: %v", memento.ID, err)
+			}
 		}
 
 		// Analyze rollback for first memento

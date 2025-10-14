@@ -73,15 +73,12 @@ func NewVectorClockFromString(data string) (*VectorClock, error) {
 		return nil, fmt.Errorf("failed to unmarshal vector clock from '%s': %w", data, err)
 	}
 
-	// Validate that all values are non-negative
-	for nodeID, clockValue := range vc.clocks {
+	// Validate that all node IDs are non-empty
+	for nodeID := range vc.clocks {
 		if nodeID == "" {
 			return nil, fmt.Errorf("vector clock contains empty node ID")
 		}
-		// Note: uint64 is always non-negative, but we keep this check for clarity
-		if clockValue < 0 {
-			return nil, fmt.Errorf("vector clock contains negative value for node '%s': %d", nodeID, clockValue)
-		}
+		// Note: uint64 is always non-negative by definition, no validation needed
 	}
 
 	return vc, nil

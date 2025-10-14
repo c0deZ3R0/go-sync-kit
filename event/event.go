@@ -12,22 +12,22 @@ import (
 type Event struct {
 	// EventID is the unique identifier for this event
 	EventID string `json:"id"`
-	
+
 	// EventType represents the event type (e.g., "UserCreated", "OrderUpdated")
 	EventType string `json:"type"`
-	
+
 	// EventAggregateID is the ID of the aggregate this event belongs to
 	EventAggregateID string `json:"aggregate_id"`
-	
+
 	// EventData contains the event payload as raw bytes
 	EventData []byte `json:"data"`
-	
+
 	// EventMetadata contains additional event metadata
 	EventMetadata map[string]interface{} `json:"metadata,omitempty"`
-	
+
 	// Timestamp records when the event was created
 	Timestamp time.Time `json:"timestamp"`
-	
+
 	// Offset is set by the event store to track event ordering
 	Offset int64 `json:"offset,omitempty"`
 }
@@ -80,7 +80,7 @@ func NewWithMetadata(id, eventType, aggregateID string, data []byte, metadata ma
 	if metadata == nil {
 		metadata = make(map[string]interface{})
 	}
-	
+
 	return &Event{
 		EventID:          id,
 		EventType:        eventType,

@@ -16,7 +16,6 @@ type mockHealthCheck struct {
 	status    Status
 	message   string
 	duration  time.Duration
-	shouldErr bool
 }
 
 func (m *mockHealthCheck) Name() string      { return m.name }

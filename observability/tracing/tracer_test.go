@@ -63,7 +63,7 @@ func TestStartSyncOperation(t *testing.T) {
 	ctx := context.Background()
 	operation := "full_sync"
 
-	ctx, span := tracer.StartSyncOperation(ctx, operation)
+	_, span := tracer.StartSyncOperation(ctx, operation)
 
 	if span == nil {
 		t.Fatal("Expected span to be created, got nil")
@@ -80,7 +80,7 @@ func TestRecordError(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartSyncOperation(ctx, "test")
+	_, span := tracer.StartSyncOperation(ctx, "test")
 	defer span.End()
 
 	testError := &testError{"test error"}
@@ -97,7 +97,7 @@ func TestSetSyncResult(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartSyncOperation(ctx, "test")
+	_, span := tracer.StartSyncOperation(ctx, "test")
 	defer span.End()
 
 	// This should not panic
@@ -111,7 +111,7 @@ func TestAddEventAttributes(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartSyncOperation(ctx, "test")
+	_, span := tracer.StartSyncOperation(ctx, "test")
 	defer span.End()
 
 	eventCount := 15
@@ -128,7 +128,7 @@ func TestAddEventAttributesTooManyAggregates(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartSyncOperation(ctx, "test")
+	_, span := tracer.StartSyncOperation(ctx, "test")
 	defer span.End()
 
 	eventCount := 15
@@ -149,7 +149,7 @@ func TestStartTransportOperation(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartTransportOperation(ctx, "push", "http")
+	_, span := tracer.StartTransportOperation(ctx, "push", "http")
 
 	if span == nil {
 		t.Fatal("Expected span to be created, got nil")
@@ -165,7 +165,7 @@ func TestStartStorageOperation(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartStorageOperation(ctx, "store", "sqlite")
+	_, span := tracer.StartStorageOperation(ctx, "store", "sqlite")
 
 	if span == nil {
 		t.Fatal("Expected span to be created, got nil")
@@ -181,7 +181,7 @@ func TestStartConflictResolution(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartConflictResolution(ctx, "last_write_wins")
+	_, span := tracer.StartConflictResolution(ctx, "last_write_wins")
 
 	if span == nil {
 		t.Fatal("Expected span to be created, got nil")
@@ -197,7 +197,7 @@ func TestAddSpanEvent(t *testing.T) {
 	tracer := NewTracer("test-service")
 	ctx := context.Background()
 
-	ctx, span := tracer.StartSyncOperation(ctx, "test")
+	_, span := tracer.StartSyncOperation(ctx, "test")
 	defer span.End()
 
 	// This should not panic

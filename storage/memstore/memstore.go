@@ -15,11 +15,11 @@ import (
 // MemStore implements the EventStore interface with in-memory storage.
 // It's thread-safe and perfect for development, testing, and examples.
 type MemStore struct {
-	mu       sync.RWMutex
-	events   []synckit.EventWithVersion // All events in order
-	streams  map[string][]int           // Stream ID -> indices in events slice
-	nextSeq  uint64                     // Next sequence number
-	closed   bool
+	mu      sync.RWMutex
+	events  []synckit.EventWithVersion // All events in order
+	streams map[string][]int           // Stream ID -> indices in events slice
+	nextSeq uint64                     // Next sequence number
+	closed  bool
 }
 
 // Ensure MemStore implements the EventStore interface
@@ -101,8 +101,8 @@ func (s *MemStore) Store(ctx context.Context, evt synckit.Event, version synckit
 	return nil
 }
 
-// Load retrieves all events since a given version.
-func (s *MemStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// Load retrieves all events since a given version with optional filters.
+func (s *MemStore) Load(ctx context.Context, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	// Check for context cancellation
 	select {
 	case <-ctx.Done():
@@ -122,13 +122,22 @@ func (s *MemStore) Load(ctx context.Context, since synckit.Version) ([]synckit.E
 		return nil, fmt.Errorf("incompatible version type: expected cursor.IntegerCursor")
 	}
 
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
+
 	var result []synckit.EventWithVersion
 
-	// Find all events with version > since
+	// Find all events with version > since and matching filters
 	for _, ev := range s.events {
 		if evCursor, ok := ev.Version.(cursor.IntegerCursor); ok {
 			if evCursor.Seq > sinceCursor.Seq {
-				result = append(result, ev)
+				// Apply filters
+				if matchesFilters(ev.Event, filterMap) {
+					result = append(result, ev)
+				}
 			}
 		}
 	}
@@ -136,8 +145,8 @@ func (s *MemStore) Load(ctx context.Context, since synckit.Version) ([]synckit.E
 	return result, nil
 }
 
-// LoadByAggregate retrieves events for a specific aggregate since a given version.
-func (s *MemStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// LoadByAggregate retrieves events for a specific aggregate since a given version with optional filters.
+func (s *MemStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	// Check for context cancellation
 	select {
 	case <-ctx.Done():
@@ -155,6 +164,12 @@ func (s *MemStore) LoadByAggregate(ctx context.Context, aggregateID string, sinc
 	sinceCursor, ok := since.(cursor.IntegerCursor)
 	if !ok && !since.IsZero() {
 		return nil, fmt.Errorf("incompatible version type: expected cursor.IntegerCursor")
+	}
+
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
 	}
 
 	var result []synckit.EventWithVersion
@@ -165,13 +180,16 @@ func (s *MemStore) LoadByAggregate(ctx context.Context, aggregateID string, sinc
 		return result, nil // Empty result for non-existent stream
 	}
 
-	// Filter events by version
+	// Filter events by version and filters
 	for _, idx := range indices {
 		if idx < len(s.events) {
 			ev := s.events[idx]
 			if evCursor, ok := ev.Version.(cursor.IntegerCursor); ok {
 				if evCursor.Seq > sinceCursor.Seq {
-					result = append(result, ev)
+					// Apply filters
+					if matchesFilters(ev.Event, filterMap) {
+						result = append(result, ev)
+					}
 				}
 			}
 		}
@@ -331,4 +349,40 @@ type MemStoreStats struct {
 	TotalStreams int    // Total number of unique streams
 	NextSequence uint64 // Next sequence number to be assigned
 	Closed       bool   // Whether the store is closed
+}
+
+// matchesFilters checks if an event matches all provided filters.
+func matchesFilters(event synckit.Event, filters map[string]string) bool {
+	// Empty filters match everything
+	if len(filters) == 0 {
+		return true
+	}
+
+	// Check type filter
+	if eventType, ok := filters["type"]; ok {
+		if event.Type() != eventType {
+			return false
+		}
+	}
+
+	// Check aggregate_id filter
+	if aggregateID, ok := filters["aggregate_id"]; ok {
+		if event.AggregateID() != aggregateID {
+			return false
+		}
+	}
+
+	// Check tenant filter (from metadata)
+	if tenant, ok := filters["tenant"]; ok {
+		meta := event.Metadata()
+		if meta == nil {
+			return false
+		}
+		eventTenant, exists := meta["tenant"]
+		if !exists || eventTenant != tenant {
+			return false
+		}
+	}
+
+	return true
 }

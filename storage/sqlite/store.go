@@ -351,7 +351,9 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, versi
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				s.logger.Printf("failed to rollback transaction: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -378,8 +380,8 @@ func (s *SQLiteEventStore) Store(ctx context.Context, event synckit.Event, versi
 	return nil
 }
 
-// Load retrieves all events since a given version.
-func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// Load retrieves all events since a given version with optional filters.
+func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -392,8 +394,37 @@ func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]s
 		return nil, ErrIncompatibleVersion
 	}
 
-	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ? ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, int64(sinceCursor.Seq))
+	// Build query with filters
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE version > ?`
+	args := []interface{}{int64(sinceCursor.Seq)}
+
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
+
+	// Add type filter
+	if eventType, ok := filterMap["type"]; ok {
+		query += " AND event_type = ?"
+		args = append(args, eventType)
+	}
+
+	// Add aggregate_id filter
+	if aggregateID, ok := filterMap["aggregate_id"]; ok {
+		query += " AND aggregate_id = ?"
+		args = append(args, aggregateID)
+	}
+
+	// Add tenant filter (from metadata JSON)
+	if tenant, ok := filterMap["tenant"]; ok {
+		query += " AND json_extract(metadata, '$.tenant') = ?"
+		args = append(args, tenant)
+	}
+
+	query += " ORDER BY version ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, syncErrors.WrapOpComponent(err, opLoad, "storage/sqlite")
 	}
@@ -402,8 +433,8 @@ func (s *SQLiteEventStore) Load(ctx context.Context, since synckit.Version) ([]s
 	return s.scanEvents(rows)
 }
 
-// LoadByAggregate retrieves events for a specific aggregate since a given version.
-func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+// LoadByAggregate retrieves events for a specific aggregate since a given version with optional filters.
+func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...synckit.Filter) ([]synckit.EventWithVersion, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -416,8 +447,31 @@ func (s *SQLiteEventStore) LoadByAggregate(ctx context.Context, aggregateID stri
 		return nil, ErrIncompatibleVersion
 	}
 
-	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ? ORDER BY version ASC`
-	rows, err := s.db.QueryContext(ctx, query, aggregateID, int64(sinceCursor.Seq))
+	// Build query with filters
+	query := `SELECT version, id, aggregate_id, event_type, data, metadata FROM events WHERE aggregate_id = ? AND version > ?`
+	args := []interface{}{aggregateID, int64(sinceCursor.Seq)}
+
+	// Build filter map for quick lookup
+	filterMap := make(map[string]string)
+	for _, f := range filters {
+		filterMap[f.Key] = f.Value
+	}
+
+	// Add type filter
+	if eventType, ok := filterMap["type"]; ok {
+		query += " AND event_type = ?"
+		args = append(args, eventType)
+	}
+
+	// Add tenant filter (from metadata JSON)
+	if tenant, ok := filterMap["tenant"]; ok {
+		query += " AND json_extract(metadata, '$.tenant') = ?"
+		args = append(args, tenant)
+	}
+
+	query += " ORDER BY version ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, syncErrors.WrapOpComponent(err, opLoadByAggregate, "storage/sqlite")
 	}
@@ -504,7 +558,11 @@ func (s *SQLiteEventStore) StoreBatch(ctx context.Context, events []synckit.Even
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				if s.logger != nil {
+					s.logger.Printf("failed to rollback transaction: %v", rollbackErr)
+				}
+			}
 		}
 	}()
 

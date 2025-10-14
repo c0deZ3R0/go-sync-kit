@@ -144,15 +144,15 @@ func (sdr *StatefulDynamicResolver) Resolve(ctx context.Context, c Conflict) (Re
 	// Complete workflow and state machine
 	if sdr.stateMachine != nil {
 		if err != nil {
-			sdr.stateMachine.FailResolution()
+			_ = sdr.stateMachine.FailResolution()
 		} else {
 			switch result.Decision {
 			case "manual_review":
-				sdr.stateMachine.RequireManualReview()
+				_ = sdr.stateMachine.RequireManualReview()
 			case "escalated":
-				sdr.stateMachine.EscalateConflict()
+				_ = sdr.stateMachine.EscalateConflict()
 			default:
-				sdr.stateMachine.CompleteResolution()
+				_ = sdr.stateMachine.CompleteResolution()
 			}
 		}
 
@@ -160,7 +160,12 @@ func (sdr *StatefulDynamicResolver) Resolve(ctx context.Context, c Conflict) (Re
 		defer func() {
 			if resetErr := sdr.stateMachine.Reset(); resetErr != nil && sdr.options.Logger != nil {
 				// Log reset error if logger is available
-				// Note: Logger is opaque interface, so we can't log directly here
+				// Note: Logger is opaque interface, so we need to assert its type before logging
+				if logger, ok := sdr.options.Logger.(interface {
+					Log(args ...interface{})
+				}); ok {
+					logger.Log("error", "failed to reset state machine", "error", resetErr)
+				}
 			}
 		}()
 	}

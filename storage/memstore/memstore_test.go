@@ -67,7 +67,7 @@ func TestMemStore_Store_WithMetadata(t *testing.T) {
 		"timestamp": time.Now().Unix(),
 		"version":   "1.0",
 	}
-	
+
 	testEvent := event.NewWithMetadata("test-1", "UserCreated", "user-123", []byte(`{"name":"Alice"}`), metadata)
 
 	err := store.Store(ctx, testEvent, cursor.IntegerCursor{Seq: 1})
@@ -262,9 +262,9 @@ func TestMemStore_LoadByAggregate_WithSince(t *testing.T) {
 
 	// Store events
 	events := []*event.Event{
-		event.New("test-1", "UserCreated", "user-123", []byte(`{"name":"Alice"}`)),   // version 1
+		event.New("test-1", "UserCreated", "user-123", []byte(`{"name":"Alice"}`)),              // version 1
 		event.New("test-2", "UserUpdated", "user-123", []byte(`{"email":"alice@example.com"}`)), // version 2
-		event.New("test-3", "UserDeleted", "user-123", []byte(`{}`)),                 // version 3
+		event.New("test-3", "UserDeleted", "user-123", []byte(`{}`)),                            // version 3
 	}
 
 	for _, ev := range events {
@@ -454,7 +454,7 @@ func TestMemStore_Concurrency(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < eventsPerGoroutine; i++ {
 				eventID := fmt.Sprintf("g%d-event-%d", goroutineID, i)
-				aggregateID := fmt.Sprintf("user-%d", (goroutineID*eventsPerGoroutine + i) % 20) // 20 different aggregates
+				aggregateID := fmt.Sprintf("user-%d", (goroutineID*eventsPerGoroutine+i)%20) // 20 different aggregates
 				testEvent := event.New(eventID, "UserAction", aggregateID, []byte(fmt.Sprintf(`{"action":%d}`, i)))
 
 				err := store.Store(ctx, testEvent, cursor.IntegerCursor{Seq: 0})
@@ -620,6 +620,6 @@ func TestMemStore_Close(t *testing.T) {
 // Helper type for testing incompatible versions
 type customVersion struct{}
 
-func (c *customVersion) Compare(other synckit.Version) int    { return 0 }
-func (c *customVersion) String() string                      { return "custom" }
-func (c *customVersion) IsZero() bool                        { return false }
+func (c *customVersion) Compare(other synckit.Version) int { return 0 }
+func (c *customVersion) String() string                    { return "custom" }
+func (c *customVersion) IsZero() bool                      { return false }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/synckit"
+	"github.com/c0deZ3R0/go-sync-kit/synckit/types"
 )
 
 func TestSyncHandler_AfterCommitHook(t *testing.T) {
@@ -381,11 +382,11 @@ func (m *MockEventStoreWithErrors) Store(ctx context.Context, event synckit.Even
 	return assert.AnError // Always fail
 }
 
-func (m *MockEventStoreWithErrors) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStoreWithErrors) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	return nil, nil
 }
 
-func (m *MockEventStoreWithErrors) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStoreWithErrors) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	return nil, nil
 }
 
@@ -434,7 +435,7 @@ func (m *MockEventStorePartialFailure) Store(ctx context.Context, event synckit.
 	return nil
 }
 
-func (m *MockEventStorePartialFailure) Load(ctx context.Context, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStorePartialFailure) Load(ctx context.Context, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -447,7 +448,7 @@ func (m *MockEventStorePartialFailure) Load(ctx context.Context, since synckit.V
 	return result, nil
 }
 
-func (m *MockEventStorePartialFailure) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version) ([]synckit.EventWithVersion, error) {
+func (m *MockEventStorePartialFailure) LoadByAggregate(ctx context.Context, aggregateID string, since synckit.Version, filters ...types.Filter) ([]types.EventWithVersion, error) {
 	return nil, nil
 }
 

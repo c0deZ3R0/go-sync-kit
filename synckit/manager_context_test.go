@@ -15,7 +15,7 @@ type slowOperationStore struct {
 	delay time.Duration
 }
 
-func (s *slowOperationStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
+func (s *slowOperationStore) Load(ctx context.Context, version Version, filters ...Filter) ([]EventWithVersion, error) {
 	select {
 	case <-time.After(s.delay):
 		events := []EventWithVersion{

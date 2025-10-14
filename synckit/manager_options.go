@@ -19,8 +19,6 @@ type ManagerOption func(*SyncManagerBuilder) error
 // Deprecated: NewManager is deprecated. Use NewNode() instead, which provides
 // the same functionality with a cleaner API. See node.go for details.
 func NewManager(opts ...ManagerOption) (SyncManager, error) {
-	const op = "synckit.NewManager"
-
 	b := NewSyncManagerBuilder()
 
 	for _, opt := range opts {

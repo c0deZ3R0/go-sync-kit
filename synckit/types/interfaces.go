@@ -21,8 +21,10 @@ type EventHandler = func([]EventWithVersion) error
 // filtering across Store/Transport operations. Implementations may choose to
 // support a subset (e.g., tenant, type, tag).
 //
-// Note: The core interfaces below currently don't consume Filter in their
-// signatures; it exists for forward compatibility and documentation.
+// Common filter keys:
+//   - "type": Filter by event type
+//   - "tenant": Filter by tenant ID (from metadata)
+//   - "aggregate_id": Filter by aggregate ID
 type Filter struct{ Key, Value string }
 
 // EventStore provides persistence for events.
@@ -40,10 +42,14 @@ type EventStore interface {
 	Store(ctx context.Context, event Event, version Version) error
 
 	// Load retrieves all events strictly after the provided version.
-	Load(ctx context.Context, since Version) ([]EventWithVersion, error)
+	// Optional filters can be provided for type, tenant, aggregate_id, etc.
+	// Variadic filters parameter is backward compatible - existing calls work unchanged.
+	Load(ctx context.Context, since Version, filters ...Filter) ([]EventWithVersion, error)
 
 	// LoadByAggregate retrieves events for a specific aggregate after the version.
-	LoadByAggregate(ctx context.Context, aggregateID string, since Version) ([]EventWithVersion, error)
+	// Optional filters can be provided for type, tenant, etc.
+	// Variadic filters parameter is backward compatible - existing calls work unchanged.
+	LoadByAggregate(ctx context.Context, aggregateID string, since Version, filters ...Filter) ([]EventWithVersion, error)
 
 	// LatestVersion returns the latest version in the store.
 	LatestVersion(ctx context.Context) (Version, error)

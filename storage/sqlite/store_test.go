@@ -550,7 +550,9 @@ func BenchmarkSQLiteEventStore_Load(b *testing.B) {
 			aggregateID: "bench-agg",
 			data:        fmt.Sprintf("data-%d", i),
 		}
-		store.Store(ctx, event, cursor.IntegerCursor{Seq: 0})
+		if err := store.Store(ctx, event, cursor.IntegerCursor{Seq: 0}); err != nil {
+			b.Fatalf("Failed to store event: %v", err)
+		}
 	}
 
 	b.ResetTimer()

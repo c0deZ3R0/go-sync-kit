@@ -312,7 +312,6 @@ func TestSyncNodeLifecycle(t *testing.T) {
 		t.Fatalf("failed to create SyncNode: %v", err)
 	}
 
-
 	// Start auto sync
 	if err := node.StartAutoSync(ctx); err != nil {
 		t.Errorf("StartAutoSync failed: %v", err)
@@ -383,11 +382,11 @@ func TestSyncNodeManagerIdenticalBehavior(t *testing.T) {
 	if managerErr == nil && nodeErr == nil {
 		// Both succeeded - results should be comparable
 		if managerResult.EventsPushed != nodeResult.EventsPushed {
-			t.Errorf("EventsPushed differs: manager=%d, node=%d", 
+			t.Errorf("EventsPushed differs: manager=%d, node=%d",
 				managerResult.EventsPushed, nodeResult.EventsPushed)
 		}
 		if managerResult.EventsPulled != nodeResult.EventsPulled {
-			t.Errorf("EventsPulled differs: manager=%d, node=%d", 
+			t.Errorf("EventsPulled differs: manager=%d, node=%d",
 				managerResult.EventsPulled, nodeResult.EventsPulled)
 		}
 	}
@@ -402,7 +401,7 @@ func TestSyncNodeManagerIdenticalBehavior(t *testing.T) {
 
 	if managerPushErr == nil && nodePushErr == nil {
 		if managerPush.EventsPushed != nodePush.EventsPushed {
-			t.Errorf("Push EventsPushed differs: manager=%d, node=%d", 
+			t.Errorf("Push EventsPushed differs: manager=%d, node=%d",
 				managerPush.EventsPushed, nodePush.EventsPushed)
 		}
 	}
@@ -417,7 +416,7 @@ func TestSyncNodeManagerIdenticalBehavior(t *testing.T) {
 
 	if managerPullErr == nil && nodePullErr == nil {
 		if managerPull.EventsPulled != nodePull.EventsPulled {
-			t.Errorf("Pull EventsPulled differs: manager=%d, node=%d", 
+			t.Errorf("Pull EventsPulled differs: manager=%d, node=%d",
 				managerPull.EventsPulled, nodePull.EventsPulled)
 		}
 	}

@@ -24,11 +24,11 @@ func (m *mockEventStore) Store(ctx context.Context, event Event, version Version
 	return nil
 }
 
-func (m *mockEventStore) Load(ctx context.Context, since Version) ([]EventWithVersion, error) {
+func (m *mockEventStore) Load(ctx context.Context, since Version, filters ...Filter) ([]EventWithVersion, error) {
 	return nil, nil
 }
 
-func (m *mockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since Version) ([]EventWithVersion, error) {
+func (m *mockEventStore) LoadByAggregate(ctx context.Context, aggregateID string, since Version, filters ...Filter) ([]EventWithVersion, error) {
 	return nil, nil
 }
 
@@ -123,7 +123,7 @@ type contextAwareEventStore struct {
 	events []EventWithVersion
 }
 
-func (s *contextAwareEventStore) Load(ctx context.Context, version Version) ([]EventWithVersion, error) {
+func (s *contextAwareEventStore) Load(ctx context.Context, version Version, filters ...Filter) ([]EventWithVersion, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

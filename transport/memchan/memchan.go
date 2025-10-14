@@ -187,7 +187,9 @@ func (c *MemChan) Subscribe(ctx context.Context, handler func([]synckit.EventWit
 			case <-ctx.Done():
 				// Process final batch before exiting
 				if len(batch) > 0 {
-					handler(batch)
+					if err := handler(batch); err != nil {
+						fmt.Printf("Handler error: %v\n", err)
+					}
 				}
 				return
 
@@ -195,7 +197,9 @@ func (c *MemChan) Subscribe(ctx context.Context, handler func([]synckit.EventWit
 				if !ok {
 					// Channel closed, process final batch and exit
 					if len(batch) > 0 {
-						handler(batch)
+						if err := handler(batch); err != nil {
+							fmt.Printf("Handler error: %v\n", err)
+						}
 					}
 					return
 				}
@@ -256,10 +260,10 @@ func (c *MemChan) Stats() MemChanStats {
 	defer c.mu.RUnlock()
 
 	return MemChanStats{
-		TotalEvents:        len(c.events),
-		ActiveSubscribers:  len(c.subs),
-		ChannelCapacity:    c.capacity,
-		Closed:             c.closed,
+		TotalEvents:       len(c.events),
+		ActiveSubscribers: len(c.subs),
+		ChannelCapacity:   c.capacity,
+		Closed:            c.closed,
 	}
 }
 
@@ -296,7 +300,7 @@ func CreatePair(capacity int) (*MemChan, *MemChan) {
 	transport1 := New(capacity)
 	transport2 := New(capacity)
 
-	// In a real scenario, you might want to create some form of 
+	// In a real scenario, you might want to create some form of
 	// bidirectional connection between them, but for simplicity,
 	// we'll just return two independent transports
 	return transport1, transport2

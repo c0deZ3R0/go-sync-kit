@@ -261,7 +261,10 @@ func (h *HealthChecker) executeCheck(ctx context.Context, check HealthCheck) Che
 	// Recover from panics in health checks
 	defer func() {
 		if r := recover(); r != nil {
-			// Return a failed check result if the check panics
+			//TODO: Return a failed CheckResult instead of printing
+			// This requires changing the function signature to return an error as well
+			// For now, we just log the panic
+			fmt.Printf("Health check '%s' for component '%s' panicked: %v\n", check.Name(), check.Component(), r)
 		}
 	}()
 
