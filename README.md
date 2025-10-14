@@ -9,15 +9,18 @@
 
 Tiny, composable building blocks for **event sync** in Go.
 
-- ✅ Simple mental model: **Node → Store + Transport (+ Resolver)**
+- ✅ Simple mental model: **[Node](docs/overview.md#syncnode) → [Store](docs/overview.md#store) + [Transport](docs/overview.md#transport) (+ [Resolver](docs/overview.md#resolver))**
 - ⚡ In-memory dev experience (no external deps)
 - 🌐 HTTP presets for client/server
 - 🔧 Pluggable conflict resolution
 - 📦 Production-ready stores/transports
 
+> **New to go-sync-kit?** Start with the [Architecture overview →](docs/overview.md)
+
 ---
 
 ## Table of Contents
+- [Architecture overview](docs/overview.md)
 - [Why go-sync-kit?](#why-go-sync-kit)
 - [Install](#install)
 - [60-Second Quick Start (In-Memory)](#60-second-quick-start-in-memory)
@@ -167,15 +170,15 @@ handler := middleware.Chain(
 
 ## Core Concepts
 
-**SyncNode** – the participant you run. It exposes:
+**[SyncNode](docs/overview.md#syncnode)** – the participant you run. It exposes:
 - `Sync(ctx)`, `Push(ctx)`, `Pull(ctx)`
 - `StartAutoSync(ctx)`, `StopAutoSync()`, `Subscribe(...)`, `Close()`
 
-**Store** – event persistence (e.g. `memstore`, `sqlite`, `postgres`).
+**[Store](docs/overview.md#store)** – event persistence (e.g. `memstore`, `sqlite`, `postgres`).
 
-**Transport** – how events move (e.g. HTTP request/response, in-memory `memchan`, SSE for real-time subscriptions).
+**[Transport](docs/overview.md#transport)** – how events move (e.g. HTTP request/response, in-memory `memchan`, SSE for real-time subscriptions).
 
-**ConflictResolver** – strategy for conflicts (e.g. LWW). Pluggable.
+**[Resolver](docs/overview.md#resolver)** – strategy for conflicts (e.g. LWW). Pluggable.
 
 ---
 
