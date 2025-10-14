@@ -65,30 +65,51 @@ import (
 	"context"
 	"log"
 
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/storage/memstore"
-	"github.com/c0deZ3R0/go-sync-kit/synckit"
-	"github.com/c0deZ3R0/go-sync-kit/transport/memchan"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// MyEvent implements the Event interface
+type MyEvent struct {
+	EventID   string
+	EventType string
+	UserID    string
+	Name      string
+}
+
+func (e MyEvent) ID() string                      { return e.EventID }
+func (e MyEvent) Type() string                    { return e.EventType }
+func (e MyEvent) AggregateID() string             { return e.UserID }
+func (e MyEvent) Data() interface{}               { return e }
+func (e MyEvent) Metadata() map[string]interface{} { return nil }
+
 func main() {
+	ctx := context.Background()
 	store := memstore.New()
-	transport := memchan.New(16)
 
 	node, err := synckit.NewNode(
 		synckit.WithStore(store),
-		synckit.WithTransport(transport),
-		synckit.WithLWW(), // simple conflict resolution
+		synckit.WithNullTransport(), // Local-only
+		synckit.WithLWW(),
 	)
 	if err != nil { log.Fatal(err) }
 	defer node.Close()
 
-	res, err := node.Sync(context.Background())
+	// Store an event (memstore auto-generates sequential versions)
+	event := MyEvent{EventID: "1", EventType: "demo", UserID: "user-123", Name: "demo event"}
+	store.Store(ctx, event, cursor.IntegerCursor{})
+
+	// Sync
+	res, err := node.Sync(ctx)
 	if err != nil { log.Fatal(err) }
 
-	log.Printf("pushed=%d pulled=%d conflicts=%d",
+	log.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d",
 		res.EventsPushed, res.EventsPulled, res.ConflictsResolved)
 }
 ```
+
+See [examples/quickstart](examples/quickstart/README.md) to run this snippet yourself.
 
 Want to see more in-memory patterns (hub, subscriptions)? See [`examples/inmem`](examples/inmem).
 
@@ -184,7 +205,8 @@ handler := middleware.Chain(
 
 ## Examples & Docs
 
-- **In-memory quickstart**: [`examples/inmem`](examples/inmem)
+- **Quickstart example**: [`examples/quickstart`](examples/quickstart) – minimal runnable example
+- **In-memory patterns**: [`examples/inmem`](examples/inmem) – hub, subscriptions
 - **HTTP client/server**: [`examples/http_client`](examples/http_client), [`examples/http_server`](examples/http_server)
 - **Real-time SSE overview**: see notes in [`examples/HTTP_EXAMPLES.md`](examples/HTTP_EXAMPLES.md)
 
