@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
@@ -49,13 +48,12 @@ func main() {
 		Name:      "demo event",
 	}
 
-	// Store the event with a version (memstore auto-generates versions)
-	version := cursor.IntegerCursor{Seq: 1}
-	if err := store.Store(ctx, event, version); err != nil {
+	// Store the event (memstore auto-generates sequential versions)
+	if err := store.Store(ctx, event, cursor.IntegerCursor{}); err != nil {
 		log.Fatalf("store: %v", err)
 	}
 
-	fmt.Printf("📝 Stored event: %s (type: %s, user: %s)\n", 
+	log.Printf("📝 Stored event: %s (type: %s, user: %s)", 
 		event.Name, event.Type(), event.AggregateID())
 
 	// Perform a one-shot sync round (pull → resolve → push)
@@ -64,6 +62,6 @@ func main() {
 		log.Fatalf("sync: %v", err)
 	}
 
-	fmt.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d\n",
+	log.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d",
 		res.EventsPushed, res.EventsPulled, res.ConflictsResolved)
 }

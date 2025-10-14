@@ -1,6 +1,6 @@
 # Quickstart Example
 
-This example demonstrates the minimal steps to get started with go-sync-kit:
+This example demonstrates the minimal steps to get started with go-sync-kit, following the *pull → resolve → push* flow described in the [Architecture Overview](../../docs/overview.md):
 
 1. **Define a custom event** implementing the Event interface
 2. **Store it locally** using an in-memory store
@@ -16,10 +16,10 @@ go run ./examples/quickstart
 
 ```
 📝 Stored event: demo event (type: demo, user: user-123)
-✅ Sync complete: EventsPushed=0, EventsPulled=0, ConflictsResolved=0
+✅ Sync complete: EventsPushed=1, EventsPulled=0, ConflictsResolved=0
 ```
 
-This example runs entirely in memory with no network communication (using `WithNullTransport()`). The sync operation completes successfully, demonstrating that the basic sync machinery works even in a local-only scenario.
+**Why EventsPushed=1?** The sync pipeline executes the full *pull → resolve → push* flow. During the push phase, the local event is "pushed" to the transport layer. Since `WithNullTransport()` is a no-op transport (no network), the push succeeds immediately without actually sending data anywhere. EventsPulled=0 because there's no remote to pull from. This demonstrates that the sync machinery works correctly even in a local-only scenario.
 
 ## Key concepts shown:
 

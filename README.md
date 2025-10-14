@@ -63,7 +63,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/c0deZ3R0/go-sync-kit/cursor"
@@ -97,16 +96,15 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	defer node.Close()
 
-	// Store an event
+	// Store an event (memstore auto-generates sequential versions)
 	event := MyEvent{EventID: "1", EventType: "demo", UserID: "user-123", Name: "demo event"}
-	version := cursor.IntegerCursor{Seq: 1}
-	store.Store(ctx, event, version)
+	store.Store(ctx, event, cursor.IntegerCursor{})
 
 	// Sync
 	res, err := node.Sync(ctx)
 	if err != nil { log.Fatal(err) }
 
-	fmt.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d\n",
+	log.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d",
 		res.EventsPushed, res.EventsPulled, res.ConflictsResolved)
 }
 ```
