@@ -3,7 +3,7 @@
 Branch: feat/public-api-ergonomics
 Status: In Progress
 Owner: blain
-Last updated: 2025-10-06T11:17:00Z
+Last updated: 2025-10-14T10:18:55Z
 
 Project rules honored:
 - Test often; commit only with 100% passing tests
@@ -140,6 +140,7 @@ Risks/notes:
 3. M2: Bridge existing functional options to use shared wiring; tests ensuring equivalence; docs updated.
 4. M3: Finalize synckit/types interfaces (store.go/transport.go); add docs; add compile-time conformance checks; fix call sites; tests.
 5. Polish: examples and README snippet updates (optional); vet/staticcheck.
+6. Maintenance: Merge 'main' into 'dev' to keep dev up to date. All tests passed (go test ./...). Commit: "Merge branch 'main' into dev: sync dev with latest from main after successful tests". Timestamp: 2025-10-14T10:18:55Z.
 
 Checklist for each commit:
 - All tests pass locally: `go test ./...`
