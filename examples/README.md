@@ -1,46 +1,94 @@
-# Go Sync Kit Examples
+# Examples Index
 
-This directory contains example implementations demonstrating various features and use cases of Go Sync Kit.
+Progressive examples from beginner to advanced. Start with [quickstart](quickstart) and work your way up.
 
-## Getting Started
+---
 
-All examples require Go 1.24.4+ and the Go Sync Kit library.
+## 🎯 Quick Start
 
+### [quickstart/](quickstart)
+Minimal runnable example showing custom events, local storage, and sync with SyncNode.  
+**Topics:** Event interface, memstore, null transport, basic sync flow
+
+---
+
+## 🌐 HTTP Examples
+
+### [http_server/](http_server)
+Production-ready HTTP server with SQLite storage, graceful shutdown, and observability.  
+**Topics:** HTTP transport, SQLite, server setup, production patterns
+
+### [http_client/](http_client)
+HTTP client connecting to sync server, demonstrating remote synchronization.  
+**Topics:** HTTP transport client, remote sync, connection management
+
+### [http_enterprise/](http_enterprise)
+Enterprise features: multitenancy, authentication, filtering, idempotency keys.  
+**Topics:** Bearer auth, tenant isolation, advanced filtering, middleware
+
+### [HTTP_EXAMPLES.md](HTTP_EXAMPLES.md)
+Comprehensive HTTP transport guide with SSE (Server-Sent Events) for real-time push.
+
+---
+
+## 📦 In-Memory Examples
+
+### [inmem/](inmem)
+In-memory sync patterns: hub/spoke, subscriptions, local-only architectures.  
+**Topics:** memchan transport, hub pattern, event subscriptions
+
+---
+
+## 🏛️ Intermediate Topics
+
+### [intermediate/03-events-and-storage/](intermediate/03-events-and-storage)
+Custom event creation, storage with versioning, event retrieval patterns.  
+**Topics:** Event interface, SQLite storage, versioning, Load operations
+
+### [intermediate/04-conflict-resolution/](intermediate/04-conflict-resolution)
+Conflict detection and resolution strategies (LWW, FWW, custom resolvers).  
+**Topics:** ConflictResolver interface, deterministic merge, conflict patterns
+
+### [intermediate/07-structured-logging/](intermediate/07-structured-logging)
+Integrating structured logging (slog) for production observability.  
+**Topics:** slog integration, log levels, contextual logging
+
+### [intermediate/08-stateful-resolvers/](intermediate/08-stateful-resolvers)
+Advanced conflict resolution with stateful resolvers and business logic.  
+**Topics:** Stateful resolvers, domain-specific merge, compensating events
+
+### [intermediate/09-advanced-observability/](intermediate/09-advanced-observability)
+Metrics (Prometheus) and distributed tracing (OpenTelemetry).  
+**Topics:** Metrics collection, tracing, performance monitoring
+
+### [intermediate/10-state-machine-enhancements/](intermediate/10-state-machine-enhancements)
+Sync state machine: transitions, hooks, error handling.  
+**Topics:** State machine, lifecycle hooks, error recovery
+
+---
+
+## 🔧 Advanced Patterns
+
+### [server-projection-hooks/](server-projection-hooks)
+Read-model projections and CQRS patterns with event hooks.  
+**Topics:** Projections, CQRS, read models, materialized views
+
+---
+
+## 📝 Example Guidelines
+
+**Running Examples:**
 ```bash
-# Clone the repository
-git clone https://github.com/c0deZ3R0/go-sync-kit
-cd go-sync-kit/examples
-
-# Run any example
-cd <example-directory>
+cd examples/<example-directory>
 go run .
 ```
 
-## Available Examples
+**Creating New Examples:**
+1. Create directory under `examples/`
+2. Add `README.md` with clear description and topics covered
+3. Implement in `main.go` with inline comments
+4. Test thoroughly and document expected output
+5. Add to this index
 
-*Examples will be added here as they are created*
-
-## Architecture Examples
-
-Each example demonstrates different aspects of Go Sync Kit:
-
-- **Event-driven synchronization**
-- **Offline-first architectures** 
-- **Conflict resolution strategies**
-- **Transport layer implementations**
-- **Storage backend integrations**
-- **Real-time event streaming**
-
-## Development
-
-To create a new example:
-
-1. Create a new directory under `examples/`
-2. Add a `go.mod` file with the example module
-3. Create a `README.md` explaining the example
-4. Implement the example in `main.go` or organized files
-5. Test thoroughly and document usage
-
-## Old Examples
-
-Previous examples have been moved to `examples-archive/` for reference.
+**Requirements:**  
+Go 1.21+ recommended
