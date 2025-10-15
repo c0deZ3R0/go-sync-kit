@@ -9,15 +9,18 @@
 
 Tiny, composable building blocks for **event sync** in Go.
 
-- ✅ Simple mental model: **Node → Store + Transport (+ Resolver)**
+- ✅ Simple mental model: **[Node](docs/overview.md#syncnode) → [Store](docs/overview.md#store) + [Transport](docs/overview.md#transport) (+ [Resolver](docs/overview.md#resolver))**
 - ⚡ In-memory dev experience (no external deps)
 - 🌐 HTTP presets for client/server
 - 🔧 Pluggable conflict resolution
 - 📦 Production-ready stores/transports
 
+> **New to go-sync-kit?** Start with the [Architecture overview →](docs/overview.md)
+
 ---
 
 ## Table of Contents
+- [Architecture overview](docs/overview.md)
 - [Why go-sync-kit?](#why-go-sync-kit)
 - [Install](#install)
 - [60-Second Quick Start (In-Memory)](#60-second-quick-start-in-memory)
@@ -62,30 +65,51 @@ import (
 	"context"
 	"log"
 
+	"github.com/c0deZ3R0/go-sync-kit/cursor"
 	"github.com/c0deZ3R0/go-sync-kit/storage/memstore"
-	"github.com/c0deZ3R0/go-sync-kit/synckit"
-	"github.com/c0deZ3R0/go-sync-kit/transport/memchan"
+	synckit "github.com/c0deZ3R0/go-sync-kit/synckit"
 )
 
+// MyEvent implements the Event interface
+type MyEvent struct {
+	EventID   string
+	EventType string
+	UserID    string
+	Name      string
+}
+
+func (e MyEvent) ID() string                      { return e.EventID }
+func (e MyEvent) Type() string                    { return e.EventType }
+func (e MyEvent) AggregateID() string             { return e.UserID }
+func (e MyEvent) Data() interface{}               { return e }
+func (e MyEvent) Metadata() map[string]interface{} { return nil }
+
 func main() {
+	ctx := context.Background()
 	store := memstore.New()
-	transport := memchan.New(16)
 
 	node, err := synckit.NewNode(
 		synckit.WithStore(store),
-		synckit.WithTransport(transport),
-		synckit.WithLWW(), // simple conflict resolution
+		synckit.WithNullTransport(), // Local-only
+		synckit.WithLWW(),
 	)
 	if err != nil { log.Fatal(err) }
 	defer node.Close()
 
-	res, err := node.Sync(context.Background())
+	// Store an event (memstore auto-generates sequential versions)
+	event := MyEvent{EventID: "1", EventType: "demo", UserID: "user-123", Name: "demo event"}
+	store.Store(ctx, event, cursor.IntegerCursor{})
+
+	// Sync
+	res, err := node.Sync(ctx)
 	if err != nil { log.Fatal(err) }
 
-	log.Printf("pushed=%d pulled=%d conflicts=%d",
+	log.Printf("✅ Sync complete: EventsPushed=%d, EventsPulled=%d, ConflictsResolved=%d",
 		res.EventsPushed, res.EventsPulled, res.ConflictsResolved)
 }
 ```
+
+See [examples/quickstart](examples/quickstart/README.md) to run this snippet yourself.
 
 Want to see more in-memory patterns (hub, subscriptions)? See [`examples/inmem`](examples/inmem).
 
@@ -167,21 +191,22 @@ handler := middleware.Chain(
 
 ## Core Concepts
 
-**SyncNode** – the participant you run. It exposes:
+**[SyncNode](docs/overview.md#syncnode)** – the participant you run. It exposes:
 - `Sync(ctx)`, `Push(ctx)`, `Pull(ctx)`
 - `StartAutoSync(ctx)`, `StopAutoSync()`, `Subscribe(...)`, `Close()`
 
-**Store** – event persistence (e.g. `memstore`, `sqlite`, `postgres`).
+**[Store](docs/overview.md#store)** – event persistence (e.g. `memstore`, `sqlite`, `postgres`).
 
-**Transport** – how events move (e.g. HTTP request/response, in-memory `memchan`, SSE for real-time subscriptions).
+**[Transport](docs/overview.md#transport)** – how events move (e.g. HTTP request/response, in-memory `memchan`, SSE for real-time subscriptions).
 
-**ConflictResolver** – strategy for conflicts (e.g. LWW). Pluggable.
+**[Resolver](docs/overview.md#resolver)** – strategy for conflicts (e.g. LWW). Pluggable.
 
 ---
 
 ## Examples & Docs
 
-- **In-memory quickstart**: [`examples/inmem`](examples/inmem)
+- **Quickstart example**: [`examples/quickstart`](examples/quickstart) – minimal runnable example
+- **In-memory patterns**: [`examples/inmem`](examples/inmem) – hub, subscriptions
 - **HTTP client/server**: [`examples/http_client`](examples/http_client), [`examples/http_server`](examples/http_server)
 - **Real-time SSE overview**: see notes in [`examples/HTTP_EXAMPLES.md`](examples/HTTP_EXAMPLES.md)
 
