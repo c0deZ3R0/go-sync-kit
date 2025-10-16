@@ -48,48 +48,65 @@ func ExampleNewNode_inMemory() {
 	// Events pulled: 0, Events pushed: 0
 }
 
-// ExampleWithStore_seedingEvents demonstrates storing events before sync.
+// ExampleWithStore_seedingEvents demonstrates storing events before sync
+// using a shared transport between two nodes (producer/consumer pattern).
 func ExampleWithStore_seedingEvents() {
 	ctx := context.Background()
-
-	// Create store and transport
-	store := memstore.New()
-	transport := memchan.New(16)
 	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	// Create a simple event
+	// Create a shared transport for both nodes
+	sharedTransport := memchan.New(16)
+
+	// Producer node: creates and stores an event
+	producerStore := memstore.New()
 	evt := event.New(
 		"evt-1",                    // event ID
 		"UserCreated",              // event type
 		"user-123",                 // aggregate ID
 		[]byte(`{"name":"Alice"}`), // event data
 	)
-
-	// Store the event with an integer cursor version
 	version := cursor.IntegerCursor{Seq: 1}
-	if err := store.Store(ctx, evt, version); err != nil {
+	if err := producerStore.Store(ctx, evt, version); err != nil {
 		panic(err)
 	}
 
-	// Create node and sync
-	node, err := synckit.NewNode(
-		synckit.WithStore(store),
-		synckit.WithTransport(transport),
+	producerNode, err := synckit.NewNode(
+		synckit.WithStore(producerStore),
+		synckit.WithTransport(sharedTransport),
 		synckit.WithManagerLogger(silentLogger),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	result, err := node.Sync(ctx)
+	// Producer syncs and pushes the event to the shared transport
+	producerResult, err := producerNode.Sync(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	// Prefer derived, stable output from result
-	fmt.Printf("pushed=%d pulled=%d\n", result.EventsPushed, result.EventsPulled)
+	// Consumer node: pulls from the shared transport
+	consumerStore := memstore.New()
+	consumerNode, err := synckit.NewNode(
+		synckit.WithStore(consumerStore),
+		synckit.WithTransport(sharedTransport),
+		synckit.WithManagerLogger(silentLogger),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	consumerResult, err := consumerNode.Sync(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	// Show producer pushed 1 event, consumer pulled 1 event
+	fmt.Printf("producer: pushed=%d pulled=%d\n", producerResult.EventsPushed, producerResult.EventsPulled)
+	fmt.Printf("consumer: pushed=%d pulled=%d\n", consumerResult.EventsPushed, consumerResult.EventsPulled)
 	// Output:
-	// pushed=1 pulled=0
+	// producer: pushed=1 pulled=0
+	// consumer: pushed=0 pulled=1
 }
 
 // ExampleConflictResolver_custom demonstrates configuring a custom conflict resolver.
