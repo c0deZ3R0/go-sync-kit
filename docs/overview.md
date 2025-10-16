@@ -1,5 +1,7 @@
 # Architecture Overview
 
+[← Back to main README](../README.md#-documentation-index)
+
 This guide gives you a practical mental model for **go-sync-kit**. It connects the core pieces—**SyncNode**, **Store**, **Transport**, and **Resolver**—and walks through a typical "pull → resolve → push" round, including how versions and the state machine fit in.
 
 ---

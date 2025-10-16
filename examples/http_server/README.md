@@ -75,3 +75,7 @@ go run main.go
 - Events accumulate across runs (useful for testing sync)
 - Database schema is created on first run
 - Delete the file to start fresh or test initial sync scenarios
+
+---
+
+↩︎ Back to [Documentation Index](../../README.md#-documentation-index)

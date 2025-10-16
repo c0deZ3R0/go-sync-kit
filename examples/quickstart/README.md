@@ -34,3 +34,7 @@ go run ./examples/quickstart
 - Try the HTTP client/server examples for network sync
 - Explore different storage backends (SQLite, Postgres)
 - Read the [Architecture Overview](../../docs/overview.md) for deeper understanding
+
+---
+
+↩︎ Back to [Documentation Index](../../README.md#-documentation-index)
