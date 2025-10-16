@@ -330,7 +330,6 @@ func (s *MemStore) StoreBatch(ctx context.Context, events []synckit.EventWithVer
 }
 
 // Stats returns statistics about the in-memory store.
-// This method is not part of the EventStore interface but useful for monitoring.
 func (s *MemStore) Stats() MemStoreStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -345,10 +344,14 @@ func (s *MemStore) Stats() MemStoreStats {
 
 // MemStoreStats contains statistics about the memory store.
 type MemStoreStats struct {
-	TotalEvents  int    // Total number of events stored
-	TotalStreams int    // Total number of unique streams
-	NextSequence uint64 // Next sequence number to be assigned
-	Closed       bool   // Whether the store is closed
+	// TotalEvents is the total number of events stored.
+	TotalEvents int
+	// TotalStreams is the total number of unique streams.
+	TotalStreams int
+	// NextSequence is the next sequence number to be assigned.
+	NextSequence uint64
+	// Closed indicates whether the store is closed.
+	Closed bool
 }
 
 // matchesFilters checks if an event matches all provided filters.
@@ -386,3 +389,4 @@ func matchesFilters(event synckit.Event, filters map[string]string) bool {
 
 	return true
 }
+
