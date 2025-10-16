@@ -91,7 +91,7 @@ func WithMetricsEnabled(enabled bool) RunnerOption {
 	return func(r *runner) {
 		r.metricsEnabled = enabled
 		_ = r // SA9003: empty branch (staticcheck) - intentionally left empty for backward compatibility
-		//TODO: remove in future major version
+		// TODO: remove in future major version
 	}
 }
 
