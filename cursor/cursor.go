@@ -12,19 +12,26 @@ import (
 )
 
 const (
+	// KindInteger is the kind identifier for IntegerCursor.
 	KindInteger = "integer"
+	// KindVector is the kind identifier for VectorCursor.
 	KindVector  = "vector"
 )
 
+// Cursor is the interface for version/ordering abstractions.
 type Cursor interface {
+	// Kind returns the kind string identifying the cursor type.
 	Kind() string
 }
 
-// Codec for marshaling/unmarshaling cursors to a stable wire form.
+// Codec defines the interface for marshaling and unmarshaling cursors to wire format.
 type Codec interface {
+	// Kind returns the cursor kind this codec handles.
 	Kind() string
-	Marshal(c Cursor) (json.RawMessage, error)      // returns the Data part only
-	Unmarshal(data json.RawMessage) (Cursor, error) // parse Data into a Cursor
+	// Marshal encodes a Cursor to JSON wire format.
+	Marshal(c Cursor) (json.RawMessage, error)
+	// Unmarshal decodes JSON wire format back to a Cursor.
+	Unmarshal(data json.RawMessage) (Cursor, error)
 }
 
 var (
@@ -32,12 +39,14 @@ var (
 	registryMu sync.RWMutex // NEW
 )
 
+// Register registers a Codec implementation in the global registry.
 func Register(c Codec) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry[c.Kind()] = c
 }
 
+// Lookup retrieves a registered Codec by kind; returns (nil, false) if not found.
 func Lookup(kind string) (Codec, bool) {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -48,12 +57,15 @@ func Lookup(kind string) (Codec, bool) {
 // Maximum allowed size for a wire cursor payload.
 const maxWireCursorSize = 64 * 1024 // 64 KB
 
-// WireCursor is the typed union for transport (HTTP JSON).
+// WireCursor is the JSON-serializable representation of a Cursor for transport.
 type WireCursor struct {
-	Kind string          `json:"kind"`
+	// Kind identifies the cursor type.
+	Kind string `json:"kind"`
+	// Data holds the codec-specific JSON encoding.
 	Data json.RawMessage `json:"data"`
 }
 
+// MarshalWire encodes a Cursor to WireCursor format for transport.
 func MarshalWire(c Cursor) (*WireCursor, error) {
 	codec, ok := Lookup(c.Kind())
 	if !ok {
@@ -66,6 +78,7 @@ func MarshalWire(c Cursor) (*WireCursor, error) {
 	return &WireCursor{Kind: codec.Kind(), Data: data}, nil
 }
 
+// ValidateWireCursor checks that a WireCursor is valid before unmarshaling.
 func ValidateWireCursor(wc *WireCursor) error {
 	if wc == nil {
 		return errors.New("nil wire cursor")
@@ -81,6 +94,7 @@ func ValidateWireCursor(wc *WireCursor) error {
 	return nil
 }
 
+// UnmarshalWire decodes a WireCursor back to a Cursor.
 func UnmarshalWire(wc *WireCursor) (Cursor, error) {
 	if err := ValidateWireCursor(wc); err != nil {
 		return nil, err
@@ -92,11 +106,13 @@ func UnmarshalWire(wc *WireCursor) (Cursor, error) {
 	return codec.Unmarshal(wc.Data)
 }
 
-// IntegerCursor is a simple high-water mark (seq).
+// IntegerCursor is a simple high-water mark (sequence number) version.
 type IntegerCursor struct {
+	// Seq is the sequence number.
 	Seq uint64
 }
 
+// Kind returns the cursor kind identifier.
 func (IntegerCursor) Kind() string { return KindInteger }
 
 // Compare implements types.Version
@@ -150,11 +166,13 @@ func (integerCodec) Unmarshal(data json.RawMessage) (Cursor, error) {
 	return IntegerCursor{Seq: seq}, nil
 }
 
-// VectorCursor is a dotted-vector summary: map[node]counter
+// VectorCursor is a vector clock version: map[node]counter.
 type VectorCursor struct {
+	// Counters maps node identifiers to their logical clock values.
 	Counters map[string]uint64
 }
 
+// Kind returns the cursor kind identifier.
 func (VectorCursor) Kind() string { return KindVector }
 
 // Compare implements types.Version

@@ -1,0 +1,18 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - revive
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: error
+      - name: package-comments
+        severity: error
+      - name: confusing-naming
+        severity: warning
+      - name: comment-spacings
+        severity: warning
