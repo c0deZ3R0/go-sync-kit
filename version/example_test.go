@@ -2,7 +2,7 @@ package version_test
 
 import (
 	"fmt"
-	"log"
+	"sort"
 
 	"github.com/c0deZ3R0/go-sync-kit/version"
 )
@@ -15,17 +15,17 @@ func Example_basic() {
 
 	// Increment when a node creates an event
 	if err := clock.Increment("node-1"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("After increment: %s\n", clock.String())
 
 	// Create another clock from JSON
 	otherClock, err := version.NewVectorClockFromString(`{"node-2": 3, "node-1": 1}`)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	// Compare clocks to determine causality
+	// Compare clocks to determine causality (-1: a<b, 1: a>b, 0: concurrent or equal)
 	relationship := clock.Compare(otherClock)
 	switch relationship {
 	case -1:
@@ -57,30 +57,30 @@ func Example_distributedScenario() {
 
 	fmt.Println("\n=== Node A creates an event ===")
 	if err := nodeA.Increment("A"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("Node A: %s\n", nodeA.String())
 
 	fmt.Println("\n=== Node B creates an event independently ===")
 	if err := nodeB.Increment("B"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("Node B: %s\n", nodeB.String())
 	fmt.Printf("A concurrent with B: %t\n", nodeA.IsConcurrentWith(nodeB))
 
 	fmt.Println("\n=== Node B receives A's state and creates another event ===")
 	if err := nodeB.Merge(nodeA); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := nodeB.Increment("B"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("Node B after merge and increment: %s\n", nodeB.String())
 	fmt.Printf("B happened after A: %t\n", nodeB.HappenedAfter(nodeA))
 
 	fmt.Println("\n=== Node C joins and creates an event ===")
 	if err := nodeC.Increment("C"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("Node C: %s\n", nodeC.String())
 	fmt.Printf("C concurrent with A: %t\n", nodeC.IsConcurrentWith(nodeA))
@@ -88,13 +88,13 @@ func Example_distributedScenario() {
 
 	fmt.Println("\n=== Node C syncs with A and B ===")
 	if err := nodeC.Merge(nodeA); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := nodeC.Merge(nodeB); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := nodeC.Increment("C"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	fmt.Printf("Node C after sync: %s\n", nodeC.String())
 	fmt.Printf("C happened after A: %t\n", nodeC.HappenedAfter(nodeA))
@@ -134,13 +134,13 @@ func Example_serialization() {
 	// Create and populate a vector clock
 	clock := version.NewVectorClock()
 	if err := clock.Increment("server-1"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := clock.Increment("server-2"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := clock.Increment("server-1"); err != nil { // server-1 creates another event
-		log.Fatal(err)
+		panic(err)
 	}
 
 	fmt.Printf("Original clock: %s\n", clock.String())
@@ -152,7 +152,7 @@ func Example_serialization() {
 	// Deserialize from JSON string
 	restored, err := version.NewVectorClockFromString(jsonStr)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	fmt.Printf("Restored clock: %s\n", restored.String())
@@ -170,18 +170,24 @@ func Example_serialization() {
 func Example_conflictDetection() {
 	// Simulate two users editing the same document offline
 	fmt.Println("=== Two users start with the same document version ===")
-	userAlice, _ := version.NewVectorClockFromString(`{"server":5}`)
-	userBob, _ := version.NewVectorClockFromString(`{"server":5}`)
+	userAlice, err := version.NewVectorClockFromString(`{"server":5}`)
+	if err != nil {
+		panic(err)
+	}
+	userBob, err := version.NewVectorClockFromString(`{"server":5}`)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("Alice's version: %s\n", userAlice.String())
 	fmt.Printf("Bob's version: %s\n", userBob.String())
 
 	fmt.Println("\n=== Both users make changes offline ===")
 	if err := userAlice.Increment("alice"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := userBob.Increment("bob"); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	fmt.Printf("Alice after edit: %s\n", userAlice.String())
@@ -201,10 +207,10 @@ func Example_conflictDetection() {
 	// Simulate conflict resolution by merging both versions
 	resolved := userAlice.Clone()
 	if err := resolved.Merge(userBob); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if err := resolved.Increment("server"); err != nil { // Server creates merge event
-		log.Fatal(err)
+		panic(err)
 	}
 
 	fmt.Printf("Resolved version: %s\n", resolved.String())
@@ -245,9 +251,18 @@ func Example_mapConstruction() {
 	fmt.Printf("Size: %d nodes\n", clock.Size())
 	fmt.Printf("Node-2 clock value: %d\n", clock.GetClock("node-2"))
 
-	// Get all clocks as a map (returns a copy)
+	// Get all clocks as a map (returns a copy) and print deterministically
 	allClocks := clock.GetAllClocks()
-	fmt.Printf("All clocks: %+v\n", allClocks)
+	keys := make([]string, 0, len(allClocks))
+	for k := range allClocks {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fmt.Print("All clocks (sorted):")
+	for _, k := range keys {
+		fmt.Printf(" %s:%d", k, allClocks[k])
+	}
+	fmt.Println()
 
 	// Modifying the returned map doesn't affect the original
 	allClocks["node-1"] = 100
@@ -257,6 +272,6 @@ func Example_mapConstruction() {
 	// Clock from map: {"node-1":5,"node-2":3,"node-3":1}
 	// Size: 3 nodes
 	// Node-2 clock value: 3
-	// All clocks: map[node-1:5 node-2:3 node-3:1]
+	// All clocks (sorted): node-1:5 node-2:3 node-3:1
 	// After modifying returned map, original node-1: 5
 }
