@@ -33,11 +33,15 @@ func ExampleNewNode_inMemory() {
 		synckit.WithTransport(transport),
 		synckit.WithManagerLogger(silentLogger),
 	)
-if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	// Perform an initial sync (no events yet)
 	result, err := node.Sync(ctx)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("Events pulled: %d, Events pushed: %d\n", result.EventsPulled, result.EventsPushed)
 	// Output:
@@ -55,15 +59,17 @@ func ExampleWithStore_seedingEvents() {
 
 	// Create a simple event
 	evt := event.New(
-		"evt-1",           // event ID
-		"UserCreated",     // event type
-		"user-123",        // aggregate ID
+		"evt-1",                    // event ID
+		"UserCreated",              // event type
+		"user-123",                 // aggregate ID
 		[]byte(`{"name":"Alice"}`), // event data
 	)
 
 	// Store the event with an integer cursor version
 	version := cursor.IntegerCursor{Seq: 1}
-if err := store.Store(ctx, evt, version); err != nil { panic(err) }
+	if err := store.Store(ctx, evt, version); err != nil {
+		panic(err)
+	}
 
 	// Create node and sync
 	node, err := synckit.NewNode(
@@ -71,14 +77,18 @@ if err := store.Store(ctx, evt, version); err != nil { panic(err) }
 		synckit.WithTransport(transport),
 		synckit.WithManagerLogger(silentLogger),
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	result, err := node.Sync(ctx)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	// Prefer derived, stable output from result
 	fmt.Printf("pushed=%d pulled=%d\n", result.EventsPushed, result.EventsPulled)
-// Output:
+	// Output:
 	// pushed=1 pulled=0
 }
 
@@ -97,11 +107,15 @@ func ExampleConflictResolver_custom() {
 		synckit.WithLWW(), // Use Last-Write-Wins resolver
 		synckit.WithManagerLogger(silentLogger),
 	)
-if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	// Perform sync
 	_, err = node.Sync(ctx)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("Node created with LWW resolver; sync completed successfully")
 	// Output:
@@ -124,18 +138,22 @@ func Example() {
 		synckit.WithTransport(transport),
 		synckit.WithManagerLogger(silentLogger),
 	)
-if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	// 3. Perform a sync cycle
 	result, err := node.Sync(ctx)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	// 4. Inspect results
 	if result.EventsPushed == 0 && result.EventsPulled == 0 {
 		fmt.Println("Sync complete: no events to sync")
 	}
 
-// Output: Sync complete: no events to sync
+	// Output: Sync complete: no events to sync
 }
 
 // ExampleWithHTTPTransport_roundtrip demonstrates a client/server HTTP roundtrip.
@@ -147,12 +165,14 @@ func ExampleWithHTTPTransport_roundtrip() {
 	// Server-side setup (store + node)
 	srvStore := memstore.New()
 	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-srvNode, err := synckit.NewNode(
+	srvNode, err := synckit.NewNode(
 		synckit.WithStore(srvStore),
 		synckit.WithTransport(memchan.New(16)),
 		synckit.WithManagerLogger(silentLogger),
 	)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	_ = srvNode
 
 	// HTTP server wiring (pseudo-code; replace with your actual httptransport)
@@ -162,7 +182,9 @@ srvNode, err := synckit.NewNode(
 
 	// Seed exactly one event on the server so the client will pull one
 	evt := event.New("evt-1", "UserCreated", "user-123", []byte(`{"name":"Alice"}`))
-	if err := srvStore.Store(ctx, evt, cursor.IntegerCursor{Seq: 1}); err != nil { panic(err) }
+	if err := srvStore.Store(ctx, evt, cursor.IntegerCursor{Seq: 1}); err != nil {
+		panic(err)
+	}
 
 	// Client-side setup (transport to ts.URL, store + node)
 	// cliTransport := httptransport.NewClient(ts.URL)
