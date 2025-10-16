@@ -6,73 +6,97 @@ import (
 	"fmt"
 )
 
-// ErrorCode represents the type of error that occurred
+// ErrorCode represents the type of error that occurred.
 type ErrorCode string
 
 const (
-	ErrCodeNetworkFailure    ErrorCode = "NETWORK_FAILURE"
-	ErrCodeStorageFailure    ErrorCode = "STORAGE_FAILURE"
-	ErrCodeConflictFailure   ErrorCode = "CONFLICT_FAILURE"
+	// ErrCodeNetworkFailure indicates a network-related error.
+	ErrCodeNetworkFailure ErrorCode = "NETWORK_FAILURE"
+	// ErrCodeStorageFailure indicates a storage-related error.
+	ErrCodeStorageFailure ErrorCode = "STORAGE_FAILURE"
+	// ErrCodeConflictFailure indicates a conflict resolution error.
+	ErrCodeConflictFailure ErrorCode = "CONFLICT_FAILURE"
+	// ErrCodeValidationFailure indicates a validation error.
 	ErrCodeValidationFailure ErrorCode = "VALIDATION_FAILURE"
 )
 
-// Kind represents the category of error for structured error handling
+// Kind represents the category of error for structured error handling.
 type Kind string
 
 const (
-	KindInvalid          Kind = "INVALID"            // Invalid input or request
-	KindNotFound         Kind = "NOT_FOUND"          // Resource not found
-	KindPermission       Kind = "PERMISSION"         // Permission denied
-	KindInternal         Kind = "INTERNAL"           // Internal server error
-	KindTimeout          Kind = "TIMEOUT"            // Operation timeout
-	KindUnavailable      Kind = "UNAVAILABLE"        // Service unavailable
-	KindConflict         Kind = "CONFLICT"           // Resource conflict
-	KindTooLarge         Kind = "TOO_LARGE"          // Request too large
-	KindMethodNotAllowed Kind = "METHOD_NOT_ALLOWED" // HTTP method not allowed
+	// KindInvalid indicates invalid input or request.
+	KindInvalid Kind = "INVALID"
+	// KindNotFound indicates a resource not found.
+	KindNotFound Kind = "NOT_FOUND"
+	// KindPermission indicates permission denied.
+	KindPermission Kind = "PERMISSION"
+	// KindInternal indicates an internal server error.
+	KindInternal Kind = "INTERNAL"
+	// KindTimeout indicates an operation timeout.
+	KindTimeout Kind = "TIMEOUT"
+	// KindUnavailable indicates service unavailable.
+	KindUnavailable Kind = "UNAVAILABLE"
+	// KindConflict indicates a resource conflict.
+	KindConflict Kind = "CONFLICT"
+	// KindTooLarge indicates request too large.
+	KindTooLarge Kind = "TOO_LARGE"
+	// KindMethodNotAllowed indicates HTTP method not allowed.
+	KindMethodNotAllowed Kind = "METHOD_NOT_ALLOWED"
 )
 
-// Operation represents the type of sync operation
+// Operation represents the type of sync operation.
 type Operation string
 
 const (
-	OpSync            Operation = "sync"
-	OpPush            Operation = "push"
-	OpPull            Operation = "pull"
-	OpStore           Operation = "store"
-	OpLoad            Operation = "load"
+	// OpSync is a general sync operation.
+	OpSync Operation = "sync"
+	// OpPush is a push operation.
+	OpPush Operation = "push"
+	// OpPull is a pull operation.
+	OpPull Operation = "pull"
+	// OpStore is a store operation.
+	OpStore Operation = "store"
+	// OpLoad is a load operation.
+	OpLoad Operation = "load"
+	// OpConflictResolve is a conflict resolution operation.
 	OpConflictResolve Operation = "conflict_resolve"
-	OpTransport       Operation = "transport"
-	OpClose           Operation = "close"
-	// Projection operations
-	OpProjection      Operation = "projection"
+	// OpTransport is a transport operation.
+	OpTransport Operation = "transport"
+	// OpClose is a close operation.
+	OpClose Operation = "close"
+	// OpProjection is a projection operation.
+	OpProjection Operation = "projection"
+	// OpProjectionApply is a projection apply operation.
 	OpProjectionApply Operation = "projection_apply"
-	OpOffsetStore     Operation = "offset_store"
+	// OpOffsetStore is an offset store operation.
+	OpOffsetStore Operation = "offset_store"
 )
 
-// SyncError represents an error that occurred during synchronization
+// SyncError represents an error that occurred during synchronization.
 type SyncError struct {
-	// Operation during which the error occurred
+	// Operation during which the error occurred.
 	Op Operation
 
-	// Component that generated the error (e.g., "store", "transport")
+	// Component that generated the error (e.g., "store", "transport").
 	Component string
 
-	// Underlying error
+	// Err is the underlying error.
 	Err error
 
-	// Whether the operation can be retried
+	// Retryable indicates whether the operation can be retried.
 	Retryable bool
 
-	// Error code for the error type
+	// Code is the error code for the error type.
 	Code ErrorCode
 
-	// Kind represents the category of error
+	// Kind represents the category of error.
 	Kind Kind
 
-	// Metadata for additional context
+	// Metadata holds additional context.
 	Metadata map[string]interface{}
 }
 
+// Error implements the error interface.
 func (e *SyncError) Error() string {
 	var msg string
 	if e.Component != "" {
@@ -88,6 +112,7 @@ func (e *SyncError) Error() string {
 	return msg + fmt.Sprintf(": %v", e.Err)
 }
 
+// Unwrap returns the underlying error.
 func (e *SyncError) Unwrap() error {
 	return e.Err
 }
@@ -161,7 +186,7 @@ func NewRetryable(op Operation, err error) *SyncError {
 	}
 }
 
-// IsRetryable checks if an error is a retryable SyncError
+// IsRetryable checks if an error is a retryable SyncError.
 func IsRetryable(err error) bool {
 	var syncErr *SyncError
 	if errors.As(err, &syncErr) {
@@ -237,5 +262,5 @@ func Component(component string) componentArg {
 	return componentArg(component)
 }
 
-// componentArg is a distinct type to differentiate component names from context messages
+// componentArg is a distinct type to differentiate component names from context messages.
 type componentArg string

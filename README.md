@@ -203,16 +203,34 @@ handler := middleware.Chain(
 
 ---
 
-## Examples & Docs
+## 📚 Documentation Index
 
-- **Quickstart example**: [`examples/quickstart`](examples/quickstart) – minimal runnable example
-- **In-memory patterns**: [`examples/inmem`](examples/inmem) – hub, subscriptions
-- **HTTP client/server**: [`examples/http_client`](examples/http_client), [`examples/http_server`](examples/http_server)
-- **Real-time SSE overview**: see notes in [`examples/HTTP_EXAMPLES.md`](examples/HTTP_EXAMPLES.md)
+**Getting Started**
+- [Quick Start](examples/quickstart/README.md)
+- [Installation](#install)
 
-**Advanced topics:**
-- **Observability (metrics/tracing)**: [`examples/observability_*`](examples/)
-- **Health checks**: [`examples/health_check_example.go`](examples/health_check_example.go)
+**Concepts**
+- [Architecture Overview](docs/overview.md)
+- [Conflict Resolution](docs/overview.md#conflict-resolution-strategies)
+- [State Machine](docs/overview.md#state-machine-signals)
+- [FAQ](docs/faq.md)
+- [Best Practices](docs/best-practices.md)
+- [Troubleshooting](docs/troubleshooting.md)
+
+**How-Tos**
+- [HTTP Transport](examples/http_server/README.md)
+- [SSE (Realtime)](examples/HTTP_EXAMPLES.md)
+- [Storage Backends](storage/README.md)
+- [Observability & Metrics](examples/intermediate/09-advanced-observability/README.md)
+
+**Examples**
+- [Examples Directory Index](examples/README.md)
+
+**Reference**
+- [Go Reference (pkg.go.dev)](https://pkg.go.dev/github.com/c0deZ3R0/go-sync-kit)
+- [CHANGELOG](CHANGELOG.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [Full Documentation Index](docs/README.md)
 
 ---
 
