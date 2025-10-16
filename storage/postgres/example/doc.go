@@ -1,4 +1,4 @@
-// Package example demonstrates usage of the postgres event store.
+// Package main demonstrates usage of the postgres event store.
 //
 // This package contains runnable examples showing how to connect to PostgreSQL,
 // store events, and query them using the synckit framework.

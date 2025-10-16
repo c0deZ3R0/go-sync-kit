@@ -4,6 +4,7 @@ run:
 linters:
   enable:
     - revive
+    - staticcheck
 
 linters-settings:
   revive:
