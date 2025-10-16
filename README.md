@@ -203,45 +203,34 @@ handler := middleware.Chain(
 
 ---
 
-## Documentation & Resources
+## 📚 Documentation Index
 
-### 🚀 Getting Started
-- **[Quickstart Example](examples/quickstart)** – Minimal runnable demo (custom event, local store, sync)
-- **[Installation](#install)** – `go get` command above
+**Getting Started**
+- [Quick Start](examples/quickstart/README.md)
+- [Installation](#install)
 
-### 💡 Core Concepts
-- **[Architecture Overview](docs/overview.md)** – Mental model: Node, Store, Transport, Resolver; sync flow
-- **[Conflict Resolution](docs/overview.md#conflict-resolution-strategies)** – LWW, server-authoritative, custom strategies
-- **[State Machine](docs/design/STATE_MACHINE_ROADMAP.md)** – Sync state transitions and observability
+**Concepts**
+- [Architecture Overview](docs/overview.md)
+- [Conflict Resolution](docs/overview.md#conflict-resolution-strategies)
+- [State Machine](docs/overview.md#state-machine-signals)
+- [FAQ](docs/faq.md)
+- [Best Practices](docs/best-practices.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-### 🔧 How-To Guides
-**Transport:**
-- **[HTTP Transport](examples/HTTP_EXAMPLES.md)** – Client/server setup, enterprise features
-- **[SSE (Server-Sent Events)](examples/HTTP_EXAMPLES.md)** – Real-time push notifications
-- **[RabbitMQ](docs/design/RABBITMQ_ROADMAP.md)** – Durable messaging patterns
+**How-Tos**
+- [HTTP Transport](examples/http_server/README.md)
+- [SSE (Realtime)](examples/HTTP_EXAMPLES.md)
+- [Storage Backends](storage/README.md)
+- [Observability & Metrics](examples/intermediate/09-advanced-observability/README.md)
 
-**Storage:**
-- **[In-memory (memstore)](examples/quickstart)** – Zero-dependency development
-- **[SQLite](examples/http_server)** – Embedded database for production
-- **[PostgreSQL](docs/design/POSTGRES_EVENTSTORE_DESIGN.md)** – LISTEN/NOTIFY for real-time
-- **Badger** – High-performance key-value store (see package docs)
+**Examples**
+- [Examples Directory Index](examples/README.md)
 
-**Observability:**
-- **[Metrics & Tracing](examples/intermediate/09-advanced-observability)** – Prometheus, OpenTelemetry
-- **[Structured Logging](examples/intermediate/07-structured-logging)** – slog integration
-- **[Benchmarking](docs/testing/BENCHMARKS_AND_FUZZING.md)** – Performance testing
-
-### 📚 Examples
-- **[All Examples](examples/README.md)** – Complete index with progressive tutorials
-- **[In-memory Patterns](examples/inmem)** – Hub, subscriptions, local-only sync
-- **[HTTP Client/Server](examples/http_server)** – Production-ready setup
-- **[Intermediate Topics](examples/intermediate)** – Events, conflicts, resolvers, projections
-
-### 📝 Reference
-- **[pkg.go.dev](https://pkg.go.dev/github.com/c0deZ3R0/go-sync-kit)** – Complete API documentation
-- **[CHANGELOG](CHANGELOG.md)** – Version history and release notes
-- **[CONTRIBUTING](CONTRIBUTING.md)** – How to contribute
-- **[Full Documentation Index](docs/README.md)** – All docs organized by topic
+**Reference**
+- [Go Reference (pkg.go.dev)](https://pkg.go.dev/github.com/c0deZ3R0/go-sync-kit)
+- [CHANGELOG](CHANGELOG.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [Full Documentation Index](docs/README.md)
 
 ---
 

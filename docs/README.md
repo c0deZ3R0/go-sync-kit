@@ -1,5 +1,7 @@
 # Documentation Index
 
+[← Back to main README](../README.md#-documentation-index)
+
 Comprehensive documentation for go-sync-kit. All key docs are one or two clicks away.
 
 ---
