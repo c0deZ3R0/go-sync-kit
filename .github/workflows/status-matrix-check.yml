@@ -1,0 +1,29 @@
+name: Status Matrix Check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/status.md'
+      - 'docs/status.yaml'
+      - 'scripts/check-status.go'
+      - '.github/workflows/status-matrix-check.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/status.md'
+      - 'docs/status.yaml'
+      - 'scripts/check-status.go'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          
+      - name: Run status checker
+        run: |
+          go run ./scripts/check-status.go -yaml docs/status.yaml -md docs/status.md
