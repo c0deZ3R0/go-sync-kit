@@ -4,6 +4,8 @@ Thanks for your interest in contributing to Go Sync Kit!
 
 We welcome contributions of all kinds—code, documentation, examples, bug reports, and ideas. The project is a collaborative learning effort; both experienced Go developers and learners are encouraged to participate.
 
+**Please note:** All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project, you agree to abide by its terms.
+
 ## Ways to Contribute
 - Report bugs and request features
 - Improve documentation and examples
@@ -91,7 +93,7 @@ Please include:
 - Minimal code snippet
 - Logs or stack traces
 
-Security: If you believe you’ve found a security issue, please avoid posting details publicly. Open an issue with a minimal description and request private follow-up, or contact the maintainer privately if listed. A SECURITY.md will be added in the future.
+**Security vulnerabilities**: If you believe you've found a security issue, please do not open a public issue. Instead, see our [Security Policy](SECURITY.md) for responsible disclosure guidelines.
 
 ## Contributing Code
 
