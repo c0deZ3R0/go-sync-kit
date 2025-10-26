@@ -6,9 +6,13 @@ Progressive examples from beginner to advanced. Start with [quickstart](quicksta
 
 ## 🎯 Quick Start
 
-### [quickstart/](quickstart)
-Minimal runnable example showing custom events, local storage, and sync with SyncNode.  
+### [quickstart/local-only/](quickstart/local-only)
+Simplest possible setup with in-memory store and null transport. No network needed.  
 **Topics:** Event interface, memstore, null transport, basic sync flow
+
+### [quickstart/http-client/](quickstart/http-client)
+Minimal HTTP client that syncs with a server. Perfect first step after local-only.  
+**Topics:** HTTP transport client, basic network sync, client setup
 
 ---
 
@@ -19,12 +23,17 @@ Production-ready HTTP server with SQLite storage, graceful shutdown, and observa
 **Topics:** HTTP transport, SQLite, server setup, production patterns
 
 ### [http_client/](http_client)
-HTTP client connecting to sync server, demonstrating remote synchronization.  
+Standalone HTTP client example connecting to sync server.  
 **Topics:** HTTP transport client, remote sync, connection management
+
+See [http_client/README.md](http_client/README.md) for run commands.
 
 ### [http_enterprise/](http_enterprise)
 Enterprise features: multitenancy, authentication, filtering, idempotency keys.  
 **Topics:** Bearer auth, tenant isolation, advanced filtering, middleware
+
+- [http_enterprise/server/](http_enterprise/server) - Production-style server with auth
+- [http_enterprise/client/](http_enterprise/client) - Client with token auth and signing
 
 ### [HTTP_EXAMPLES.md](HTTP_EXAMPLES.md)
 Comprehensive HTTP transport guide with SSE (Server-Sent Events) for real-time push.
@@ -48,6 +57,14 @@ Custom event creation, storage with versioning, event retrieval patterns.
 ### [intermediate/04-conflict-resolution/](intermediate/04-conflict-resolution)
 Conflict detection and resolution strategies (LWW, FWW, custom resolvers).  
 **Topics:** ConflictResolver interface, deterministic merge, conflict patterns
+
+### [intermediate/05-realtime-autosync/](intermediate/05-realtime-autosync)
+Timers, background sync, and graceful shutdown patterns.  
+**Topics:** StartAutoSync, StopAutoSync, signal handling, context cancellation
+
+### [intermediate/06-custom-events-filters/](intermediate/06-custom-events-filters)
+Selective sync by event type and metadata filtering.  
+**Topics:** Event filtering, selective sync, custom predicates, bandwidth optimization
 
 ### [intermediate/07-structured-logging/](intermediate/07-structured-logging)
 Integrating structured logging (slog) for production observability.  
