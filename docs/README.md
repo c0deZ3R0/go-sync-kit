@@ -36,6 +36,7 @@ Comprehensive documentation for go-sync-kit. All key docs are one or two clicks 
 - Structured Logging – See [examples/intermediate/07-structured-logging](../examples/intermediate/07-structured-logging)
 
 ### Implementation Status
+- **[Feature Status Matrix](status.md)** – Comprehensive Stable / Experimental / Planned feature coverage
 - **[Projections Complete](design/PROJECTION_IMPLEMENTATION_COMPLETE.md)** – Current status of projection implementation
 - **[Implementation Plan](design/IMPLEMENTATION_PLAN.md)** – Active development roadmap
 

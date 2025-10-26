@@ -24,6 +24,7 @@ Tiny, composable building blocks for **event sync** in Go.
 
 ## Table of Contents
 - [Architecture overview](docs/overview.md)
+- [Feature Status Matrix](docs/status.md) – Stable / Experimental / Planned
 - [Why go-sync-kit?](#why-go-sync-kit)
 - [Install](#install)
 - [60-Second Quick Start (In-Memory)](#60-second-quick-start-in-memory)
