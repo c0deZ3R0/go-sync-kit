@@ -158,4 +158,4 @@ Checklist for each commit:
 - ✅ Milestone 3: Stabilized EventStore and Transport in synckit/types with implementor hints; synckit now aliases to types; added Filter for forward-compat. Build and tests are green.
 
 ## Next action
-- Polish: examples and README snippet updates (optional); vet/staticcheck.
+- ✅ COMPLETE: Polish phase finished - added badges and license line to README.

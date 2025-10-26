@@ -1,5 +1,8 @@
 # go-sync-kit
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/c0deZ3R0/go-sync-kit.svg)](https://pkg.go.dev/github.com/c0deZ3R0/go-sync-kit)
+[![Go Report Card](https://goreportcard.com/badge/github.com/c0deZ3R0/go-sync-kit)](https://goreportcard.com/report/github.com/c0deZ3R0/go-sync-kit)
+
 > **⚠️ DISCLAIMER:** This library is under active development and has not been thoroughly tested in production environments. **Breaking changes may occur between versions** as we iterate on the API design. Use with caution in production systems. We recommend:
 > - Pinning to specific versions in your `go.mod`
 > - Thoroughly testing in staging environments before deploying to production
@@ -264,4 +267,8 @@ PRs welcome! Please:
 - keep examples minimal,
 - prefer docs in `/examples` or `/docs`,
 - add tests for new store/transport/resolver integrations.
+
+---
+
+License: MIT — see [LICENSE](LICENSE).
 
