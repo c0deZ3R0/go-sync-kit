@@ -269,6 +269,14 @@ PRs welcome! Please:
 - prefer docs in `/examples` or `/docs`,
 - add tests for new store/transport/resolver integrations.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+
+This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+
+## Security
+
+For security vulnerabilities, please see our [Security Policy](SECURITY.md) for responsible disclosure guidelines.
+
 ---
 
 License: MIT — see [LICENSE](LICENSE).
