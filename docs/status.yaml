@@ -1,0 +1,278 @@
+categories:
+  - key: store-backends
+    title: Store Backends
+    items:
+      - id: memstore
+        name: MemStore (In-Memory)
+        status: stable
+        docs:
+          - storage/memstore/doc.go
+          - storage/README.md
+        notes: Zero dependencies; perfect for dev/test
+        match: MemStore
+
+      - id: sqlite
+        name: SQLite
+        status: stable
+        docs:
+          - storage/sqlite/README.md
+          - storage/README.md
+        notes: Single-node; WAL mode; production-ready for desktop/embedded
+
+      - id: postgresql
+        name: PostgreSQL
+        status: stable
+        docs:
+          - storage/postgres/README.md
+          - storage/README.md
+          - docs/design/POSTGRES_EVENTSTORE_DESIGN.md
+        notes: Multi-node; LISTEN/NOTIFY; battle-tested at scale
+
+      - id: badgerdb
+        name: BadgerDB
+        status: experimental
+        docs:
+          - storage/badger/README.md
+          - storage/README.md
+        notes: High-performance LSM; needs ops guidance for GC/compaction
+
+  - key: transports
+    title: Transports
+    items:
+      - id: http
+        name: HTTP (Push/Pull)
+        status: stable
+        docs:
+          - transport/README.md
+          - docs/design/HTTP_D1.md
+          - docs/design/HTTP_ENHANCEMENTS.md
+        notes: Request/response sync; enterprise features stable
+        match: HTTP
+
+      - id: sse
+        name: SSE (Server-Sent Events)
+        status: experimental
+        docs:
+          - transport/sse/README.md
+          - examples/HTTP_EXAMPLES.md
+        notes: Subscribe-only MVP; lacks auth/reconnection/pooling
+        match: SSE
+
+      - id: rabbitmq
+        name: RabbitMQ
+        status: experimental
+        docs:
+          - transport/rabbitmq/README.md
+          - docs/design/RABBITMQ_ROADMAP.md
+        notes: Phase 1 complete; needs DLQ/retry/priority for Stable
+
+      - id: memchan
+        name: memchan (In-Memory)
+        status: stable
+        docs:
+          - transport/README.md
+        notes: Local testing; zero network overhead
+        match: memchan
+
+  - key: realtime-options
+    title: Real-time Options
+    items:
+      - id: sse-streaming
+        name: SSE streaming
+        status: experimental
+        docs:
+          - transport/sse/README.md
+          - examples/HTTP_EXAMPLES.md
+        notes: Client/server streaming; needs auth and reconnect logic
+
+      - id: postgres-listen-notify
+        name: PostgreSQL LISTEN/NOTIFY
+        status: experimental
+        docs:
+          - storage/postgres/README.md
+          - docs/design/POSTGRES_EVENTSTORE_DESIGN.md
+        notes: Real-time DB notifications; production-tested pattern
+
+      - id: realtime-sync-manager
+        name: RealtimeSyncManager
+        status: experimental
+        docs:
+          - synckit/realtime.go
+        notes: Core real-time sync orchestration; API stabilizing
+
+      - id: rabbitmq-subscribe
+        name: RabbitMQ subscribe
+        status: experimental
+        docs:
+          - transport/rabbitmq/README.md
+          - docs/design/RABBITMQ_ROADMAP.md
+        notes: Message queue subscriptions; Phase 2 features needed
+
+  - key: resolvers
+    title: Resolvers
+    items:
+      - id: lww
+        name: Last-Write-Wins (LWW)
+        status: stable
+        docs:
+          - docs/overview.md
+          - examples/intermediate/04-conflict-resolution/README.md
+        notes: Default resolver; well-tested
+
+      - id: first-write-wins
+        name: First-Write-Wins
+        status: experimental
+        docs:
+          - examples/intermediate/04-conflict-resolution/README.md
+        notes: Alternative timestamp-based strategy
+
+      - id: additive-merge
+        name: Additive Merge
+        status: experimental
+        docs:
+          - examples/intermediate/04-conflict-resolution/README.md
+        notes: CRDT-style additive merges
+
+      - id: manual-stateful
+        name: Manual/Stateful
+        status: experimental
+        docs:
+          - examples/intermediate/08-stateful-resolvers/README.md
+        notes: Custom business logic; API stabilizing
+
+  - key: crosscutting
+    title: Cross-cutting Capabilities
+    items:
+      - id: http-auth
+        name: HTTP Authentication (Bearer/HMAC)
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/middleware/bearer.go
+          - transport/httptransport/middleware/hmac.go
+        notes: Production auth middleware
+        match: HTTP Authentication
+
+      - id: http-authz
+        name: HTTP Authorization
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/middleware/middleware.go
+        notes: Role-based access control
+        match: HTTP Authorization
+
+      - id: idempotency
+        name: Idempotency Keys
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/idempotency.go
+        notes: Prevents duplicate processing
+
+      - id: rate-limiting
+        name: Rate Limiting
+        status: stable
+        docs:
+          - docs/best-practices.md
+        notes: Basic rate limiting patterns documented
+
+      - id: backpressure
+        name: Backpressure
+        status: experimental
+        docs:
+          - docs/best-practices.md
+        notes: Pattern guidance; needs more tooling
+
+      - id: multitenancy
+        name: Multitenancy
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/middleware/tenant.go
+        notes: Tenant isolation via headers
+
+      - id: structured-errors
+        name: Structured Errors
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/errors.go
+        notes: Standardized JSON error format
+
+      - id: http-query-filtering
+        name: HTTP Query Filtering
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/query.go
+        notes: Filter by type/tenant/aggregate
+
+      - id: health-checks
+        name: Observability Health Checks
+        status: stable
+        docs:
+          - observability/health/README.md
+          - observability/README.md
+        notes: Liveness/readiness probes
+        match: Health Checks
+
+      - id: tracing
+        name: Observability Tracing
+        status: stable
+        docs:
+          - observability/README.md
+          - observability/tracing/doc.go
+        notes: OpenTelemetry integration
+        match: Tracing
+
+      - id: metrics
+        name: Observability Metrics
+        status: stable
+        docs:
+          - observability/README.md
+          - observability/metrics/doc.go
+        notes: Prometheus-compatible metrics
+        match: Metrics
+
+      - id: logging
+        name: Observability Logging
+        status: stable
+        docs:
+          - logging/README.md
+          - examples/intermediate/07-structured-logging/README.md
+        notes: Structured logging support
+        match: Logging
+
+      - id: projections
+        name: Projections
+        status: stable
+        docs:
+          - docs/design/PROJECTION_IMPLEMENTATION_COMPLETE.md
+          - docs/design/READ_MODEL_PROJECTIONS.md
+          - projection/doc.go
+        notes: CQRS/event sourcing projections
+
+      - id: codec-registry
+        name: Codec Registry
+        status: stable
+        docs:
+          - synckit/codec/README.md
+        notes: Pluggable event data encoding
+
+      - id: state-machine
+        name: State Machine
+        status: experimental
+        docs:
+          - docs/design/STATE_MACHINE_ROADMAP.md
+          - synckit/statemachine/doc.go
+        notes: Sync operation state tracking
+
+      - id: compression
+        name: Compression (HTTP)
+        status: stable
+        docs:
+          - docs/design/HTTP_ENHANCEMENTS.md
+          - transport/httptransport/compression.go
+        notes: gzip compression for HTTP transport
+        match: Compression
